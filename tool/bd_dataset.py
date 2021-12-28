@@ -1,3 +1,10 @@
+
+# 这个dataset可以是通用的，不过只能做到在某一个时间点对一部分数据集施加同一种扰动
+# 比如说如果是每一个epoch都要update的autoencoder，那么ok，只要我修改callable的那个bd_image_pre_transform 和bd_label_pre_transform就行
+# 但是一旦是需要实时update一小部分的数据集，那么就比较头疼了，因为每一次都需要对全部数据做self.prepro_backdoor()，但是这种情况也可以不通过原本的数据集完成就是，放在trainer内部就行。
+# 这里我默认不移除原本的数据集，只是为了更加general的情况。如果希望回收内存，那么可以手动删除。
+
+
 import sys, logging
 sys.path.append('../')
 
@@ -91,7 +98,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             self.poison_indicator = np.array(self.poison_indicator)
             self.original_targets = np.array(self.original_targets)
 
-        self.dataset = None # save the memory
+        # self.dataset = None # save the memory
 
     def __getitem__(self, item):
 

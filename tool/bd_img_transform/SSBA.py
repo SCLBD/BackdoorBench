@@ -1,3 +1,7 @@
+
+
+
+
 class SSBA_attack_replace_version(object):
     '''in this attack, this transform just replace the image by the image_serial_id, the real transform does not happen here'''
 

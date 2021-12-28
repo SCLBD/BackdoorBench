@@ -3,9 +3,10 @@ sys.path.append('../')
 
 import torch 
 import torchvision.models as models
+from typing import Optional
+
 from tool.trainer_cls import MyModelTrainerCLS
 
-# device is cuda:0 if possible
 #trainer is cls
 def generate_cls_model(
     model_name: str,
@@ -40,10 +41,16 @@ def generate_cls_model(
     else:
         raise SystemError('NO valid model match in function generate_cls_model!')
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    return net
 
-    trainer = MyModelTrainerCLS(
-        model=net,
-    )
+def generate_cls_trainer(
+        model,
+        attack_name : Optional[str] = None,
+):
+    if attack_name is None:
+        # normal case
+        trainer = MyModelTrainerCLS(
+            model=model,
+        )
 
-    return net, device, trainer
+    return trainer
