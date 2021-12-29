@@ -11,6 +11,8 @@ def remove_None_from_dict(given_dict : dict) -> dict:
 
 def load_yamls_into_args(args):
 
+    # first load all yml_config into a dict
+
     yml_config = {}
 
     if args.yaml_path is not None:
@@ -50,6 +52,7 @@ def load_yamls_into_args(args):
                 except:
                     raise ValueError("Not valid setting names, not such key in yaml file")
 
+    # then, all loaded config in yml be put into the args.
 
     args.__dict__ = remove_None_from_dict(args.__dict__) # eliminate None
 
@@ -58,6 +61,8 @@ def load_yamls_into_args(args):
             print(f"loading command line inputs. For {k}:{yml_config[k]} -> {k}:{v}")
 
     yml_config.update(args.__dict__)
+    # here, the settings from args has HIGHEST priority.
+    # So, if one parameter have two value in both yml_config and args, then the one in args will be used.
 
     yml_config = remove_None_from_dict(yml_config) # remove all key with values be None.
 
