@@ -1,16 +1,16 @@
 import sys, logging
-sys.path.append('../')
+sys.path.append('../../')
 import  imageio
 import numpy as np
 import torchvision.transforms as transforms
 
 
-from tool.bd_img_transform.blended import blendedImageAttack
-from tool.bd_img_transform.inputInstance import inputInstanceKeyAttack
-from tool.bd_img_transform.patch import *
-from tool.bd_img_transform.sig import sigTriggerAttack
-from tool.bd_img_transform.SSBA import SSBA_attack_replace_version
-from tool.bd_label_transform.backdoor_label_transform import *
+from utils.bd_img_transform.blended import blendedImageAttack
+from utils.bd_img_transform.inputInstance import inputInstanceKeyAttack
+from utils.bd_img_transform.patch import *
+from utils.bd_img_transform.sig import sigTriggerAttack
+from utils.bd_img_transform.SSBA import SSBA_attack_replace_version
+from utils.bd_label_transform.backdoor_label_transform import *
 
 def bd_attack_img_trans_generate(args):
 

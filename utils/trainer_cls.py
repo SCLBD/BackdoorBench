@@ -1,19 +1,17 @@
 import sys, logging
 sys.path.append('../')
 import random
-from pprint import pprint, pformat
+from pprint import pformat
 from collections import deque
 from typing import *
 import numpy as np
 import torch
-import torch.nn as nn
 
 try:
     import wandb
 except:
     pass
 
-from tool.decorator import resource_check
 
 class MyModelTrainerCLS():
     def __init__(self, model):
@@ -648,107 +646,107 @@ class MyModelTrainerCLS():
                     only_model_state_dict=True,
                 )
 
-if __name__ == '__main__':
-
-    class Args():
-        def __init__(self, settings_dict):
-            self.__dict__ = settings_dict
-
-
-    train_args = Args({
-
-        'client_optimizer': 'sgd',  # 'sgd',
-        'epochs': 100,
-        'batch_size': 128,
-        'lr': 0.01,
-        'wd': 5e-4,  # 5e-4,
-        'lr_scheduler': 'CosineAnnealingLR',  # 'CosineAnnealingLR', #'StepLR',
-
-        # 'flooding_scalar':0.5,
-
-        # 'steplr_stepsize':20,
-        # 'steplr_gamma':0.5,
-        "sgd_momentum": 0.9,
-        # "adam_betas": (0.999, 0.999),
-    })
-
-    from test_examples.pytorch_train_a_classifier_eg import *
-    trainer = MyModelTrainerCLS(net)
-
-    from blocks.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-
-    optimizer, scheduler = argparser_opt_scheduler(net,train_args)
-    criterion = argparser_criterion(train_args)
-    #
-    # trainer.init_or_continue_train(
-    #             train_data,
-    #             end_epoch_num,
-    #             criterion,
-    #             optimizer,
-    #             scheduler,
-    #             device,
-    #             continue_training_path,
-    #             only_load_model
-    #         )
-    #
-    # trainer.save_all_state_to_path(
-    #     path = '../record/1.pth',
-    #     epoch = 2,
-    #     batch = 3,
-    # )
-
-    # batch_loss = []
-    # for batch_idx, (x, labels, *additional_info) in enumerate(trainloader):
-    #     batch_loss.append(trainer.train_one_batch(x, labels, device))
-    #     print(batch_loss[-1])
-    # one_epoch_loss = sum(batch_loss) / len(batch_loss)
-    #
-    # if trainer.scheduler is not None:
-    #     trainer.scheduler.step()
-
-    def rule_save_for_batch_train(epoch, batch_idx, batch_total, control_metrics_deque):
-        if batch_idx == batch_total:
-            return True
-        else:
-            return False
-
-
-    def action_rule_for_batch_train(epoch, batch_idx, batch_total, control_metrics_deque):
-        if batch_idx == batch_total:
-            return True
-        else:
-            return False
-
-
-    def testAccAsrAndCalculate(net, dls, device, control_metrics_deque):
-        return {}, None, False,
-
-
-    action_dl_list_per_batch = [
-        (
-            action_rule_for_batch_train,  # same rule, so no further define
-            testAccAsrAndCalculate,
-            {
-
-            },
-        )
-    ]
-
-
-
-    trainer.general_train_with_eval_function_in_epoch_and_batch(
-        end_epoch_num = 10,
-        criterion = criterion,
-        optimizer = optimizer,
-        scheduler = scheduler,
-        device = device,
-        train_data = trainloader,
-        save_folder_path = '../record',
-        save_prefix = '1',
-        rule_save_for_batch_level=rule_save_for_batch_train,
-        action_dl_list_for_batch_level= action_dl_list_per_batch,
-        continue_training_path = '../record/1.pth',
-        only_load_model = False,
-        sliding_window_batch_len = 20,
-    )
+# if __name__ == '__main__':
+#
+#     class Args():
+#         def __init__(self, settings_dict):
+#             self.__dict__ = settings_dict
+#
+#
+#     train_args = Args({
+#
+#         'client_optimizer': 'sgd',  # 'sgd',
+#         'epochs': 100,
+#         'batch_size': 128,
+#         'lr': 0.01,
+#         'wd': 5e-4,  # 5e-4,
+#         'lr_scheduler': 'CosineAnnealingLR',  # 'CosineAnnealingLR', #'StepLR',
+#
+#         # 'flooding_scalar':0.5,
+#
+#         # 'steplr_stepsize':20,
+#         # 'steplr_gamma':0.5,
+#         "sgd_momentum": 0.9,
+#         # "adam_betas": (0.999, 0.999),
+#     })
+#
+#     from test_examples.pytorch_train_a_classifier_eg import *
+#     trainer = MyModelTrainerCLS(net)
+#
+#     from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+#
+#     optimizer, scheduler = argparser_opt_scheduler(net,train_args)
+#     criterion = argparser_criterion(train_args)
+#     #
+#     # trainer.init_or_continue_train(
+#     #             train_data,
+#     #             end_epoch_num,
+#     #             criterion,
+#     #             optimizer,
+#     #             scheduler,
+#     #             device,
+#     #             continue_training_path,
+#     #             only_load_model
+#     #         )
+#     #
+#     # trainer.save_all_state_to_path(
+#     #     path = '../record/1.pth',
+#     #     epoch = 2,
+#     #     batch = 3,
+#     # )
+#
+#     # batch_loss = []
+#     # for batch_idx, (x, labels, *additional_info) in enumerate(trainloader):
+#     #     batch_loss.append(trainer.train_one_batch(x, labels, device))
+#     #     print(batch_loss[-1])
+#     # one_epoch_loss = sum(batch_loss) / len(batch_loss)
+#     #
+#     # if trainer.scheduler is not None:
+#     #     trainer.scheduler.step()
+#
+#     def rule_save_for_batch_train(epoch, batch_idx, batch_total, control_metrics_deque):
+#         if batch_idx == batch_total:
+#             return True
+#         else:
+#             return False
+#
+#
+#     def action_rule_for_batch_train(epoch, batch_idx, batch_total, control_metrics_deque):
+#         if batch_idx == batch_total:
+#             return True
+#         else:
+#             return False
+#
+#
+#     def testAccAsrAndCalculate(net, dls, device, control_metrics_deque):
+#         return {}, None, False,
+#
+#
+#     action_dl_list_per_batch = [
+#         (
+#             action_rule_for_batch_train,  # same rule, so no further define
+#             testAccAsrAndCalculate,
+#             {
+#
+#             },
+#         )
+#     ]
+#
+#
+#
+#     trainer.general_train_with_eval_function_in_epoch_and_batch(
+#         end_epoch_num = 10,
+#         criterion = criterion,
+#         optimizer = optimizer,
+#         scheduler = scheduler,
+#         device = device,
+#         train_data = trainloader,
+#         save_folder_path = '../record',
+#         save_prefix = '1',
+#         rule_save_for_batch_level=rule_save_for_batch_train,
+#         action_dl_list_for_batch_level= action_dl_list_per_batch,
+#         continue_training_path = '../record/1.pth',
+#         only_load_model = False,
+#         sliding_window_batch_len = 20,
+#     )
 

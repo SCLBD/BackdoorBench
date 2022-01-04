@@ -6,6 +6,11 @@ class AllToOne_attack(object):
     '''
     any label -> fix_target
     '''
+    @classmethod
+    def add_argument(self, parser):
+        parser.add_argument('--target_label (only one)', type=int,
+                            help='target label')
+        return parser
     def __init__(self, target_label):
         self.target_label = target_label
     def __call__(self, original_label, original_index = None, img = None):
@@ -17,6 +22,13 @@ class AllToAll_shiftLabelAttack(object):
     '''
     any label -> (label + fix_shift_amount)%num_classses
     '''
+    @classmethod
+    def add_argument(self, parser):
+        parser.add_argument('--shift_amount', type=int,
+                            help='shift_amount of all_to_all attack')
+        parser.add_argument('--num_classses', type=int,
+                            help='total number of labels')
+        return parser
     def __init__(self, shift_amount, num_classses):
         self.shift_amount = shift_amount
         self.num_classses = num_classses
@@ -30,6 +42,15 @@ class OneToAll_randomLabelAttack(object):
     '''
     Specific label -> random label among a set
     '''
+
+    @classmethod
+    def add_argument(self, parser):
+        parser.add_argument('--source_label', type=int,
+                            help='source_label(only one)')
+        parser.add_argument('--random_target_label_list', type=list,
+                            help='given list of target labels in one to all random label attack')
+        return parser
+
     def __init__(self, specific_label, random_label_list):
         self.specific_label = specific_label
         self.random_label_list = random_label_list
@@ -44,6 +65,15 @@ class OneToAll_randomLabelAttack(object):
             return original_label
 
 class OneToOne_attack(object):
+
+    @classmethod
+    def add_argument(self, parser):
+        parser.add_argument('--source_label', type=int,
+                            help='source_label(only one)')
+        parser.add_argument('--target_label', type=int,
+                            help='target label (only one)')
+        return parser
+
     def __init__(self, source_label, target_label):
         self.source_label = source_label
         self.target_label = target_label

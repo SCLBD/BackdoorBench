@@ -10,11 +10,9 @@ logic of load:
 '''
 
 import argparse
-import logging
 import os
 import sys
-from pprint import pprint, pformat
-import random
+from pprint import pformat
 import numpy as np
 import torch
 
@@ -47,12 +45,12 @@ def add_args(parser):
                         help='In case yaml file contains several groups of default settings, get the one with input name',
                         )
 
-    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/blocks.yaml',
-                        help = 'this file should contrains additional blocks of params',
+    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/aggregate_block.yaml',
+                        help = 'this file should contrains additional aggregate_block of params',
                         )
 
     parser.add_argument('--additional_yaml_blocks_names', nargs='*', type = str,
-                        help = 'names of additional yaml blocks will be used')
+                        help = 'names of additional yaml aggregate_block will be used')
 
 
     parser.add_argument('--attack_label_trans', type = str,
@@ -92,7 +90,7 @@ def add_args(parser):
     )
     return parser
 
-from tool.argparse_with_yaml import load_yamls_into_args
+from utils.argparse_with_yaml import load_yamls_into_args
 parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
 args = parser.parse_args()
 
@@ -100,7 +98,7 @@ args = load_yamls_into_args(args)
 
 args.terminal_info = sys.argv
 
-from blocks.save_path_generate import generate_save_folder
+from utils.aggregate_block.save_path_generate import generate_save_folder
 
 if 'save_folder_name' not in args:
     save_path = generate_save_folder(
@@ -150,11 +148,10 @@ except:
     set_wandb = False
 logging.info(f'set_wandb = {set_wandb}')
 
-import torchvision.transforms as transforms
-from blocks.fix_random import fix_random
+from utils.aggregate_block.fix_random import fix_random
 fix_random(int(args.random_seed))
 
-from blocks.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
 train_dataset_without_transform, \
             train_img_transform, \
@@ -163,7 +160,7 @@ test_dataset_without_transform, \
             test_img_transform, \
             test_label_transform = dataset_and_transform_generate(args)
 
-from tool.bd_dataset import prepro_cls_DatasetBD
+from utils.bd_dataset import prepro_cls_DatasetBD
 from torch.utils.data import DataLoader
 
 benign_train_dl = DataLoader(
@@ -196,8 +193,8 @@ benign_test_dl = DataLoader(
     drop_last=False,
 )
 
-from tool.backdoor_generate_pindex import generate_pidx_from_label_transform
-from blocks.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
+from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
 
 train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
 
@@ -259,7 +256,7 @@ adv_test_dl = DataLoader(
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
-from blocks.model_trainer_generate import generate_cls_model, generate_cls_trainer
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 
 net = generate_cls_model(
     model_name=args.model,
@@ -271,7 +268,7 @@ trainer = generate_cls_trainer(
     attack_name=args.attack,
 )
 
-from blocks.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 
 criterion = argparser_criterion(args)
 

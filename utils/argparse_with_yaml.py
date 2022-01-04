@@ -40,7 +40,7 @@ def load_yamls_into_args(args):
         except:
             raise ValueError("Not valid yaml_path")
         if args.additional_yaml_blocks_names is None:
-            raise ValueError("No additional yaml blocks given !")
+            raise ValueError("No additional yaml aggregate_block given !")
         else:
             for name in args.additional_yaml_blocks_names:
                 try:

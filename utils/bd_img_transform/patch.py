@@ -1,4 +1,7 @@
+
+
 class AddPatchTrigger(object):
+
     def __init__(self, trigger_loc, trigger_ptn):
         self.trigger_loc = trigger_loc
         self.trigger_ptn = trigger_ptn

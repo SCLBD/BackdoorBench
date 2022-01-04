@@ -1,5 +1,5 @@
 import sys, logging
-sys.path.append('../')
+sys.path.append('../../')
 
 import random
 import numpy as np

@@ -1,11 +1,11 @@
 import sys, logging
-sys.path.append('../')
+sys.path.append('../../')
 
 import torch 
 import torchvision.models as models
 from typing import Optional
 
-from tool.trainer_cls import MyModelTrainerCLS
+from utils.trainer_cls import MyModelTrainerCLS
 
 #trainer is cls
 def generate_cls_model(

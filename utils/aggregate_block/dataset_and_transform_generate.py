@@ -34,7 +34,7 @@ def dataset_and_transform_generate(args):
 
         from torchvision.datasets import CIFAR10
 
-        from tool.dataset_preprocess.cifar10_preprocess import data_transforms_cifar10
+        from utils.dataset_preprocess.cifar10_preprocess import data_transforms_cifar10
 
         train_dataset_without_transform = CIFAR10(args.dataset_path,
                         train=True,
@@ -52,7 +52,7 @@ def dataset_and_transform_generate(args):
 
     elif args.dataset == 'gtsrb':
 
-        from tool.dataset.GTSRB import GTSRB
+        from utils.dataset.GTSRB import GTSRB
 
         train_dataset_without_transform = GTSRB(args.dataset_path,
                                                   train=True,
@@ -68,7 +68,7 @@ def dataset_and_transform_generate(args):
 
     elif args.dataset == "celeba":
 
-        from tool.dataset.CelebA import CelebA_attr
+        from utils.dataset.CelebA import CelebA_attr
 
         train_dataset_without_transform = CelebA_attr(args.dataset_path,
                                                       split='train')
@@ -81,7 +81,7 @@ def dataset_and_transform_generate(args):
 
     elif args.dataset == "tiny":
 
-        from tool.dataset.Tiny import Tiny
+        from utils.dataset.Tiny import Tiny
 
         train_dataset_without_transform = Tiny(args.dataset_path,
                                                   train=True,
