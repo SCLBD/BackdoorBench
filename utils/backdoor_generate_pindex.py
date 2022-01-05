@@ -11,7 +11,8 @@ import numpy as np
 from typing import Callable, Union, List
 
 def generate_single_target_attack_train_pidx(
-        targets:Union[np.ndarray, List],  tlabel: int,
+        targets:Union[np.ndarray, List],
+        tlabel: int,
         pratio: Union[float, None] = None,
         p_num: Union[int,None] = None,
         clean_label: bool = False,

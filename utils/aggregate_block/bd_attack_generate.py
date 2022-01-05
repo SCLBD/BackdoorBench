@@ -77,6 +77,9 @@ def bd_attack_img_trans_generate(args):
 
 def bd_attack_label_trans_generate(args):
     '''
+
+    Notice that for CLEAN LABEL attack, this blocks only return the label_trans for TEST time !!!
+
     a = AllToOne_attack(target_label=4)
     b = AllToAll_shiftLabelAttack(2, 10)
     c = OneToAll_randomLabelAttack(3, [4,5,6])
