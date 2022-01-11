@@ -10,9 +10,11 @@ logic of load:
 '''
 
 import argparse
+import logging
 import os
 import sys
-from pprint import pformat
+from pprint import pprint, pformat
+import random
 import numpy as np
 import torch
 
@@ -45,12 +47,12 @@ def add_args(parser):
                         help='In case yaml file contains several groups of default settings, get the one with input name',
                         )
 
-    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/aggregate_block.yaml',
-                        help = 'this file should contrains additional aggregate_block of params',
+    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/blocks.yaml',
+                        help = 'this file should contrains additional blocks of params',
                         )
 
     parser.add_argument('--additional_yaml_blocks_names', nargs='*', type = str,
-                        help = 'names of additional yaml aggregate_block will be used')
+                        help = 'names of additional yaml blocks will be used')
 
 
     parser.add_argument('--attack_label_trans', type = str,
@@ -138,7 +140,7 @@ logging.info(pformat(args.__dict__))
 try:
     import wandb
     wandb.init(
-        project="bdzoo2",
+        project="persistance_ver3-cifar",
         entity="chr",
         name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
         config=args,
@@ -148,6 +150,7 @@ except:
     set_wandb = False
 logging.info(f'set_wandb = {set_wandb}')
 
+import torchvision.transforms as transforms
 from utils.aggregate_block.fix_random import fix_random
 fix_random(int(args.random_seed))
 
@@ -209,6 +212,9 @@ train_pidx = generate_pidx_from_label_transform(
     pratio= args.pratio if 'pratio' in args.__dict__ else None,
     p_num= args.p_num if 'p_num' in args.__dict__ else None,
 )
+torch.save(train_pidx,
+    args.save_path + '/train_pidex_list.pickle',
+)
 
 adv_train_ds = prepro_cls_DatasetBD(
     deepcopy(train_dataset_without_transform),
@@ -254,18 +260,18 @@ adv_test_dl = DataLoader(
     drop_last= False,
 )
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 
-net = generate_cls_model(
+device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+net  = generate_cls_model(
     model_name=args.model,
     num_classes=args.num_classes,
 )
 
 trainer = generate_cls_trainer(
-    model = net,
-    attack_name=args.attack,
+    net,
+    args.attack
 )
 
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
@@ -307,6 +313,11 @@ if __name__ == '__main__':
                     size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
                     replace=False,
                 )
+            )
+
+            torch.save(
+                list(benign_train_dl.dataset.original_index),
+                args.save_path + '/finetune_idx_list.pt',
             )
 
             trainer.train_with_test_each_epoch(

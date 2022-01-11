@@ -58,11 +58,13 @@ def groupwise_feature_disguise_pgd_perturbation(
 
         # FIND CLOSEST PAIR WITHOUT REPLACEMENT
         feat11 = feat1.clone()
+        # save the original copy of feat1
         dist = torch.cdist(feat1, feat2)
         for _ in range(feat2.shape[0]):
-            dist_min_index = torch.nonzero(dist == torch.min(dist)) #(dist == torch.min(dist)).nonzero().squeeze()
-            feat1[dist_min_index[1]] = feat11[dist_min_index[0]]
-            dist[dist_min_index[0], dist_min_index[1]] = 1e5
+            dist_min_index = torch.nonzero(dist == torch.min(dist))#(dist == torch.min(dist)).nonzero().squeeze()
+            # the output should be torch.tensor with (n,2) shape
+            feat1[dist_min_index[0][1]] = feat11[dist_min_index[0][0]] #rearrange the vector in feat1 so that feat1 and feat2 have pairs match in index
+            dist[dist_min_index[0][0], dist_min_index[0][1]] = 1e5
 
         loss1 = ((feat1 - feat2) ** 2).sum(dim=1)
         loss = loss1.sum()

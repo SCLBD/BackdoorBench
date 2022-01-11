@@ -1,6 +1,7 @@
 import sys
 sys.path.append('../')
 
+# TODO add the default setting to yaml file.
 
 import sys, os, argparse, torch
 from pprint import pformat
@@ -29,7 +30,7 @@ def add_args(parser):
     parser.add_argument('--yaml_setting_name', type=str, default='default',
                         help='In case yaml file contains several groups of default settings, get the one with input name',
                         )
-    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/aggregate_block.yaml',
+    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/blocks.yaml',
                         help = 'this file should contrains additional aggregate_block of params',
                         )
     parser.add_argument('--additional_yaml_blocks_names', nargs='*', type = str,
@@ -191,7 +192,7 @@ trainer = generate_cls_trainer(
     attack_name=args.attack,
 )
 
-net.load_state_dict(args.pretrained_model_path)
+net.load_state_dict(torch.load(args.pretrained_model_path))
 
 from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
 from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
@@ -205,8 +206,10 @@ from copy import deepcopy
 from utils.bd_groupwise_transform.groupwise_feature_disguise_pgd_perturbation import groupwise_feature_disguise_pgd_perturbation
 
 # start poison injection
-target_train_ds = deepcopy(benign_train_ds).subset([np.where(benign_train_ds.original_targets == args.attack_target)[0]])
-source_train_ds = deepcopy(benign_train_ds).subset([np.where(benign_train_ds.original_targets != args.attack_target)[0]])
+target_train_ds = deepcopy(benign_train_ds)
+target_train_ds.subset(np.where(benign_train_ds.original_targets == args.attack_target)[0])
+source_train_ds = deepcopy(benign_train_ds)
+source_train_ds.subset(np.where(benign_train_ds.original_targets != args.attack_target)[0])
 
 train_loader_target = torch.utils.data.DataLoader(target_train_ds,
 													batch_size=args.batch_size,
@@ -234,6 +237,8 @@ for _ in range(len(train_loader_target)):
     #img, label, self.original_index[item], self.poison_indicator[item], self.original_targets[item],
     source_img, source_label, source_original_index, _ , _  = next(iter_source)
     target_img, target_label, target_original_index, _ , _  = next(iter_target)
+
+    train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
 
     # add patch trigger for each photo
     for source_img_i in range(len(source_img)):

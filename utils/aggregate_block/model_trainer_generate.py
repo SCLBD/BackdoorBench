@@ -47,7 +47,12 @@ def generate_cls_trainer(
         model,
         attack_name : Optional[str] = None,
 ):
-    if attack_name is None:
+    if attack_name in [
+        None,
+        'SSBA_replace',
+        'blended',
+        'fix_patch'
+   ]:
         # normal case
         trainer = MyModelTrainerCLS(
             model=model,
