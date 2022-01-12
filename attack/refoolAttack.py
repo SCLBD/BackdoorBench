@@ -1,12 +1,8 @@
 import sys
 sys.path.append('../')
 '''
-logic of load:
-1. yaml file, if yaml setting name is given then find the yaml setting
-2.
-3. argparse overwrite args from yaml file if any in args is not None
-(so ANY params in add_args should have NO default value except yaml config and yaml setting name)
-4. delete any params in args with value None
+rewrite from basicAttack since refool do not affect the training process.
+some of settings in github of refool is different from the paper, we choose to use the settings in the paper.
 '''
 
 import argparse
@@ -17,67 +13,59 @@ from pprint import pprint, pformat
 import random
 import numpy as np
 import torch
+import imageio
+import yaml
 
 def add_args(parser):
     """
     parser : argparse.ArgumentParser
     return a parser added with args required by fit
     """
-    # Training settings
-    # parser.add_argument('--mode', type=str,
-    #                     help='classification/detection/segmentation')
+    parser.add_argument('--img_r_seq_folder_path', type=str, #default='../resource/refool_reflections',
+                        help='the folder path for reflection img (use in refool data poison)')
+    parser.add_argument('--max_image_size', type=int, #default=560,
+                        help = 'the max(height, width) of output')
+    parser.add_argument('--ghost_rate', type=float, #default=0.49,
+                        help='the probability that one img use ghost mode (other times may use out of focus mode) during data poison')
+    parser.add_argument('--alpha_t', type=float, #default=-1.,
+                        help='intensity number (ratio) of blend , when negative, pick from 1- U[0.05,0.45]')
+    parser.add_argument('--offset', type=list, #default=(0,0),
+                        help='padding to img in ghost mode. input (0,0) use default = (random.randint(3, 8), random.randint(3, 8))')
+    parser.add_argument('--sigma', type=float, #default=-1. ,
+                        help='sigma in 2-d gaussian of out of focus mode. input negative value then use default sigma = random.uniform(1, 5)')
+    parser.add_argument('--ghost_alpha', type=float, #default=-1.,
+                        help='the alpha in ghost mode, negative input may use default value, plz see refoolGhostEffectAttack')
 
-    parser.add_argument('--lambda_similar', type = float,
-                        help = 'only use in contrastive case, the coef of similar term')
-    parser.add_argument('--cos_abs', type=lambda x: (str(x).lower() in ['true', '1', 'yes']),
-                        help='only use in contrastive case, whether add a abs to cos similarity')
-    parser.add_argument('--cos_final_lower_bound',type = float,
-                        help = 'only use in contrastive case, whether add a lower bound to cos similarity after all operation'
-                        )
-    parser.add_argument(
-        '--lower_bound_mode', type = str, # in or de for increase or decrease
-        help = 'in case you have cos_final_lower_bound, then this will control the bound in each epoch'
-    )
-    parser.add_argument('--lr_scheduler', type = str,
-                        help = 'which lr_scheduler use for optimizer')
-
-    parser.add_argument('--yaml_path', type=str, default='../config/settings.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/refoolAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-    parser.add_argument('--yaml_setting_name', type=str, default='default',
-                        help='In case yaml file contains several groups of default settings, get the one with input name',
-                        )
 
-    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/blocks.yaml',
-                        help = 'this file should contrains additional blocks of params',
-                        )
-
-    parser.add_argument('--additional_yaml_blocks_names', nargs='*', type = str,
-                        help = 'names of additional yaml blocks will be used')
-
-
+    parser.add_argument('--lr_scheduler', type=str,
+                        help='which lr_scheduler use for optimizer')
     parser.add_argument('--attack_label_trans', type = str,
         help = 'which type of label modification in backdoor attack'
     )
     parser.add_argument('--pratio', type = float,
         help = 'the poison rate '
     )
+    parser.add_argument('--epochs', type=int)
     parser.add_argument('--dataset', type = str,
                         help = 'which dataset to use'
     )
-    parser.add_argument('--attack', type=str,
-                        help='which attack used')
+    parser.add_argument('--dataset_path', type = str)
     parser.add_argument('--attack_target', type=int,
                         help='target class in all2one attack')
-    parser.add_argument('--blended_alpha', type=float,
-                        help='alpha for blended')
+    parser.add_argument('--batch_size', type = int)
+    parser.add_argument('--img_size', type=list)
+    parser.add_argument('--lr', type=float)
+    parser.add_argument('--steplr_stepsize', type=int)
+    parser.add_argument('--steplr_gamma', type=float)
+    parser.add_argument('--num_classes', type=int)
+    parser.add_argument('--sgd_momentum', type=float)
+    parser.add_argument('--wd', type=float, help = 'weight decay of sgd')
+
+    parser.add_argument('--client_optimizer', type=int)
     parser.add_argument('--random_seed', type=int,
                         help='random_seed')
-    parser.add_argument('--load_path', type=str,
-                        help='load_path used in load model')
-    parser.add_argument('--recover',
-                        default=False,
-                        type=lambda x: (str(x).lower() in ['true', '1', 'yes']),
-                        help='when load_path is applied, 2 case, recover training or do finetune/...')
     parser.add_argument('--frequency_save', type=int,
                         help=' frequency_save, 0 is never')
     parser.add_argument('--model', type=str,
@@ -86,17 +74,21 @@ def add_args(parser):
                         help='(Optional) should be time str + given unique identification str')
     parser.add_argument('--git_hash', type=str,
                         help='git hash number, in order to find which version of code is used')
-    parser.add_argument(
-        '--flooding_scalar', type = float,
-        help = 'flooding scalar used in the training process of flooding',
-    )
+
     return parser
 
-from utils.argparse_with_yaml import load_yamls_into_args
+
 parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
 args = parser.parse_args()
 
-args = load_yamls_into_args(args)
+with open(args.yaml_path, 'r') as f:
+    defaults = yaml.safe_load(f)
+
+defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+
+args.__dict__ = defaults
+
+args.attack = 'refool'
 
 args.terminal_info = sys.argv
 
@@ -196,22 +188,29 @@ benign_test_dl = DataLoader(
     drop_last=False,
 )
 
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
 from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
+
+# here we load the attack use reflections
+args.img_r_seq = []
+for reflection_img_name in os.listdir(args.img_r_seq_folder_path):
+    reflection_img_path = f'{args.img_r_seq_folder_path}/{reflection_img_name}'
+    args.img_r_seq.append(imageio.imread(reflection_img_path))
 
 train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
 
-bd_label_transform = bd_attack_label_trans_generate(args)
+bd_test_bd_label_transform = bd_attack_label_trans_generate(args)
 
 from copy import deepcopy
 
-train_pidx = generate_pidx_from_label_transform(
-    benign_train_dl.dataset.targets,
-    label_transform=bd_label_transform,
-    is_train=True,
-    pratio= args.pratio if 'pratio' in args.__dict__ else None,
-    p_num= args.p_num if 'p_num' in args.__dict__ else None,
+train_pidx = generate_single_target_attack_train_pidx(
+    targets = benign_train_dl.dataset.targets,
+    tlabel = int(args.attack_target),
+    pratio=args.pratio if 'pratio' in args.__dict__ else None,
+    p_num=args.p_num if 'p_num' in args.__dict__ else None,
+    clean_label = True,
 )
+
 torch.save(train_pidx,
     args.save_path + '/train_pidex_list.pickle',
 )
@@ -220,7 +219,7 @@ adv_train_ds = prepro_cls_DatasetBD(
     deepcopy(train_dataset_without_transform),
     poison_idx= train_pidx,
     bd_image_pre_transform=train_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
+    bd_label_pre_transform=None,
     ori_image_transform_in_loading=train_img_transform,
     ori_label_transform_in_loading=train_label_transfrom,
     add_details_in_preprocess=True,
@@ -235,7 +234,7 @@ adv_train_dl = DataLoader(
 
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
-    label_transform=bd_label_transform,
+    label_transform=bd_test_bd_label_transform,
     is_train=False,
 )
 
@@ -243,7 +242,7 @@ adv_test_dataset = prepro_cls_DatasetBD(
     deepcopy(test_dataset_without_transform),
     poison_idx=test_pidx,
     bd_image_pre_transform=test_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
+    bd_label_pre_transform=bd_test_bd_label_transform,
     ori_image_transform_in_loading=test_img_transform,
     ori_label_transform_in_loading=test_label_transform,
     add_details_in_preprocess=True,
@@ -264,7 +263,7 @@ from utils.aggregate_block.model_trainer_generate import generate_cls_model, gen
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
-net  = generate_cls_model(
+net = generate_cls_model(
     model_name=args.model,
     num_classes=args.num_classes,
 )
@@ -283,73 +282,19 @@ optimizer, scheduler = argparser_opt_scheduler(net, args)
 
 if __name__ == '__main__':
 
-    if 'load_path' not in args.__dict__:
 
-        trainer.train_with_test_each_epoch(
-            train_data = adv_train_dl,
-            test_data = benign_test_dl,
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'attack',
-            continue_training_path = None,
-        )
+    trainer.train_with_test_each_epoch(
+        train_data = adv_train_dl,
+        test_data = benign_test_dl,
+        adv_test_data = adv_test_dl,
+        end_epoch_num = args.epochs,
+        criterion = criterion,
+        optimizer = optimizer,
+        scheduler = scheduler,
+        device = device,
+        frequency_save = args.frequency_save,
+        save_folder_path = save_path,
+        save_prefix = 'attack',
+        continue_training_path = None,
+    )
 
-    else:
-
-        if 'recover' not in args.__dict__ or args.recover == False :
-
-            print('finetune so use less data, 5% of benign train data')
-
-            benign_train_dl.dataset.subset(
-                np.random.choice(
-                    np.arange(
-                        len(benign_train_dl.dataset)),
-                    size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
-                    replace=False,
-                )
-            )
-
-            torch.save(
-                list(benign_train_dl.dataset.original_index),
-                args.save_path + '/finetune_idx_list.pt',
-            )
-
-            trainer.train_with_test_each_epoch(
-                train_data=benign_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
-                end_epoch_num=args.epochs,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                device=device,
-                frequency_save=args.frequency_save,
-                save_folder_path=save_path,
-                save_prefix='finetune',
-                continue_training_path=args.load_path,
-                only_load_model=True,
-            )
-
-        elif 'recover' in args.__dict__ and args.recover == True :
-
-            trainer.train_with_test_each_epoch(
-                train_data=adv_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
-                end_epoch_num=args.epochs,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                device=device,
-                frequency_save=args.frequency_save,
-                save_folder_path=save_path,
-                save_prefix='attack',
-                continue_training_path=args.load_path,
-                only_load_model=False,
-            )

@@ -3,6 +3,7 @@ sys.path.append('../../')
 
 import torch 
 import torchvision.models as models
+from torchvision.models.resnet import resnet34
 from typing import Optional
 
 from utils.trainer_cls import MyModelTrainerCLS
@@ -16,6 +17,8 @@ def generate_cls_model(
         print('NOT default setting for resnet18 !!!!!')
         from models.preact_resnet import PreActResNet18
         net = PreActResNet18(num_classes= num_classes)
+    elif model_name == 'resnet34':
+        net = resnet34(num_classes=num_classes, pretrained=False)
     elif model_name == 'alexnet':
         net = models.alexnet(num_classes= num_classes)
     elif model_name == 'vgg16':

@@ -10,6 +10,7 @@
   - aggregate_block : frequent-use blocks in script
   - bd_img_transform : basic perturbation on img
   - bd_label_transform : basic transform on label
+  - bd_non_mandatory_preparation: all non-mandatory preparation process for attack process, eg. train auto-encoder, selection of attack patterns that are non-dependent on victim model or dataset 
   - bd_groupwise_transform : for special case, such that data poison must be carried out groupwise, eg. HiddenTriggerBackdoorAttacks
   - bd_trainer : the training process can replicate for attack (for re-use, eg. noise training)
   - dataset : script for loading the dataset

@@ -11,6 +11,7 @@ from utils.bd_img_transform.patch import *
 from utils.bd_img_transform.sig import sigTriggerAttack
 from utils.bd_img_transform.SSBA import SSBA_attack_replace_version
 from utils.bd_label_transform.backdoor_label_transform import *
+from utils.bd_img_transform.refool import refoolMixStrategyAttack
 
 def bd_attack_img_trans_generate(args):
 
@@ -71,6 +72,26 @@ def bd_attack_img_trans_generate(args):
         )
         test_bd_transform = SSBA_attack_replace_version(
             replace_images=np.load(args.attack_test_replace_imgs_path) #'../data/cifar10_SSBA/test.npy'
+        )
+
+    elif args.attack == 'refool':
+        train_bd_transform = refoolMixStrategyAttack(
+            args.img_r_seq,
+            max_image_size=args.max_image_size,
+            ghost_rate=args.ghost_rate,
+            alpha_t=args.alpha_t,
+            offset=args.offset,
+            sigma=args.sigma,
+            ghost_alpha=args.ghost_alpha,
+        )
+        test_bd_transform = refoolMixStrategyAttack(
+            args.img_r_seq,
+            max_image_size=args.max_image_size,
+            ghost_rate=args.ghost_rate,
+            alpha_t=args.alpha_t,
+            offset=args.offset,
+            sigma=args.sigma,
+            ghost_alpha=args.ghost_alpha,
         )
 
     return train_bd_transform, test_bd_transform
