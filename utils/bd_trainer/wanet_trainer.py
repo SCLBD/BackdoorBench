@@ -1,5 +1,9 @@
 
 '''
+
+Notice that in train mode I adopt almost the same way in original code (but for all2one part I do not choose those img from target class)
+but for test part for all2one case I do not choose those img from target class
+
 rewrite from
     @inproceedings{
     nguyen2021wanet,

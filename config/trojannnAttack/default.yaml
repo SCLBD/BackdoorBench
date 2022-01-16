@@ -1,0 +1,30 @@
+attack_label_trans: all2one
+attack_target: 0
+batch_size: 128
+client_optimizer: sgd
+dataset: cifar10
+dataset_path: ../data/cifar10
+epochs: 1000
+frequency_save: 100
+img_size: [32, 32, 3]
+lr: 0.01
+lr_scheduler: StepLR
+steplr_stepsize: 100
+steplr_gamma: 0.1
+model: resnet18
+num_classes: 43
+pratio: 0.1
+random_seed: 0
+sgd_momentum: 0.9
+wd: 0.0005
+mask_tensor_path:
+init_img_path:
+layer_name:
+target_activation:
+trigger_generation_lr:
+trigger_generation_max_iter:
+trigger_generation_final_loss:
+reverse_engineering_target_value:
+reverse_engineering_lr:
+reverse_engineering_max_iter:
+reverse_engineering_final_loss:

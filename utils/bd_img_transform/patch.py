@@ -14,6 +14,22 @@ class AddPatchTrigger(object):
             img[m, n, :] = self.trigger_ptn[i]  # add trigger
         return img
 
+import numpy as np
+
+class AddMatrixPatchTrigger(object):
+    '''
+    tensor version of add trigger, this should be put after
+    '''
+    def __init__(self, trigger_tensor: np.ndarray, ):
+        self.trigger_tensor = np.clip(trigger_tensor, 0, 255)  # notice that non-trigger parts must be zero !
+
+    def __call__(self, img, target=None, image_serial_id=None):
+        return self.add_trigger(img)
+
+    def add_trigger(self, img):
+        return img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
+        # use only positive part of trigger tensor
+
 from random import randint
 
 class AddRandomColorTrigger_RandomLocEverytime(object):

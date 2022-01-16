@@ -7,6 +7,10 @@
 - models : models that do not in the torchvision
 - record : all experiment generated files and logs
 - utils : frequent-use functions and other tools
+  - bd_attack_specific_dataset : all special implementation of dataset-level backdoor 
+    that CANNOT handle by 
+    - bd_groupwise_transform (backdoor depends on mutliple batch-wise feed samples) or 
+    - bd_dataset (backdoor only depends on each sample)
   - aggregate_block : frequent-use blocks in script
   - bd_img_transform : basic perturbation on img
   - bd_label_transform : basic transform on label

@@ -290,6 +290,8 @@ def wanet_batch_operation(
                          replace = False))
         clean_position = list((set(np.arange(bs)).difference(set(poison_position)).difference(set(cross_position))))
 
+        #TODO ugly implementation tensor to numpy to pil to np to tensor
+
         x = torch.cat([
             post_transform(npToPIL(np_i.transpose((1,2,0))))[None,...] for np_i in torch.cat([
             x[clean_position],
