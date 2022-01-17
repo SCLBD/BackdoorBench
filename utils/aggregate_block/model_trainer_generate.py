@@ -54,7 +54,8 @@ def generate_cls_trainer(
         None,
         'SSBA_replace',
         'blended',
-        'fix_patch'
+        'fix_patch',
+        'trojannn'
    ]:
         # normal case
         trainer = MyModelTrainerCLS(

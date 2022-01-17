@@ -25,23 +25,13 @@ import numpy as np
 
 from typing import List
 
-import sys, logging
-sys.path.append('../')
-
-from utils.backdoor_generate_pindex import generate_single_target_attack_train_pidx
-
-import torch
-import numpy as np
-
+from skimage.restoration import denoise_tv_bregman
 import argparse
-import logging
 import os
 import sys
 from pprint import pprint, pformat
-import random
 import numpy as np
 import torch
-import imageio
 import yaml
 
 
@@ -157,6 +147,7 @@ def reverse_engineer_one_sample(
         end_loss_value : float,
         max_iter : int,
         device : torch.device,
+        denoise_weight: float,
     ) -> torch.Tensor: # (3,x,x)
 
     net.eval()
@@ -178,8 +169,10 @@ def reverse_engineer_one_sample(
 
         init_tensor = torch.clamp(init_tensor, 0, 1).data
 
-        # TODO use denoise function
-
+        init_tensor = torch.tensor(denoise_tv_bregman(
+                (init_tensor.cpu()[0]).numpy().transpose(1,2,0)
+            , weight=denoise_weight, max_iter=100, eps=1e-3
+        ).transpose(2,0,1))[None,...]
         init_tensor = init_tensor.requires_grad_()
         init_tensor.to(device)
 
@@ -207,7 +200,6 @@ def add_args(parser):
     return a parser added with args required by fit
     """
     parser.add_argument('--mask_tensor_path', type = str, help = 'path of mask tensor (must match the shape!)')
-
     parser.add_argument('--init_img_path', type = str, help = 'path of init for doing reverse engineering (must match the shape!)')
     parser.add_argument('--layer_name', type = str, help = 'the name of layer for which we try activation')
     parser.add_argument('--target_activation', type = float)
@@ -218,9 +210,9 @@ def add_args(parser):
     parser.add_argument('--reverse_engineering_lr', type=float)
     parser.add_argument('--reverse_engineering_max_iter', type=int, help='max iter of reverse engineering')
     parser.add_argument('--reverse_engineering_final_loss', type=float, help='end loss of reverse engineering')
+    parser.add_argument('--denoise_weight', type = float, help = 'denoise_weight in reverse engineering part')
 
-
-    parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/trojannnAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
 
     parser.add_argument('--lr_scheduler', type=str,
@@ -348,8 +340,9 @@ trigger_tensor_pattern = generate_trigger_pattern_from_mask(net,
                                        select_neuron_index_list,
                                        args.trigger_generation_lr, # 0.01
                                        args.trigger_generation_max_iter,
-                                       args.trigger_generation_final_loss
+                                       args.trigger_generation_final_loss,
 )
+
 class_img_dict = {}
 for class_i in range(args.num_classes):
     class_re_img = reverse_engineer_one_sample(
@@ -361,6 +354,7 @@ for class_i in range(args.num_classes):
         args.reverse_engineering_max_iter,
         args.reverse_engineering_final_loss,
         device,
+        args.denoise_weight,
     )
     class_img_dict[class_i] = class_re_img
 
@@ -420,7 +414,7 @@ from utils.aggregate_block.bd_attack_generate import  bd_attack_label_trans_gene
 
 from utils.bd_img_transform.patch import AddMatrixPatchTrigger
 
-test_bd_img_transform = AddMatrixPatchTrigger((trigger_tensor_pattern.numpy().transpose(2,0,1)*255).astype(np.uint8))
+test_bd_img_transform = AddMatrixPatchTrigger((trigger_tensor_pattern.numpy().transpose(1,2,0)*255).astype(np.uint8))
 
 bd_label_transform = bd_attack_label_trans_generate(args)
 
