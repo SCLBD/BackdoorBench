@@ -1,0 +1,27 @@
+attack_label_trans: all2one
+attack_target: 0
+batch_size: 32
+client_optimizer: sgd
+dataset: cifar10
+dataset_path: ../data/cifar10
+epochs: 200
+frequency_save: 100
+img_size: [32, 32, 3]
+lr: 0.01
+lr_scheduler: StepLR
+steplr_stepsize: 100000
+steplr_gamma: 0.1
+model: resnet18
+num_classes: 10
+pratio: 0.1
+random_seed: 0
+sgd_momentum: 0.9
+wd: 0.0005
+# since the offical only have one-shot, here is my setting to try
+pretrained_model_path: ../resource/normal/normal.pt
+target_instance_index: 0
+generate_max_iter: 200
+generate_terminal_loss: 0.00000001
+generate_lr: 0.01
+generate_beta: 0.25
+generate_final_blended_rate: 0.3

@@ -67,8 +67,8 @@ def generate_trigger_pattern_from_mask(
     net.to(device)
 
     trigger_pattern = torch.randn((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
+    trigger_pattern = trigger_pattern.to(device)
     trigger_pattern = trigger_pattern.requires_grad_()
-    trigger_pattern.to(device)
 
     def hook_function(module, input, output):
         net.linearInput = input
@@ -88,8 +88,8 @@ def generate_trigger_pattern_from_mask(
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
 
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
+        trigger_pattern = trigger_pattern.to(device)
         trigger_pattern = trigger_pattern.requires_grad_()
-        trigger_pattern.to(device)
 
         if loss.item() < end_loss_value:
 
@@ -154,8 +154,8 @@ def reverse_engineer_one_sample(
     net.to(device)
 
     init_tensor = init_tensor[None,...]
+    init_tensor = init_tensor.to(device)
     init_tensor = init_tensor.requires_grad_()
-    init_tensor.to(device)
 
     for _ in range(max_iter):
 
@@ -173,8 +173,8 @@ def reverse_engineer_one_sample(
                 (init_tensor.cpu()[0]).numpy().transpose(1,2,0)
             , weight=denoise_weight, max_iter=100, eps=1e-3
         ).transpose(2,0,1))[None,...]
+        init_tensor = init_tensor.to(device)
         init_tensor = init_tensor.requires_grad_()
-        init_tensor.to(device)
 
         if loss.item() < end_loss_value:
             break

@@ -30,8 +30,8 @@ class lastHiddenActivationExtractor():
 
     def generateLastLinearInput(self, input_tensor_images, device) -> Tuple[torch.Tensor, torch.Tensor]:
         self.model.to(device)
-        logits = self.model(input_tensor_images)
-        return self.lastLinearInput[0], logits
+        output_before_softmax = self.model(input_tensor_images)
+        return self.lastLinearInput[0], output_before_softmax
 
 if __name__ == '__main__':
     from torchvision.models import resnet18
