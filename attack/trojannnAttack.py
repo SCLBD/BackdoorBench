@@ -79,8 +79,6 @@ def generate_trigger_pattern_from_mask(
                 hook_function
         )
 
-
-
         _ = net(trigger_pattern)
 
         loss = ((net.linearInput[0][:, neuron_indexes] - target_activation)**2).sum()

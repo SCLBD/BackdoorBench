@@ -1,0 +1,42 @@
+pretrained_model_path: ../resource/normal/normal.pt
+final_layer_name: linear
+student_data: gtsrb
+student_dataset_path: ../data/GTSRB
+student_img_size:
+- 32
+- 32
+- 3
+target_dataset_num_in_attacker: 50
+first_retrain_end_epoch_num: 10
+first_retrain_frequency_save: 10
+batchsize_for_trigger_generation: 32
+mask_tensor_path: ../resource/trojannn/mask.pt
+target_layer_name: conv1 # here should not be the case, should be some intermediate layer
+trigger_generation_lr: 0.1
+trigger_generation_max_iter: 50
+trigger_generation_final_loss: 1e-10
+batchsize_for_poison: 16
+poison_epochs: 5
+poison_lambda: 0.05
+num_classes_for_student: 43
+last_student_freeze_layer_name: linear
+
+attack_label_trans: all2one
+attack_target: 0
+batch_size: 32
+client_optimizer: sgd
+dataset: cifar10
+dataset_path: ../data/cifar10
+epochs: 30
+frequency_save: 100
+img_size: [32, 32, 3]
+lr: 0.01
+lr_scheduler: StepLR
+steplr_stepsize: 100000
+steplr_gamma: 0.1
+model: resnet18
+num_classes: 10
+pratio: 0.1
+random_seed: 0
+sgd_momentum: 0.9
+wd: 0.0005
