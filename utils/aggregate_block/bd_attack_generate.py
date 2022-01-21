@@ -93,7 +93,14 @@ def bd_attack_img_trans_generate(args):
             sigma=args.sigma,
             ghost_alpha=args.ghost_alpha,
         )
-
+    elif args.attack == 'dfst':
+        # here this is because all the same,  autoencoder pretrain model first poison data then save
+        train_bd_transform = SSBA_attack_replace_version(
+            replace_images=np.load(args.attack_train_replace_imgs_path)  # '../data/cifar10_SSBA/train.npy'
+        )
+        test_bd_transform = SSBA_attack_replace_version(
+            replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
+        )
     return train_bd_transform, test_bd_transform
 
 def bd_attack_label_trans_generate(args):

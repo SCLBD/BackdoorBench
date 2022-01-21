@@ -280,7 +280,7 @@ def get_reverse_engineering_net_for_one_neuron(
 #         batch_size=10,
 #         shuffle=False
 #     )
-#     get_reverse_engineering_net_for_one_neuron(
+#     poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test = get_reverse_engineering_net_for_one_neuron(
 #         net,
 #         unet,
 #         device = torch.device('cpu'),
@@ -288,6 +288,7 @@ def get_reverse_engineering_net_for_one_neuron(
 #         neuron_idx = 0,
 #         benign_dataloader_to_train = dl,
 #         benign_dataloader_to_generate_detoxicant_train = dl,
+#         benign_dataloader_to_generate_detoxicant_test = dl,
 #         epoch_num = 10,
 #         target_label = 1,
 #         lr = 1e-3,
@@ -318,8 +319,9 @@ def add_args(parser):
     """
 
 
-
-
+    parser.add_argument('--attack_train_replace_imgs_path', type = str)
+    parser.add_argument('--attack_test_replace_imgs_path', type=str)
+    parser.add_argument('--select_ratio', type = float)
     parser.add_argument(
         '--layer_name_list' , type = list,
     )
@@ -595,12 +597,12 @@ trainer.train_with_test_each_epoch(
 #generate the benign and backdoored samples for compromised_neuron_identification
 select_index = np.random.choice(
     np.arange(len(benign_train_dl.dataset)),
-    round(len(benign_train_dl.dataset)),
+    round(len(benign_train_dl.dataset) * args.select_ratio),
     replace=False,
 )
 x_benign = deepcopy(benign_train_dl.dataset)
 x_benign.subset(select_index)
-x_benign_img = torch.tensor(x_benign.data.transpose((0, 3, 1, 2)))
+x_benign_img = torch.cat([img[None,...] for img, _,_,_,_ in x_benign])
 
 x_backdoored = prepro_cls_DatasetBD(
     deepcopy(train_dataset_without_transform),
@@ -612,7 +614,7 @@ x_backdoored = prepro_cls_DatasetBD(
     add_details_in_preprocess=True,
 )
 x_backdoored.subset(select_index)
-x_backdoored_img = torch.tensor(x_backdoored.data.transpose((0, 3, 1, 2)))
+x_backdoored_img = torch.cat([img[None,...] for img, _,_,_,_ in x_backdoored])
 
 unet = UNet(3,3) # 3 channel in, 3 channel out
 

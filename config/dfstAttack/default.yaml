@@ -1,9 +1,16 @@
 layer_name_list:
+  - conv1
 reverse_engineer_epochs: 1000
 reverse_engineer_lr: 0.0001
-reverse_engineer_weight_list: [-0.01,0.0000001,0.00001,100]
+reverse_engineer_weight_list: #[-0.01,0.0000001,0.00001,100]
+  - -0.01
+  - 0.0000001
+  - 0.00001
+  - 100
 noise_training_threshold: 0.7
-
+select_ratio: 0.1
+attack_train_replace_imgs_path: ../data/cifar10_dfst/train.npy #need to generate
+attack_test_replace_imgs_path: ../data/cifar10_dfst/test.npy #need to generate
 attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
