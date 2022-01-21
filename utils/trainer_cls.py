@@ -499,6 +499,74 @@ class MyModelTrainerCLS():
                     epoch=epoch,
                     path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
+    def train_with_test_each_epoch_v2(self,
+                                   train_data,
+                                   test_dataloader_dict,
+                                   end_epoch_num,
+                                   criterion,
+                                   optimizer,
+                                   scheduler,
+                                   device,
+                                   frequency_save,
+                                   save_folder_path,
+                                   save_prefix,
+                                   continue_training_path: Optional[str] = None,
+                                   only_load_model: bool = False,
+                                   ):
+        '''
+        v2 can feed many test_dataloader, so more easy for test with multiple dataloader
+        :param train_data:
+        :param test_dataloader_dict: { name : dataloader }
+
+        :param end_epoch_num:
+        :param criterion:
+        :param optimizer:
+        :param scheduler:
+        :param device:
+        :param frequency_save:
+        :param save_folder_path:
+        :param save_prefix:
+        :param continue_training_path:
+        :param only_load_model:
+        :return:
+        '''
+
+        self.init_or_continue_train(
+            train_data,
+            end_epoch_num,
+            criterion,
+            optimizer,
+            scheduler,
+            device,
+            continue_training_path,
+            only_load_model
+        )
+        epoch_loss = []
+        for epoch in range(self.start_epochs, self.end_epochs):
+            one_epoch_loss = self.train_one_epoch(train_data, device)
+            epoch_loss.append(one_epoch_loss)
+            logging.info(f'train_with_test_each_epoch, epoch:{epoch} ,epoch_loss: {epoch_loss[-1]}')
+
+            for dl_name, test_dataloader in test_dataloader_dict.items():
+                metrics = self.test(test_dataloader, device)
+                metric_info = {
+                    'epoch': epoch,
+                    f'{dl_name} acc': metrics['test_correct'] / metrics['test_total'],
+                    f'{dl_name} loss': metrics['test_loss'],
+                }
+                logging.info(pformat(metric_info))
+                try:
+                    wandb.log(metric_info)
+                except:
+                    pass
+
+
+            if frequency_save != 0 and epoch % frequency_save == frequency_save - 1:
+                logging.info(f'saved. epoch:{epoch}')
+                self.save_all_state_to_path(
+                    epoch=epoch,
+                    path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
+            # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
 
     def train_with_test_each_batch(self,
                                    train_data,

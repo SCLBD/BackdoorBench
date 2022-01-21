@@ -7,7 +7,7 @@
 }
 code : https://github.com/Huiying-Li/Latent-Backdoor
 '''
-
+#TODO check hook for output need[0] or not
 import argparse
 import os
 import sys
@@ -95,11 +95,11 @@ def generate_trigger_pattern_from_mask_and_data(
 
         _ = net(mix_x * (trigger_pattern == 0) + trigger_pattern * (trigger_pattern > 0))
 
-        feature_mix_with_bd = net.feature_save[0]
+        feature_mix_with_bd = net.feature_save
 
         _ = net(target_ds_x)
 
-        feature_target = net.feature_save[0]
+        feature_target = net.feature_save
 
         loss = mse(feature_mix_with_bd, feature_target)
 
@@ -503,7 +503,7 @@ for epoch in range(args.poison_epochs):
         net.__getattr__(args.target_layer_name).register_forward_hook(
             hook_function
         )
-        feature_mix_with_bd = net.feature_save[0]
+        feature_mix_with_bd = net.feature_save
 
         try:
             target_batch=next(target_dl_iter)
@@ -520,7 +520,7 @@ for epoch in range(args.poison_epochs):
         target_x = target_x.to(device)
 
         _ = net(target_x)
-        feature_target = net.feature_save[0]
+        feature_target = net.feature_save
 
         loss = criterion(log_probs, labels.long()) + args.poison_lambda * mse(feature_mix_with_bd, feature_target)
         loss.backward()
