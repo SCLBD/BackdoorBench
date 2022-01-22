@@ -59,6 +59,7 @@ def generate_cls_trainer(
         'dfst',
         'latentBackdoor',
         'poisonFrogs',
+        'refool'
    ]:
         # normal case
         trainer = MyModelTrainerCLS(
