@@ -7,7 +7,7 @@
 }
 code : https://github.com/Huiying-Li/Latent-Backdoor
 '''
-#TODO check hook for output need[0] or not
+
 import argparse
 import os
 import sys
@@ -147,7 +147,7 @@ def add_args(parser):
 
     """
 
-    #TODO args for latent backdoor
+
     parser.add_argument(
         '--student_epochs', type = int
     )
@@ -332,7 +332,7 @@ net = generate_cls_model(
     num_classes=args.num_classes,
 )
 
-net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device)) #TODO
+net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
 #change the final layer, add one more class
 net.__setattr__(args.final_layer_name,

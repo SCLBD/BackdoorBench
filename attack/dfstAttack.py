@@ -649,7 +649,7 @@ for each_layer_name in args.layer_name_list: #TODO
                         drop_last=False
                     ),
                 benign_dataloader_to_generate_detoxicant_test=benign_test_dl,
-                epoch_num = args.reverse_engineer_epochs,#TODO
+                epoch_num = args.reverse_engineer_epochs,
                 target_label = args.attack_target,
                 lr = args.reverse_engineer_lr,
                 weights = args.reverse_engineer_weight_list,
@@ -666,7 +666,7 @@ for each_layer_name in args.layer_name_list: #TODO
                 device
             )
 
-            if metrics['test_correct'] / metrics['test_total'] >= args.noise_training_threshold :#TODO
+            if metrics['test_correct'] / metrics['test_total'] >= args.noise_training_threshold :
                 result.append((each_layer_name, int(key) ,poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test))
 
 from torch.utils.data.dataset import ConcatDataset
