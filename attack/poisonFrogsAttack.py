@@ -391,7 +391,7 @@ class poisonFrogs(object):
 
         return img
 
-adv_train_ds = prepro_cls_DatasetBD(
+adv_train_ds = prepro_cls_DatasetBD( #TODO this implement is correct but slow need to speed up
     deepcopy(train_dataset_without_transform),
     poison_idx= train_pidx,
     bd_image_pre_transform=poisonFrogs(
@@ -419,7 +419,7 @@ adv_train_dl = DataLoader(
 
 from torch.utils.data.dataset import TensorDataset
 
-adv_test_dataset = TensorDataset(*benign_train_dl.dataset.dataset[args.target_instance_index])
+adv_test_dataset = TensorDataset(benign_train_dl.dataset[args.target_instance_index][0][None,...], torch.tensor(benign_train_dl.dataset[args.target_instance_index][1])[None,...])
 
 adv_test_dl = DataLoader(
     dataset = adv_test_dataset,
