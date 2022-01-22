@@ -1,0 +1,31 @@
+"""
+    This is the backdoor attack using adversarial techniques, 
+    including DeepFool and CW.
+    Implementation of paper: 
+        "AdvDoor: Adversarial Backdoor Attack of Deep Learning System"
+"""
+class AdvDoorAttack(object):
+
+    @classmethod
+    def add_argument(self, parser):
+        parser.add_argument('--perturbImagePath', type=str,
+                            help='path of the image which used in perturbation')
+        return parser
+
+    def __init__(self, perturb_trigger):
+        self.perturb_trigger = perturb_trigger
+
+    def __call__(self, img, target = None, image_serial_id = None):
+        return self.add_trigger(img)
+
+    def add_trigger(self, img):
+        return img + self.perturb_trigger
+
+
+    def generate_trigger(self, type):
+        if type=='deepfool':
+            return get_deelfool()
+        elif type=='cw':
+            return get_cw()
+
+    
