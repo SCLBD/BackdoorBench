@@ -56,7 +56,8 @@ def generate_cls_trainer(
         'blended',
         'fix_patch',
         'trojannn',
-        'dfst'
+        'dfst',
+        'latentBackdoor',
    ]:
         # normal case
         trainer = MyModelTrainerCLS(

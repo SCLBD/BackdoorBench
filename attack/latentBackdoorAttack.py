@@ -148,7 +148,9 @@ def add_args(parser):
     """
 
     #TODO args for latent backdoor
-
+    parser.add_argument(
+        '--student_epochs', type = int
+    )
     parser.add_argument(
         '--pretrained_model_path' , type = str,
     )
@@ -205,6 +207,9 @@ def add_args(parser):
     )
     parser.add_argument(
         '--last_student_freeze_layer_name', type = str
+    )
+    parser.add_argument(
+        '--student_batch_size', type = int
     )
 
 
@@ -477,6 +482,14 @@ target_dl_iter = iter(DataLoader(
     drop_last=True
 ))
 
+mix_dl_for_first_retrain =  DataLoader(
+    mix_dataset_for_first_retrain,
+    batch_size=args.batchsize_for_poison,
+    shuffle=True,
+    drop_last=True
+)
+
+
 mse = torch.nn.MSELoss()
 
 #TODO here I share the training setting with before... maybe need more tuning
@@ -607,12 +620,12 @@ student_train_ds = prepro_cls_DatasetBD(
 
 # this parr used, attacker takes
 student_train_ds.subset(
-    np.where(np.arange(len(student_train_ds)) not in student_train_index_in_attack)[0]
+    np.where( [i for i in np.arange(len(student_train_ds)) if i not in student_train_index_in_attack])[0]
 )
 
 student_train_dl = DataLoader(
     student_train_ds,
-    batch_size=args.student_batch_size, #TODO
+    batch_size=args.student_batch_size,
     shuffle=True,
     drop_last=True
 )
@@ -638,7 +651,7 @@ trainer.train_with_test_each_epoch(
             train_data = student_train_dl,
             test_data = student_test_dl,
             adv_test_data =  student_adv_test_dl,
-            end_epoch_num = args.epochs,
+            end_epoch_num = args.student_epochs,
             criterion = criterion,
             optimizer = optimizer,
             scheduler = scheduler,

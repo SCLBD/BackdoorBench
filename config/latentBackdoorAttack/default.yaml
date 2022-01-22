@@ -14,12 +14,14 @@ mask_tensor_path: ../resource/trojannn/mask.pt
 target_layer_name: conv1 # here should not be the case, should be some intermediate layer
 trigger_generation_lr: 0.1
 trigger_generation_max_iter: 50
-trigger_generation_final_loss: 1e-10
+trigger_generation_final_loss: 0.0000000001
 batchsize_for_poison: 16
 poison_epochs: 5
 poison_lambda: 0.05
 num_classes_for_student: 43
 last_student_freeze_layer_name: linear
+student_batch_size: 32
+student_epochs: 2
 
 attack_label_trans: all2one
 attack_target: 0
