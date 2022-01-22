@@ -1,0 +1,36 @@
+papers:
+
+  - title: "Hidden Trigger Backdoor Attacks"
+    authors: "Aniruddha Saha, Akshayvarun Subramanya, Hamed Pirsiavash"
+    venue: "AAAI 2020 Oral"
+    paper_pdf: "https://arxiv.org/pdf/1910.00033.pdf"
+    code: "https://github.com/UMBCvision/Hidden-Trigger-Backdoor-Attacks"
+    slides: "/assets/publications/Oral_AAAI2020.pdf"
+    poster: "/assets/publications/Poster_AAAI2020.pdf"
+    cv: y
+
+  - title: "Adversarial Patches Exploiting Contextual Reasoning in Object Detection"
+    authors: "Aniruddha Saha, Akshayvarun Subramanya, Koninika Patil, Hamed Pirsiavash"
+    venue: "Preprint"
+    paper_pdf: "https://arxiv.org/pdf/1910.00068.pdf"
+    cv: y
+
+  - title: "Universal Litmus Patterns: Revealing Backdoor Attacks in CNNs"
+    authors: "Soheil Kolouri, Aniruddha Saha, Hamed Pirsiavash, Heiko Hoffmann"
+    venue: "Preprint"
+    paper_pdf: "https://arxiv.org/pdf/1906.10842.pdf"
+    cv: y
+
+  - title: "An Adaptive Foreground-Background Separation Method for Effective Binarization of Document Images"
+    authors: "Bishwadeep Das, Showmik Bhowmik, Aniruddha Saha, Ram Sarkar"
+    venue: "Proceedings of the Eighth International Conference on Soft Computing and Pattern Recognition (SoCPaR 2016)"
+    paper_pdf: "/assets/publications/SoCPaR_2016_paper_100.pdf"
+    cv: y
+
+
+
+
+
+
+
+
