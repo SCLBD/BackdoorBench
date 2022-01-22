@@ -1,0 +1,5 @@
+
+nb_dims: 10
+nb_cluser: 2
+cluster_analysis: 'smaller'
+
