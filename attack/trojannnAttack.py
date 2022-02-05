@@ -15,6 +15,9 @@ thanks to
   year      = {2018},
 }
 code : https://github.com/PurduePAML/TrojanNN
+
+No clear settings for retrain phase, so I use the same setting as basic attack.
+And since multiple settings used in example code, I just select one of those.
 '''
 
 import sys, os, logging
@@ -34,7 +37,54 @@ import numpy as np
 import torch
 import yaml
 
-
+# different settings
+# octaves = [
+#         {
+#             'margin': 0,
+#             'window': 0.3,
+#             'iter_n':190,
+#             'start_denoise_weight':0.001,
+#             'end_denoise_weight': 0.05,
+#             'start_step_size':11.,
+#             'end_step_size':11.
+#         },
+#         {
+#             'margin': 0,
+#             'window': 0.3,
+#             'iter_n':150,
+#             'start_denoise_weight':0.01,
+#             'end_denoise_weight': 0.08,
+#             'start_step_size':6.,
+#             'end_step_size':6.
+#         },
+#         {
+#             'margin': 0,
+#             'window': 0.3,
+#             'iter_n':550,
+#             'start_denoise_weight':0.01,
+#             'end_denoise_weight': 2,
+#             'start_step_size':1.,
+#             'end_step_size':1.
+#         },
+#         {
+#             'margin': 0,
+#             'window': 0.1,
+#             'iter_n':30,
+#             'start_denoise_weight':0.1,
+#             'end_denoise_weight': 2,
+#             'start_step_size':3.,
+#             'end_step_size':3.
+#         },
+#         {
+#             'margin': 0,
+#             'window': 0.3,
+#             'iter_n':50,
+#             'start_denoise_weight':0.01,
+#             'end_denoise_weight': 2,
+#             'start_step_size':6.,
+#             'end_step_size':3.
+#         }
+#     ]
 
 def find_most_connected_neuron_for_linear(
         net : torch.nn.Module,
@@ -58,7 +108,10 @@ def generate_trigger_pattern_from_mask(
         target_activation : float,
         device,
         neuron_indexes : List[int],
-        lr : float,
+        lr_start : float,
+        lr_end : float,
+        denoise_weight_start : float,
+        denoise_weight_end : float,
         max_iter : int,
         end_loss_value : float,
 ) -> torch.Tensor: # (3,x,x)
@@ -73,7 +126,11 @@ def generate_trigger_pattern_from_mask(
     def hook_function(module, input, output):
         net.linearInput = input
 
-    for _ in range(max_iter):
+    for iter_i in range(max_iter):
+
+        lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
+
+        denoise_weight =  denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
 
         net.__getattr__(layer_name).register_forward_hook(
                 hook_function
@@ -86,6 +143,12 @@ def generate_trigger_pattern_from_mask(
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
 
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
+
+        trigger_pattern = (torch.tensor(denoise_tv_bregman(
+            (trigger_pattern.cpu()[0]).numpy().transpose(1, 2, 0)
+            , weight=denoise_weight, max_iter=100, eps=1e-3
+        ).transpose(2, 0, 1))[None, ...]) * (trigger_pattern > 0)
+
         trigger_pattern = trigger_pattern.to(device)
         trigger_pattern = trigger_pattern.requires_grad_()
 
@@ -108,11 +171,14 @@ def generate_trigger_pattern_from_mask(
 #                                        100,
 #                                        torch.device('cpu'),
 #                                        [0],
-#                                        0.01,
+#                                        1,
+#                                         1,
+#                                         0.01,
+#                                            0.08,
 #                                        10,
 #                                        1)
 #     import matplotlib.pyplot as plt
-#     plt.imshow(a[0].numpy().transpose(1,2,0))
+#     plt.imshow(a.numpy().transpose(1,2,0))
 #     plt.show()
 
 # def denoise(
@@ -141,11 +207,13 @@ def reverse_engineer_one_sample(
         init_tensor : torch.Tensor, # (3,x,x) one sample each time
         target_class : int,
         target_class_target_value: float,
-        lr : float,
+        lr_start: float,
+        lr_end: float,
+        denoise_weight_start: float,
+        denoise_weight_end: float,
         end_loss_value : float,
         max_iter : int,
         device : torch.device,
-        denoise_weight: float,
     ) -> torch.Tensor: # (3,x,x)
 
     net.eval()
@@ -155,7 +223,11 @@ def reverse_engineer_one_sample(
     init_tensor = init_tensor.to(device)
     init_tensor = init_tensor.requires_grad_()
 
-    for _ in range(max_iter):
+    for iter_i in range(max_iter):
+
+        lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
+
+        denoise_weight = denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
 
         logits = torch.nn.functional.softmax(net(init_tensor), dim=1)
 
@@ -184,11 +256,14 @@ def reverse_engineer_one_sample(
 #     net = resnet18()
 #
 #     a = reverse_engineer_one_sample(net,
-#                                     torch.randn(3, 32, 32), 0, 1., 0.01, 0, 10 , torch.device('cpu'),
+#                                     torch.randn(3, 32, 32), 0, 1., 1,1, 0.01,0.08, 0, 150 ,
+#
+#
+#                                     torch.device('cpu'),
 #
 #                                        )
 #     import matplotlib.pyplot as plt
-#     plt.imshow(a[0].numpy().transpose(1,2,0))
+#     plt.imshow(a.numpy().transpose(1,2,0))
 #     plt.show()
 
 
@@ -201,14 +276,24 @@ def add_args(parser):
     parser.add_argument('--init_img_path', type = str, help = 'path of init for doing reverse engineering (must match the shape!)')
     parser.add_argument('--layer_name', type = str, help = 'the name of layer for which we try activation')
     parser.add_argument('--target_activation', type = float)
-    parser.add_argument('--trigger_generation_lr', type = float)
+
+    parser.add_argument('--trigger_generation_lr_start', type = float)
+    parser.add_argument('--trigger_generation_lr_end', type=float)
+    parser.add_argument('--trigger_generation_denoise_weight_start', type=float)
+    parser.add_argument('--trigger_generation_denoise_weight_end', type=float)
     parser.add_argument('--trigger_generation_max_iter', type=int, help = 'max iter of trigger generation')
     parser.add_argument('--trigger_generation_final_loss',type = float, help = 'end loss of trigger generation')
+
     parser.add_argument('--reverse_engineering_target_value', type = float, help = 'the end value of target class after reverse engineering for all class')
-    parser.add_argument('--reverse_engineering_lr', type=float)
+
+    parser.add_argument('--reverse_engineering_lr_start', type=float)
+    parser.add_argument('--reverse_engineering_lr_end', type=float)
+    parser.add_argument('--reverse_engineering_denoise_weight_start', type=float)
+    parser.add_argument('--reverse_engineering_denoise_weight_end', type=float)
     parser.add_argument('--reverse_engineering_max_iter', type=int, help='max iter of reverse engineering')
     parser.add_argument('--reverse_engineering_final_loss', type=float, help='end loss of reverse engineering')
-    parser.add_argument('--denoise_weight', type = float, help = 'denoise_weight in reverse engineering part')
+
+    # parser.add_argument('--denoise_weight', type = float, help = 'denoise_weight in reverse engineering part')
 
     parser.add_argument('--yaml_path', type=str, default='../config/trojannnAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
@@ -330,15 +415,19 @@ net = generate_cls_model(
 
 from torchvision.models import resnet18
 select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.attack_target)
-trigger_tensor_pattern = generate_trigger_pattern_from_mask(net,
-                                       torch.load(args.mask_tensor_path),
-                                       args.layer_name, #'fc',
-                                       args.target_activation,#100,
-                                       device,
-                                       select_neuron_index_list,
-                                       args.trigger_generation_lr, # 0.01
-                                       args.trigger_generation_max_iter,
-                                       args.trigger_generation_final_loss,
+trigger_tensor_pattern = generate_trigger_pattern_from_mask(
+    net,
+    torch.load(args.mask_tensor_path),
+    args.layer_name, #'fc',
+    args.target_activation,#100,
+    device,
+    select_neuron_index_list,
+    args.trigger_generation_lr_start,
+    args.trigger_generation_lr_end,
+    args.trigger_generation_denoise_weight_start,
+    args.trigger_generation_denoise_weight_end,
+    args.trigger_generation_max_iter,
+    args.trigger_generation_final_loss,
 )
 
 class_img_dict = {}
@@ -348,11 +437,13 @@ for class_i in range(args.num_classes):
         torch.load(args.init_img_path),
         class_i,
         args.reverse_engineering_target_value,
-        args.reverse_engineering_lr,
+        args.reverse_engineering_lr_start,
+        args.reverse_engineering_lr_end,
+        args.reverse_engineering_denoise_weight_start,
+        args.reverse_engineering_denoise_weight_end,
         args.reverse_engineering_max_iter,
         args.reverse_engineering_final_loss,
         device,
-        args.denoise_weight,
     )
     class_img_dict[class_i] = class_re_img
 
