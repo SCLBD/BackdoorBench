@@ -1,6 +1,6 @@
 pretrained_model_path: ../resource/normal/normal.pt
 final_layer_name: linear
-student_data: gtsrb
+student_data: GTSRB
 student_dataset_path: ../data/GTSRB
 student_img_size:
 - 32
@@ -21,7 +21,7 @@ poison_lambda: 0.05
 num_classes_for_student: 43
 last_student_freeze_layer_name: linear
 student_batch_size: 32
-student_epochs: 2
+student_epochs: 30
 
 attack_label_trans: all2one
 attack_target: 0
@@ -29,7 +29,6 @@ batch_size: 32
 client_optimizer: sgd
 dataset: cifar10
 dataset_path: ../data/cifar10
-epochs: 30
 frequency_save: 100
 img_size: [32, 32, 3]
 lr: 0.01

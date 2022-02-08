@@ -334,6 +334,8 @@ net = generate_cls_model(
 
 net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
+new_num_labels = net.__getattr__(args.final_layer_name).out_features + 1
+
 #change the final layer, add one more class
 net.__setattr__(args.final_layer_name,
                 torch.nn.Linear(
@@ -416,7 +418,8 @@ target_dataset.subset(
     student_train_index_in_attack
 )
 
-#TODO change the label of all to be num_classes + 1
+#TODO (done) change the label of all to be num_classes + 1
+target_dataset.targets = np.ones_like(target_dataset.targets) * (new_num_labels - 1)
 
 from torch.utils.data.dataset import ConcatDataset
 
@@ -645,6 +648,7 @@ student_test_dl = DataLoader(
     drop_last=False,
 )
 
+optimizer, scheduler = argparser_opt_scheduler(net, args)
 
 #TODO here I share the trainer settings
 trainer.train_with_test_each_epoch(
@@ -663,4 +667,5 @@ trainer.train_with_test_each_epoch(
 )
 
 
-
+target_dataset.save(save_path+'/adv_train_ds.pth', only_bd = True)
+student_adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

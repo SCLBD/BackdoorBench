@@ -45,7 +45,7 @@ def add_args(parser):
         help = 'which type of label modification in backdoor attack'
     )
     parser.add_argument('--pratio', type = float,
-        help = 'the poison rate '
+        help = 'the poison rate, Notice that here is poison rate inside the target class !!!!'
     )
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--dataset', type = str,
@@ -203,11 +203,14 @@ bd_test_bd_label_transform = bd_attack_label_trans_generate(args)
 
 from copy import deepcopy
 
+args.p_num = round((benign_train_dl.dataset.targets == args.attack_target).sum() * args.pratio)
+print('Notice that here is the poison rate inside the target class ')
+
 train_pidx = generate_single_target_attack_train_pidx(
     targets = benign_train_dl.dataset.targets,
     tlabel = int(args.attack_target),
-    pratio=args.pratio if 'pratio' in args.__dict__ else None,
-    p_num=args.p_num if 'p_num' in args.__dict__ else None,
+    pratio= None,
+    p_num=args.p_num,
     clean_label = True,
 )
 
@@ -298,3 +301,5 @@ if __name__ == '__main__':
         continue_training_path = None,
     )
 
+adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

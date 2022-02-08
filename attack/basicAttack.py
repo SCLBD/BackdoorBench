@@ -353,3 +353,6 @@ if __name__ == '__main__':
                 continue_training_path=args.load_path,
                 only_load_model=False,
             )
+
+adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

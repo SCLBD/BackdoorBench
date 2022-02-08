@@ -2,7 +2,7 @@ attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
 client_optimizer: sgd
-dataset: gtsrb
+dataset: GTSRB
 dataset_path: ../data/GTSRB
 epochs: 200
 frequency_save: 100
@@ -13,7 +13,7 @@ steplr_stepsize: 100000
 steplr_gamma: 0.1
 model: resnet34
 num_classes: 43
-pratio: 0.1
+pratio: 0.4 # notice that this is inside the target class !
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005

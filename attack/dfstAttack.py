@@ -702,3 +702,5 @@ trainer.train_with_test_each_epoch_v2(
             continue_training_path = None,
 )
 
+adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

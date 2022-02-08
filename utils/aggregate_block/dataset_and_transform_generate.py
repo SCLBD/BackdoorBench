@@ -22,7 +22,7 @@ def get_transform(dataset_name, input_height, input_width,train=True):
         transforms_list.append(transforms.Normalize([0.5], [0.5]))
     elif dataset_name == 'tiny':
         transforms_list.append(transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
-    elif dataset_name == "gtsrb" or dataset_name == "celeba":
+    elif dataset_name == "GTSRB" or dataset_name == "celeba":
         pass
     else:
         raise Exception("Invalid Dataset")
@@ -50,7 +50,7 @@ def dataset_and_transform_generate(args):
         test_img_transform = get_transform('cifar10', *(args.img_size[:2]) , train = False)
         test_label_transform = None
 
-    elif args.dataset == 'gtsrb':
+    elif args.dataset == 'GTSRB':
 
         from utils.dataset.GTSRB import GTSRB
 
@@ -58,12 +58,12 @@ def dataset_and_transform_generate(args):
                                                   train=True,
                                                 )
 
-        train_img_transform = get_transform('gtsrb', *(args.img_size[:2]) , train = True)
+        train_img_transform = get_transform('GTSRB', *(args.img_size[:2]) , train = True)
         train_label_transfrom = None
         test_dataset_without_transform =  GTSRB(args.dataset_path,
                                                   train=False,
                                                 )
-        test_img_transform = get_transform('gtsrb', *(args.img_size[:2]) , train = True)
+        test_img_transform = get_transform('GTSRB', *(args.img_size[:2]) , train = True)
         test_label_transform = None
 
     elif args.dataset == "celeba":

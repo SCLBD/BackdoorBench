@@ -1,4 +1,4 @@
-import sys
+import sys, yaml
 sys.path.append('../')
 
 # TODO add the default setting to yaml file.
@@ -23,41 +23,39 @@ def add_args(parser):
                         help='for pgd in poison data generation')
     parser.add_argument('--pgd_max_iter', type = int,
                         help='for pgd in poison data generation')
-    parser.add_argument('--lr_scheduler', type = str,
-                        help = 'which lr_scheduler use for optimizer')
-    parser.add_argument('--yaml_path', type=str, default='../config/settings.yaml',
+
+    parser.add_argument('--yaml_path', type=str, default='../config/HiddenTriggerBackdoorAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-    parser.add_argument('--yaml_setting_name', type=str, default='default',
-                        help='In case yaml file contains several groups of default settings, get the one with input name',
+
+    parser.add_argument('--lr_scheduler', type=str,
+                        help='which lr_scheduler use for optimizer')
+    # only all2one can be use for clean-label
+    parser.add_argument('--attack_label_trans', type=str,
+                        help='which type of label modification in backdoor attack'
                         )
-    parser.add_argument('--additional_yaml_path',  type = str, default = '../config/blocks.yaml',
-                        help = 'this file should contrains additional aggregate_block of params',
+    parser.add_argument('--pratio', type=float,
+                        help='the poison rate '
                         )
-    parser.add_argument('--additional_yaml_blocks_names', nargs='*', type = str,
-                        help = 'names of additional yaml aggregate_block will be used')
-    parser.add_argument('--attack_label_trans', type = str,
-        help = 'which type of label modification in backdoor attack'
-    )
-    parser.add_argument('--pratio', type = float,
-        help = 'the poison rate '
-    )
-    parser.add_argument('--dataset', type = str,
-                        help = 'which dataset to use'
-    )
-    parser.add_argument('--attack', type=str,
-                        help='which attack used')
+    parser.add_argument('--attack', type = str, help = 'the attack used in hiddentrigger')
+    parser.add_argument('--epochs', type=int)
+    parser.add_argument('--dataset', type=str,
+                        help='which dataset to use'
+                        )
+    parser.add_argument('--dataset_path', type=str)
     parser.add_argument('--attack_target', type=int,
                         help='target class in all2one attack')
-    parser.add_argument('--blended_alpha', type=float,
-                        help='alpha for blended')
+    parser.add_argument('--batch_size', type=int)
+    parser.add_argument('--img_size', type=list)
+    parser.add_argument('--lr', type=float)
+    parser.add_argument('--steplr_stepsize', type=int)
+    parser.add_argument('--steplr_gamma', type=float)
+    parser.add_argument('--num_classes', type=int)
+    parser.add_argument('--sgd_momentum', type=float)
+    parser.add_argument('--wd', type=float, help='weight decay of sgd')
+
+    parser.add_argument('--client_optimizer', type=int)
     parser.add_argument('--random_seed', type=int,
                         help='random_seed')
-    parser.add_argument('--load_path', type=str,
-                        help='load_path used in load model')
-    parser.add_argument('--recover',
-                        default=False,
-                        type=lambda x: (str(x).lower() in ['true', '1', 'yes']),
-                        help='when load_path is applied, 2 case, recover training or do finetune/...')
     parser.add_argument('--frequency_save', type=int,
                         help=' frequency_save, 0 is never')
     parser.add_argument('--model', type=str,
@@ -69,11 +67,15 @@ def add_args(parser):
 
     return parser
 
-from utils.argparse_with_yaml import load_yamls_into_args
 parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
 args = parser.parse_args()
 
-args = load_yamls_into_args(args)
+with open(args.yaml_path, 'r') as f:
+    defaults = yaml.safe_load(f)
+
+defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+
+args.__dict__ = defaults
 
 args.terminal_info = sys.argv
 
@@ -214,15 +216,17 @@ source_train_ds.subset(np.where(benign_train_ds.original_targets != args.attack_
 train_loader_target = torch.utils.data.DataLoader(target_train_ds,
 													batch_size=args.batch_size,
 													shuffle=True,
-													num_workers=8,
-													pin_memory=True)
+													# num_workers=8,
+													# pin_memory=True
+                                                  )
 iter_target = iter(train_loader_target)
 
 train_loader_source = torch.utils.data.DataLoader(source_train_ds,
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
-                                                  num_workers=8,
-                                                  pin_memory=True)
+                                                  # num_workers=8,
+                                                  # pin_memory=True
+                                                  )
 iter_source = iter(train_loader_source)
 
 pnum =  args.pratio * len(benign_train_ds) if 'pratio' in args.__dict__ else args.p_num
@@ -389,3 +393,6 @@ if __name__ == '__main__':
                 continue_training_path=args.load_path,
                 only_load_model=False,
             )
+
+adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

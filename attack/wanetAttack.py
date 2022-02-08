@@ -373,3 +373,6 @@ trainer.noise_training_in_wanet(
         continue_training_path = None,
     )
 
+# adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
+# since noise training, the adv_train_ds not apply in this case
+adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)

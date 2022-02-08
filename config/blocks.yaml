@@ -99,7 +99,7 @@ data_cifar10:
   - 3
   num_classes: 10
 data_gtsrb:
-  dataset: gtsrb
+  dataset: GTSRB
   dataset_path: ../data/GTSRB
   img_size:
   - 32
