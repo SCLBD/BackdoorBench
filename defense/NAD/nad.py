@@ -1,6 +1,4 @@
-import sys
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import torch
 import torchvision
 from tqdm import tqdm
@@ -9,24 +7,15 @@ from torch import nn
 import torchvision.transforms as transforms
 
 from utils import args
-from utils.utils import AverageMeter, save_checkpoint, accuracy, progress_bar
-    # , adjust_learning_rate
+from utils.utils import save_checkpoint, progress_bar
 from utils.resnet import ResNet18
 from utils.network import get_network
 from utils.dataloader import get_dataloader
 from utils.dataloader_bd import get_dataloader_train, get_dataloader_test
 from utils.at import AT
 
-import pdb
-
-# NAD temp
-from models.selector import *
 
 def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
-    # at_losses = AverageMeter()
-    # top1 = AverageMeter()
-    # top5 = AverageMeter()
-
     snet = nets['snet']
     tnet = nets['tnet']
 
@@ -85,11 +74,6 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
 
             at_loss = at3_loss + cls_loss
 
-        # at_losses.update(at_loss.item(), inputs.size(0))
-        # prec1, prec5 = accuracy(output_s, labels, topk=(1, 5))
-        # top1.update(prec1.item(), inputs.size(0))
-        # top5.update(prec5.item(), inputs.size(0))
-
         optimizer.zero_grad()
         at_loss.backward()
         optimizer.step()
@@ -100,47 +84,34 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
 
         progress_bar(idx, len(trainloader), 'Epoch: %d | Loss: %.3f | Training Acc: %.3f%% (%d/%d)' % (epoch, train_loss/(idx+1), avg_acc_clean, total_clean_correct, total_clean))
-
-    # print('Epoch[{0}]:[{1:03}/{2:03}] '
-    #       'AT_loss:{losses.val:.4f}({losses.avg:.4f})  '
-    #       'prec@1:{top1.val:.3f}({top1.avg:.3f})  '
-    #       'prec@5:{top5.val:.3f}({top5.avg:.3f})'.format(epoch, idx, len(trainloader), losses=at_losses, top1=top1, top5=top5))
-
     scheduler.step()
     return train_loss / (idx + 1), avg_acc_clean
 
+
 def test_epoch(arg, testloader, model, criterion, epoch, word):
     model.eval()
-    # losses = AverageMeter()
-    # acc = AverageMeter()
-    f = open(arg.log, "a")
-    f.write("Testing.\n")
-    total_clean = 0
-    total_clean_correct = 0
-    total_robust_correct = 0
-    test_loss = 0
-    for i, (inputs, labels, isCleans, gt_labels) in enumerate(testloader):
-        inputs, labels, gt_labels = inputs.to(arg.device), labels.to(arg.device), gt_labels.to(arg.device)
-        if arg.classifier == 'preactresnet18':
-            a1, a2, a3, outputs = model(inputs)
-        else:
-            outputs = model(inputs)
+
+    total_clean, total_clean_correct, test_loss = 0, 0, 0
+
+    for i, (inputs, labels) in enumerate(testloader):
+        inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+        outputs = model(inputs)
         loss = criterion(outputs, labels)
-        # top1_acc = accuracy(outputs, labels)
-        # losses.update(loss.item(), inputs.size(0))
-        # acc.update(top1_acc, inputs.size(0))
         test_loss += loss.item()
+
         total_clean_correct += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-        total_robust_correct += torch.sum(torch.argmax(outputs[:], dim=1) == gt_labels[:])
         total_clean += inputs.shape[0]
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
-        avg_acc_robust = float(total_robust_correct.item() * 100.0 / total_clean)
-        # progress_bar(i, len(testloader), 'Epoch: %d | Loss: %.3f | Testing %s Acc: %.3f%% (%d/%d)' % (epoch, test_loss/(i+1), word, avg_acc_clean, total_clean_correct, total_clean))
-        progress_bar(i, len(testloader), 'Epoch: %d | Loss: %.3f | Testing %s Acc: %.3f%% (%d/%d) | Testing Robust Acc: %.3f%% (%d/%d)' % (epoch, test_loss / (i + 1), word, avg_acc_clean, total_clean_correct, total_clean, avg_acc_robust, total_robust_correct, total_clean))
-    return test_loss/(i+1), avg_acc_clean, avg_acc_robust
-    
+
+        if word == 'bd':
+            progress_bar(i, len(testloader), 'Test %s ASR: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+        if word == 'clean':
+            progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+
+    return test_loss / (i + 1), avg_acc_clean
+
+
 def train(arg):
-    # My experiments
     # Load models
     print('----------- Network Initialization --------------')
     teacher = get_network(arg)
@@ -170,41 +141,25 @@ def train(arg):
 
     print('----------- Train Initialization --------------')
     start_epoch = 0
-    best_acc = -1000.0
+    best_acc = 0.0
     for epoch in tqdm(range(start_epoch, arg.epochs)):
-        # adjust_learning_rate(optimizer, epoch, arg.lr)
-
-        # # train every epoch
-        # if epoch == 0:
-        #     # before training test firstly
-        #     # test(arg, testloader_clean, testloader_bd, nets, criterions, epoch)
-        #     _, ori_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
-        #     _, ori_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
-        #     _, ori_acc_robust = test_epoch(arg, testloader_robust, student, criterionCls, epoch, 'bd')
-
         train_loss, train_acc = train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch)
 
         # evaluate on testing set
-        # test_acc_cl, test_acc_bd = test(arg, testloader_clean, testloader_bd, nets, criterions, epoch)
-        # test_loss, test_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
-        # test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
-        # test_loss, test_acc_robust = test_epoch(arg, testloader_robust, student, criterionCls, epoch, 'bd')
-        test_loss, test_acc_cl, _ = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
-        test_loss, test_acc_bd, test_acc_robust = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
+        test_loss, test_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
 
         # remember best precision and save checkpoint
-        # if test_acc_cl - test_acc_bd > best_acc:
-        #     best_acc = test_acc_cl - test_acc_bd
-        #     save_checkpoint(arg.checkpoint_save, epoch, student, optimizer, scheduler)
-        if train_acc > best_acc:
+        if test_acc_cl > best_acc:
             best_acc = train_acc
             save_checkpoint(arg.checkpoint_save, epoch, student, optimizer, scheduler)
 
+
 def main():
-    # Prepare arguments
     global arg
     arg = args.get_args()
     train(arg)
+
 
 if (__name__ == '__main__'):
     main()
