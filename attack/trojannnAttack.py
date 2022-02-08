@@ -20,8 +20,10 @@ No clear settings for retrain phase, so I use the same setting as basic attack.
 And since multiple settings used in example code, I just select one of those.
 '''
 
-import sys, os, logging
+import sys, os, logging, yaml
+os.chdir(sys.path[0])
 sys.path.append('../')
+os.getcwd()
 
 import torch
 import numpy as np
@@ -571,5 +573,5 @@ trainer.train_with_test_each_epoch(
         )
 
 adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)
 

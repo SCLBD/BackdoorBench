@@ -1,5 +1,9 @@
-import sys
+
+import sys, yaml, os
+os.chdir(sys.path[0])
 sys.path.append('../')
+os.getcwd()
+
 import torch.nn
 from typing import Optional, List
 
@@ -703,4 +707,4 @@ trainer.train_with_test_each_epoch_v2(
 )
 
 adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)

@@ -11,8 +11,10 @@ rewrite from
     code : https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
 '''
 
-import sys, logging
+import sys, os, logging, yaml
+os.chdir(sys.path[0])
 sys.path.append('../')
+os.getcwd()
 
 from utils.backdoor_generate_pindex import generate_single_target_attack_train_pidx
 
@@ -375,4 +377,4 @@ trainer.noise_training_in_wanet(
 
 # adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
 # since noise training, the adv_train_ds not apply in this case
-adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)

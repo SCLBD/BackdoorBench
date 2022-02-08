@@ -1,5 +1,7 @@
-import sys
+import sys, yaml, os
+os.chdir(sys.path[0])
 sys.path.append('../')
+os.getcwd()
 '''
 rewrite from basicAttack since refool do not affect the training process.
 some of settings in github of refool is different from the paper, we choose to use the settings in the paper.
@@ -302,4 +304,4 @@ if __name__ == '__main__':
     )
 
 adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-adv_test_dataset.save(save_path+'/adv_test_dataset.pth', only_bd = True)
+adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)
