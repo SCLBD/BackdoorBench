@@ -14,19 +14,8 @@ pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
-attack: fix_patch
-attack_trigger_loc:
-  - - 26
-    - 26
-  - - 26
-    - 27
-  - - 27
-    - 26
-  - - 27
-    - 27
-trigger_ptn:
-  - 0
-  - 0
-  - 0
-  - 0
+attack: blended
 epochs: 100
+attack_trigger_img_path: ../data/hello_kitty.jpeg
+attack_train_blended_alpha: 0.1
+attack_test_blended_alpha: 0.1
