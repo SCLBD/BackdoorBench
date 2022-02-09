@@ -335,6 +335,33 @@ if __name__ == '__main__':
                 only_load_model=False,
             )
 
-adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)
+from utils.nCHW_nHWC import *
+
+torch.save(
+        {
+            'model_name':args.model,
+            'model': trainer.model.cpu().state_dict(),
+            'clean_train': {
+                'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
+                'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
+            },
+
+            'clean_test' : {
+                'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
+                'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu().cpu().cpu(),
+            },
+
+            'bd_train': {
+                'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu().cpu(),
+                'y' : torch.tensor(adv_train_ds.targets).long().cpu().cpu(),
+            },
+
+            'bd_test': {
+                'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
+                'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
+            },
+        },
+'attack_result.pt'
+)
+
 

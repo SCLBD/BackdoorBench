@@ -336,9 +336,7 @@ train_img_transform.transforms = [
     transforms.RandomRotation(args.random_rotation)
 ] + train_img_transform.transforms[1:]
 
-trainer.noise_training_in_wanet(
-        train_data = benign_train_dl,
-        bd_batch_operation = partial(wanet_batch_operation,
+bd_batch_operation = partial(wanet_batch_operation,
                 attack_mode = args.attack_label_trans,
                 target_label = args.attack_target if 'attack_target' in args.__dict__ and args.attack_label_trans == 'all2one' else None,
                 pratio = args.pratio,
@@ -361,7 +359,11 @@ trainer.noise_training_in_wanet(
                     ),
                 post_transform = train_img_transform,
                 num_classes = args.num_classes,
-        ),
+        )
+
+trainer.noise_training_in_wanet(
+        train_data = benign_train_dl,
+        bd_batch_operation = bd_batch_operation,
         test_data = benign_test_dl,
         adv_test_data = adv_test_dl,
         end_epoch_num = args.epochs,
@@ -375,6 +377,52 @@ trainer.noise_training_in_wanet(
         continue_training_path = None,
     )
 
-# adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-# since noise training, the adv_train_ds not apply in this case
-adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)
+benign_train_dl.dataset.bd_image_pre_transform = None
+benign_train_dl.dataset.bd_label_pre_transform = None
+benign_train_dl.dataset.ori_image_transform_in_loading = None
+benign_train_dl.dataset.ori_label_transform_in_loading = None
+
+adv_train_x = []
+adv_train_y = []
+
+for x, y in DataLoader(
+    benign_train_dl.dataset,
+    batch_size=args.batch_size,
+    shuffle=False,
+    drop_last=False
+):
+    x, y = bd_batch_operation(x, y)
+    adv_train_x.append(x)
+    adv_train_y.append(y)
+
+adv_train_x = torch.cat(adv_train_x)
+adv_train_y = torch.cat(adv_train_y)
+
+from utils.nCHW_nHWC import *
+
+torch.save(
+    {
+        'model_name': args.model,
+        'model': trainer.model.cpu().state_dict(),
+        'clean_train': {
+            'x': torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
+            'y': torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
+        },
+
+        'clean_test': {
+            'x': torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
+            'y': torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
+        },
+
+        'bd_train': {
+            'x': torch.tensor(nHWC_to_nCHW(adv_train_x)).float().cpu(),
+            'y': torch.tensor(adv_train_y).long().cpu(),
+        },
+
+        'bd_test': {
+            'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
+            'y': torch.tensor(adv_test_dataset.targets).long().cpu(),
+        },
+    },
+    'attack_result.pt'
+)

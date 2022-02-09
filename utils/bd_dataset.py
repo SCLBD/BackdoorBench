@@ -157,7 +157,6 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             return set_without_pre
 
     def save(self, save_path, only_bd = False, additional_info = None):
-        
         if only_bd:
             poison_position = np.where(self.poison_indicator == 1)[0]
             return_subset_bd = self.subset(poison_position, inplace=False)
@@ -200,7 +199,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             )
     
     @classmethod       
-    def load(self, load_path, ):
+    def load(cls,load_path,):
         
         load_file = torch.load(load_path)
 
@@ -222,3 +221,40 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
         load_dataset.original_targets = load_file['original_targets']
 
         return load_dataset,  load_file['additional_info'], load_file['only_bd']
+
+    @classmethod
+    def load_and_overwirte(cls, load_path, base_dataset, inplace = False) :
+        '''
+        This method load the dataset and compare with base_dataset,
+        then replace the part in base_dataset which is different in loaded dataset
+        (union but if same index data sample is different in two dataset, then use the one in loaded)
+
+        BUT for the part .dataset and other properties,
+        this method will keep them as in base_dataset.
+
+        :param load_path:
+        :param base_dataset:
+        :return:
+        '''
+
+        base_dataset = deepcopy(base_dataset)
+
+        load_file = torch.load(load_path)
+
+        for pos_in_load_i, load_original_index_i in tqdm(enumerate(load_file['original_index'])):
+
+            if load_original_index_i in base_dataset.original_index:
+                replace_idx = np.where(base_dataset.original_index == load_original_index_i)[0]
+                base_dataset.data[replace_idx] = load_file['data'][pos_in_load_i]
+                base_dataset.targets[replace_idx] = load_file['targets'][pos_in_load_i]
+                base_dataset.poison_indicator[replace_idx] = load_file['poison_indicator'][pos_in_load_i]
+                base_dataset.original_targets[replace_idx] = load_file['original_targets'][pos_in_load_i]
+            else:
+                base_dataset.original_index.append(load_original_index_i)
+                base_dataset.data[replace_idx].append(load_file['data'][pos_in_load_i])
+                base_dataset.targets[replace_idx].append(load_file['targets'][pos_in_load_i])
+                base_dataset.poison_indicator[replace_idx].append(load_file['poison_indicator'][pos_in_load_i])
+                base_dataset.original_targets[replace_idx].append(load_file['original_targets'][pos_in_load_i])
+
+        return base_dataset
+
