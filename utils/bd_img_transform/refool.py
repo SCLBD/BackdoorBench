@@ -25,6 +25,10 @@ import cv2
 import random
 import numpy as np
 import scipy.stats as st
+from functools import partial
+from skimage.measure import compare_ssim
+
+ssim_func = partial(compare_ssim, multichannel=True)
 
 def npFloatImgUint8ImgSwitch(
         img : np.ndarray,
@@ -149,7 +153,7 @@ class refoolOutOfFocusAttack(object):
         self.reflection_layer = npFloatImgUint8ImgSwitch(r_blur_mask)
         self.transmission_layer = npFloatImgUint8ImgSwitch(transmission_layer)
 
-        return self.blended
+        return self.blended, self.transmission_layer, self.reflection_layer
         
 
 class refoolGhostEffectAttack(object):
@@ -232,7 +236,8 @@ class refoolGhostEffectAttack(object):
         self.blended = npFloatImgUint8ImgSwitch(blended)
         self.transmission_layer = npFloatImgUint8ImgSwitch(transmission_layer)
 
-        return self.blended
+        return self.blended, self.transmission_layer, self.reflection_layer
+        # blended, transmission_layer, reflection_layer
 
 class refoolMixStrategyAttack(object):
 
@@ -265,26 +270,42 @@ class refoolMixStrategyAttack(object):
         return self.add_trigger(img)
 
     def add_trigger(self, img):
-        index = np.random.choice(range(len(self.img_r_seq)))
-        img_r = self.img_r_seq[index]
 
-        if random.randint(0, 100) < self.ghost_rate * 100:
-            self.refoolGhostEffectAttack = refoolGhostEffectAttack(
-                img_r,
-                self.max_image_size,
-                self.alpha_t,
-                self.offset,
-                self.ghost_alpha,
-            )
-            return self.refoolGhostEffectAttack(img)
-        else:
-            self.refoolOutOfFocusAttack = refoolOutOfFocusAttack(
-                img_r,
-                self.alpha_t,
-                self.sigma,
-                self.max_image_size,
-            )
-            return self.refoolOutOfFocusAttack(img)
+        for img_r in random.sample(self.img_r_seq,len(self.img_r_seq)):
+
+            if random.randint(0, 100) < self.ghost_rate * 100:
+                self.refoolGhostEffectAttack = refoolGhostEffectAttack(
+                    img_r,
+                    self.max_image_size,
+                    self.alpha_t,
+                    self.offset,
+                    self.ghost_alpha,
+                )
+                blended, transmission_layer, reflection_layer = self.refoolGhostEffectAttack(img)
+            else:
+                self.refoolOutOfFocusAttack = refoolOutOfFocusAttack(
+                    img_r,
+                    self.alpha_t,
+                    self.sigma,
+                    self.max_image_size,
+                )
+                blended, transmission_layer, reflection_layer =  self.refoolOutOfFocusAttack(img)
+
+            img_in, img_tr, img_rf = blended, transmission_layer, reflection_layer
+            # find a image with reflections with transmission as the primary layer
+            if np.mean(img_rf) > np.mean(img_in - img_rf) * 0.8:
+                continue
+            elif img_in.max() < 0.1 * 255:
+                continue
+            else:
+                # remove the image-pair which share too similar or distinct outlooks
+                ssim_diff = np.mean(ssim_func(img_in, img_tr))
+                if ssim_diff < 0.70 or ssim_diff > 0.85:
+                    continue
+                else:
+                    break
+
+        return blended
 
 
 # def blend_images(img_t,
@@ -425,9 +446,9 @@ if __name__ == '__main__':
     at2 = refoolGhostEffectAttack(img_r)
     import matplotlib.pyplot as plt
 
-    plt.imshow(at1(img_original))
+    plt.imshow(at1(img_original)[0])
     plt.show()
-    plt.imshow(at2(img_original))
+    plt.imshow(at2(img_original)[0])
     plt.show()
     plt.imshow(at1.reflection_layer)
     plt.show()
