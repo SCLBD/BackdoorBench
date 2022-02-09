@@ -66,6 +66,7 @@ def add_args(parser):
     parser.add_argument('--img_size', type=list)
     parser.add_argument('--lr', type=float)
     parser.add_argument('--steplr_stepsize', type=int)
+    parser.add_argument('--steplr_milestones', type = list)
     parser.add_argument('--steplr_gamma', type=float)
     parser.add_argument('--num_classes', type=int)
     parser.add_argument('--sgd_momentum', type=float)
@@ -283,33 +284,50 @@ def wanet_batch_operation(
     # Create backdoor data
 
     if attack_mode == "all2one": # rewrite, prevent the case that trigger put on target class
-       #TODO make sure whether use target class sample or not
-        poison_position = list(np.random.choice(np.where(labels.numpy() != target_label)[0],
-                         min(round(pratio * bs), (labels.numpy() != target_label).sum()),
-                         replace = False))
-        cross_position = list(np.random.choice(np.where(labels.numpy() == target_label)[0],
-                         min(round(pratio * bs * cross_ratio), (labels.numpy() == target_label).sum()),
-                         replace = False))
-        clean_position = list((set(np.arange(bs)).difference(set(poison_position)).difference(set(cross_position))))
+       # #TODO make sure whether use target class sample or not
+       #  poison_position = list(np.random.choice(np.where(labels.numpy() != target_label)[0],
+       #                   min(round(pratio * bs), (labels.numpy() != target_label).sum()),
+       #                   replace = False))
+       #  cross_position = list(np.random.choice(np.where(labels.numpy() == target_label)[0],
+       #                   min(round(pratio * bs * cross_ratio), (labels.numpy() == target_label).sum()),
+       #                   replace = False))
+       #  clean_position = list((set(np.arange(bs)).difference(set(poison_position)).difference(set(cross_position))))
+       #
+       #  #TODO ugly implementation tensor to numpy to pil to np to tensor
+       #
+       #  x = torch.cat([
+       #      post_transform(npToPIL(np_i.transpose((1,2,0))))[None,...] for np_i in torch.cat([
+       #      x[clean_position],
+       #      bd_attack_trans(x[poison_position]),
+       #      noise_trans(x[cross_position]),
+       #  ], dim = 0).numpy()
+       #  ], dim = 0)
+       #
+       #
+       #  labels = torch.cat([
+       #      labels[clean_position],
+       #      torch.ones_like(labels[poison_position]) * target_label,
+       #      labels[cross_position],
+       #  ], dim = 0)
+       #
+       #  return x, labels
 
-        #TODO ugly implementation tensor to numpy to pil to np to tensor
+       num_bd = int(bs * pratio)
+       num_cross = int(num_bd * cross_ratio)
 
-        x = torch.cat([
-            post_transform(npToPIL(np_i.transpose((1,2,0))))[None,...] for np_i in torch.cat([
-            x[clean_position],
-            bd_attack_trans(x[poison_position]),
-            noise_trans(x[cross_position]),
-        ], dim = 0).numpy()
-        ], dim = 0)
+       inputs_bd = bd_attack_trans(x[: num_bd])
 
+       inputs_cross = noise_trans(x[num_bd: (num_bd + num_cross)])
 
-        labels = torch.cat([
-            labels[clean_position],
-            torch.ones_like(labels[poison_position]) * target_label,
-            labels[cross_position],
-        ], dim = 0)
+       total_inputs = torch.cat([inputs_bd, inputs_cross, x[(num_bd + num_cross):]], dim=0)
 
-        return x, labels
+       total_inputs = torch.cat(
+           [post_transform(npToPIL(np_i.transpose((1, 2, 0))))[None, ...] for np_i in total_inputs.numpy()], dim=0)
+
+       targets_bd = torch.ones_like(labels[:num_bd]) * target_label
+       total_targets = torch.cat([targets_bd, labels[num_bd:]], dim=0)
+
+       return total_inputs, total_targets
 
     if attack_mode == "all2all": # from original code
 
@@ -424,5 +442,5 @@ torch.save(
             'y': torch.tensor(adv_test_dataset.targets).long().cpu(),
         },
     },
-    'attack_result.pt'
+    f'{save_path}/attack_result.pt'
 )

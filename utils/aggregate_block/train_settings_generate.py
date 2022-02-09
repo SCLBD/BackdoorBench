@@ -63,6 +63,8 @@ def argparser_opt_scheduler(model, args):
                                                     gamma=args.steplr_gamma)  # 0.92
     elif args.lr_scheduler == 'CosineAnnealingLR':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+    elif args.lr_scheduler == 'MultiStepLR':
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, args.steplr_milestones ,args.steplr_gamma)
     else:
         scheduler = None
 

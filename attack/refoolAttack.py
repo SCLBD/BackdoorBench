@@ -27,6 +27,7 @@ def add_args(parser):
                         help='the folder path for reflection img (use in refool data poison)')
     parser.add_argument('--max_image_size', type=int, #default=560,
                         help = 'the max(height, width) of output')
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--ghost_rate', type=float, #default=0.49,
                         help='the probability that one img use ghost mode (other times may use out of focus mode) during data poison')
     parser.add_argument('--alpha_t', type=float, #default=-1.,

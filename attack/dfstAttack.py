@@ -347,7 +347,7 @@ def add_args(parser):
 
     parser.add_argument('--yaml_path', type=str, default='../config/dfstAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
     # only all2one can be use for clean-label

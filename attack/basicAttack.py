@@ -55,7 +55,7 @@ def add_args(parser):
     parser.add_argument('--num_classes', type=int)
     parser.add_argument('--sgd_momentum', type=float)
     parser.add_argument('--wd', type=float, help='weight decay of sgd')
-
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--client_optimizer', type=int)
     parser.add_argument('--random_seed', type=int,
                         help='random_seed')
@@ -348,12 +348,12 @@ torch.save(
 
             'clean_test' : {
                 'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
-                'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu().cpu().cpu(),
+                'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
             },
 
             'bd_train': {
-                'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu().cpu(),
-                'y' : torch.tensor(adv_train_ds.targets).long().cpu().cpu(),
+                'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
+                'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
             },
 
             'bd_test': {
@@ -361,7 +361,7 @@ torch.save(
                 'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
             },
         },
-'attack_result.pt'
+    f'{save_path}/attack_result.pt'
 )
 
 

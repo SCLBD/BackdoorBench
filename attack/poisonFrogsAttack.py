@@ -170,6 +170,7 @@ def add_args(parser):
     parser.add_argument('--pratio', type = float,
         help = 'the poison rate '
     )
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--dataset', type = str,
                         help = 'which dataset to use'

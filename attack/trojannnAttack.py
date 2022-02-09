@@ -279,6 +279,7 @@ def add_args(parser):
     parser.add_argument('--layer_name', type = str, help = 'the name of layer for which we try activation')
     parser.add_argument('--target_activation', type = float)
 
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--trigger_generation_lr_start', type = float)
     parser.add_argument('--trigger_generation_lr_end', type=float)
     parser.add_argument('--trigger_generation_denoise_weight_start', type=float)
