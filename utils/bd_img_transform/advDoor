@@ -28,4 +28,34 @@ class AdvDoorAttack(object):
         elif type=='cw':
             return get_cw()
 
+    def get_output_for_defense(self):
+        ret = {
+            'model_name':args.model,
+            'model': trainer.model.cpu().state_dict(),
+            'clean_train': {
+                'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
+                'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
+            },
+
+            'clean_test' : {
+                'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
+                'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
+            },
+
+            'bd_train': {
+                'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
+                'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
+            },
+
+            'bd_test': {
+                'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
+                'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
+            },
+        }
+        return ret 
+
+
+    
+
+
     
