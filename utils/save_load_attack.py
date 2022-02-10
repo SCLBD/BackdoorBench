@@ -24,6 +24,7 @@
         },
     f'{save_path}/attack_result.pt'
 )'''
+import logging
 
 import numpy as np
 import torch
@@ -59,11 +60,13 @@ def save_attack_result(
             all_y = torch.cat(all_y).long().cpu()
             return all_x, all_y, None
 
-    bd_train_x, bd_train_y, train_poison_indicator = loop_through_cls_ds_without_transform(bd_train)
-    bd_test_x, bd_test_y, _ = loop_through_cls_ds_without_transform(bd_test)
+    if bd_train is not None:
+        logging.info('bd_train is set to be None in saving process!')
+        bd_train_x, bd_train_y, train_poison_indicator = loop_through_cls_ds_without_transform(bd_train)
+        if train_poison_indicator is not None:
+            bd_train_x, bd_train_y = bd_train_x[np.where(train_poison_indicator == 1)[0]], bd_train_y[np.where(train_poison_indicator == 1)[0]]
 
-    if train_poison_indicator is not None:
-        bd_train_x, bd_train_y = bd_train_x[np.where(train_poison_indicator == 1)[0]], bd_train_y[np.where(train_poison_indicator == 1)[0]]
+    bd_test_x, bd_test_y, _ = loop_through_cls_ds_without_transform(bd_test)
     bd_test_x, bd_test_y = bd_test_x, bd_test_y
 
     torch.save(
@@ -78,11 +81,15 @@ def save_attack_result(
 
             'clean_data': clean_data,
 
-            'bd_train': {
+            'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
                 'original_index' : np.where(train_poison_indicator == 1)[0] if train_poison_indicator is not None else None,
-            },
+            } if bd_train is not None else {
+                'x': None,
+                'y': None,
+                'original_index': None,
+            }) ,
 
             'bd_test': {
                 'x': bd_test_x,
@@ -106,7 +113,7 @@ def load_attack_result(
     load_file = torch.load(save_path)
 
     model = generate_cls_model(load_file['model_name'], load_file['num_classes'])
-    model.load_state_dict(load_file['model'])
+    # model.load_state_dict(load_file['model'])
 
     clean_setting = Args()
     clean_setting.dataset = load_file['clean_data']
@@ -147,21 +154,25 @@ def load_attack_result(
     clean_test_x = torch.tensor(nHWC_to_nCHW(clean_test_ds.data)).float().cpu()
     clean_test_y = torch.tensor(clean_test_ds.targets).long().cpu()
 
-    if load_file['bd_train']['original_index'] is not None:
-        bd_train_x = deepcopy(clean_train_x)
-        bd_train_x[load_file['bd_train']['original_index']] = load_file['bd_train']['x']
+    if load_file['bd_train']['x'] is not None and load_file['bd_train']['y'] is not None:
 
-        bd_train_y = deepcopy(clean_train_y)
-        bd_train_y[load_file['bd_train']['original_index']] = load_file['bd_train']['y']
+        if load_file['bd_train']['original_index'] is not None:
+            bd_train_x = deepcopy(clean_train_x)
+            bd_train_x[load_file['bd_train']['original_index']] = load_file['bd_train']['x']
+
+            bd_train_y = deepcopy(clean_train_y)
+            bd_train_y[load_file['bd_train']['original_index']] = load_file['bd_train']['y']
+        else:
+            bd_train_x = load_file['bd_train']['x']
+            bd_train_y = load_file['bd_train']['y']
     else:
-        bd_train_x = load_file['bd_train']['x']
-        bd_train_y = load_file['bd_train']['y']
-
-    print('load')
+        bd_train_x = None
+        bd_train_y = None
+        logging.info('bd_train is None !')
 
     return {
             'model_name': load_file['model_name'],
-            'model': model,
+            'model': load_file['model'],
 
             'clean_train': {
                 'x' : clean_train_x,

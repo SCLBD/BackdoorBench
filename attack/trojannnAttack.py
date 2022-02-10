@@ -573,6 +573,17 @@ trainer.train_with_test_each_epoch(
             continue_training_path = None,
         )
 
-adv_train_ds.save(save_path+'/adv_train_ds.pth', only_bd = True)
-adv_test_dataset.save(save_path+'/adv_test_ds.pth', only_bd = True)
+from utils.save_load_attack import save_attack_result
+
+save_attack_result(
+    model_name = args.model,
+    num_classes = args.num_classes,
+    model = trainer.model.cpu().state_dict(),
+    data_path = args.dataset_path,
+    img_size = args.img_size,
+    clean_data = args.dataset,
+    bd_train = adv_train_ds,
+    bd_test = adv_test_dataset,
+    save_path = save_path,
+)
 

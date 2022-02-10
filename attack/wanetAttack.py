@@ -416,31 +416,18 @@ for x, y in DataLoader(
 adv_train_x = torch.cat(adv_train_x)
 adv_train_y = torch.cat(adv_train_y)
 
-from utils.nCHW_nHWC import *
+from torch.utils.data import TensorDataset
 
-torch.save(
-    {
-        'model_name': args.model,
-        'model': trainer.model.cpu().state_dict(),
-        'clean_train': {
-            'x': torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
-            'y': torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
-        },
+from utils.save_load_attack import save_attack_result
 
-        'clean_test': {
-            'x': torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
-            'y': torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
-        },
-
-        'bd_train': {
-            'x': torch.tensor(nHWC_to_nCHW(adv_train_x)).float().cpu(),
-            'y': torch.tensor(adv_train_y).long().cpu(),
-        },
-
-        'bd_test': {
-            'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
-            'y': torch.tensor(adv_test_dataset.targets).long().cpu(),
-        },
-    },
-    f'{save_path}/attack_result.pt'
+save_attack_result(
+    model_name = args.model,
+    num_classes = args.num_classes,
+    model = trainer.model.cpu().state_dict(),
+    data_path = args.dataset_path,
+    img_size = args.img_size,
+    clean_data = args.dataset,
+    bd_train = TensorDataset(adv_train_x, adv_train_y),
+    bd_test = adv_test_dataset,
+    save_path = save_path,
 )
