@@ -64,6 +64,9 @@ def train_step(
     total_loss = 0
     criterion = nn.CrossEntropyLoss()
     criterion_div = nn.MSELoss(reduction="none")
+    save_bd = 1
+    total_inputs_bd = []
+    total_targets_bd = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dl1)), train_dl1, train_dl2):
         optimizerC.zero_grad()
 
@@ -81,7 +84,16 @@ def train_step(
 
         total_inputs = torch.cat((inputs_bd, inputs_cross, inputs1[num_bd + num_cross :]), 0)
         total_targets = torch.cat((targets_bd, targets1[num_bd:]), 0)
-
+        if(epoch==26):
+            if(save_bd):
+                total_inputs_bd = total_inputs
+                total_targets_bd = total_targets
+                save_bd = 0
+            else:
+                total_inputs_bd = torch.cat((total_inputs_bd, total_inputs), 0)
+                total_targets_bd = torch.cat((total_targets_bd, total_targets), 0)
+            print(total_inputs_bd.shape)
+            print(total_targets_bd.shape)
         preds = netC(total_inputs)
         loss_ce = criterion(preds, total_targets)
 
@@ -148,6 +160,7 @@ def train_step(
 
     schedulerC.step()
     schedulerG.step()
+    return total_inputs_bd, total_targets_bd
 
 
 def eval(
@@ -174,6 +187,9 @@ def eval(
     total_correct_clean = 0.0
     total_correct_bd = 0.0
     total_correct_cross = 0.0
+    save_bd = 1
+    total_inputs_bd = []
+    total_targets_bd = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
         with torch.no_grad():
             inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
@@ -185,6 +201,16 @@ def eval(
             total_correct_clean += correct_clean
 
             inputs_bd, targets_bd, _, _ = create_bd(inputs1, targets1, netG, netM, opt)
+            if(epoch==26):
+                if(save_bd):
+                    total_inputs_bd = inputs_bd
+                    total_targets_bd = targets_bd
+                    save_bd = 0
+                else:
+                    total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
+                    total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
+                print(total_inputs_bd.shape)
+                print(total_targets_bd.shape)
             preds_bd = netC(inputs_bd)
             correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
             total_correct_bd += correct_bd
@@ -232,7 +258,7 @@ def eval(
         os.makedirs(ckpt_folder)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
     torch.save(state_dict, ckpt_path)
-    return best_acc_clean, best_acc_bd, best_acc_cross, epoch
+    return best_acc_clean, best_acc_bd, best_acc_cross, epoch, total_inputs_bd, total_targets_bd
 
 
 # -------------------------------------------------------------------------------------
@@ -402,7 +428,6 @@ def train(opt):
     train_dl2 = get_dataloader(opt, train=True)
     test_dl1 = get_dataloader(opt, train=False)
     test_dl2 = get_dataloader(opt, train=False)
-
     if epoch == 1:
         netM.train()
         for i in range(25):
@@ -416,14 +441,17 @@ def train(opt):
             epoch += 1
     netM.eval()
     netM.requires_grad_(False)
-
+    bd_train_x = []
+    bd_train_y = []
+    bd_test_x = []
+    bd_test_y = []
     for i in range(opt.n_iters):
         print(
             "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}:".format(
                 epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div
             )
         )
-        train_step(
+        total_inputs_bd, total_targets_bd = train_step(
             netC,
             netG,
             netM,
@@ -437,8 +465,7 @@ def train(opt):
             opt,
             tf_writer,
         )
-
-        best_acc_clean, best_acc_bd, best_acc_cross, epoch = eval(
+        best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd = eval(
             netC,
             netG,
             netM,
@@ -454,9 +481,39 @@ def train(opt):
             best_acc_cross,
             opt,
         )
+        if(epoch == 26):
+            bd_train_x = total_inputs_bd
+            bd_train_y = total_targets_bd
+            bd_test_x = test_inputs_bd
+            bd_test_y = test_targets_bd
         epoch += 1
         if epoch > opt.n_iters:
             break
+    torch.save(
+        {
+            'model_name': 'input aware attack',
+            'model': netC.cpu().state_dict(),
+            'clean_train': {
+                'x' : torch.tensor(train_dl1.dataset.data).float().cpu(),
+                'y' : torch.tensor(train_dl1.dataset.targets).float().cpu(),
+            },
+
+            'clean_test' : {
+                'x' : torch.tensor(test_dl1.dataset.data).float().cpu(),
+                'y' : torch.tensor(test_dl1.dataset.targets).float().cpu(),
+            },
+
+            'bd_train': {
+                'x' : torch.tensor(bd_train_x).float().cpu(),
+                'y' : torch.tensor(bd_train_y).float().cpu(),
+            },
+
+            'bd_test': {
+                'x': torch.tensor(test_inputs_bd).float().cpu(),
+                'y' : torch.tensor(test_targets_bd).float().cpu(),
+            },
+        },
+    f'{opt.save_path}/attack_result.pt')
 
 
 def main():

@@ -7,6 +7,7 @@ def get_arguments():
     parser.add_argument("--data_root", type=str, default="data/")
     parser.add_argument("--checkpoints", type=str, default="./record/inputAwareAttack/checkpoints/")
     parser.add_argument("--temps", type=str, default="./record/inputAwareAttack/temps")
+    parser.add_argument("--save_path", type=str, default="./record/inputAwareAttack/")
     parser.add_argument("--device", type=str, default="cuda")
 
     parser.add_argument("--dataset", type=str, default="cifar10")
