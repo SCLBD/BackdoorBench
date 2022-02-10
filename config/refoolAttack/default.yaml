@@ -7,7 +7,7 @@ dataset_path: ../data/GTSRB
 epochs: 200
 frequency_save: 100
 img_size: [32, 32, 3]
-lr: 0.01
+lr: 0.001
 lr_scheduler: StepLR
 steplr_stepsize: 100000
 steplr_gamma: 0.1
@@ -16,7 +16,7 @@ num_classes: 43
 pratio: 0.4 # notice that this is inside the target class !
 random_seed: 0
 sgd_momentum: 0.9
-wd: 0.0005
+wd: 0.0005 # different from the yaml file, but the example code actually does not use wd in yaml file !?? The real wd in code actually is this value....
 img_r_seq_folder_path: ../resource/refool_reflections
 max_image_size: 560
 ghost_rate: 0.49

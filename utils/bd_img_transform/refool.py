@@ -305,7 +305,7 @@ class refoolMixStrategyAttack(object):
                 else:
                     break
 
-        return blended
+        return img_in
 
 
 # def blend_images(img_t,
