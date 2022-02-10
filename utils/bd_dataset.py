@@ -118,9 +118,14 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             return img, label,
 
     def __len__(self):
-        all_length = (len(self.data),len(self.targets),len(self.original_index),len(self.poison_indicator),len(self.original_targets),)
-        assert max(all_length) == min(all_length)
-        return len(self.targets)
+        if  self.add_details_in_preprocess:
+            all_length = (len(self.data),len(self.targets),len(self.original_index),len(self.poison_indicator),len(self.original_targets),)
+            assert max(all_length) == min(all_length)
+            return len(self.targets)
+        else:
+            all_length = (len(self.data), len(self.targets),)
+            assert max(all_length) == min(all_length)
+            return len(self.targets)
 
     def forget_original(self):
         self.dataset, self.poison_idx = None, None
@@ -133,9 +138,10 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
         if inplace:
             self.data = self.data[chosen_index_array]
             self.targets = self.targets[chosen_index_array]
-            self.original_index = self.original_index[chosen_index_array]
-            self.poison_indicator = self.poison_indicator[chosen_index_array]
-            self.original_targets = self.original_targets[chosen_index_array]
+            if self.add_details_in_preprocess:
+                self.original_index = self.original_index[chosen_index_array]
+                self.poison_indicator = self.poison_indicator[chosen_index_array]
+                self.original_targets = self.original_targets[chosen_index_array]
             if not memorize_original:
                 self.dataset, self.poison_idx = None, None
         else:
@@ -151,11 +157,13 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             )
             set_without_pre.data = self.data[chosen_index_array]
             set_without_pre.targets = self.targets[chosen_index_array]
-            set_without_pre.original_index = self.original_index[chosen_index_array]
-            set_without_pre.poison_indicator = self.poison_indicator[chosen_index_array]
-            set_without_pre.original_targets = self.original_targets[chosen_index_array]
+            if self.add_details_in_preprocess:
+                set_without_pre.original_index = self.original_index[chosen_index_array]
+                set_without_pre.poison_indicator = self.poison_indicator[chosen_index_array]
+                set_without_pre.original_targets = self.original_targets[chosen_index_array]
             return set_without_pre
 
+    #TODO in case no self.add_details_in_preprocess:
     def save(self, save_path, only_bd = False, additional_info = None):
         if only_bd:
             poison_position = np.where(self.poison_indicator == 1)[0]
@@ -197,7 +205,8 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                  },
                 save_path
             )
-    
+
+    # TODO in case no self.add_details_in_preprocess:
     @classmethod       
     def load(cls,load_path,):
         
@@ -222,6 +231,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
 
         return load_dataset,  load_file['additional_info'], load_file['only_bd']
 
+    # TODO in case no self.add_details_in_preprocess:
     @classmethod
     def load_and_overwirte(cls, load_path, base_dataset, inplace = False) :
         '''
