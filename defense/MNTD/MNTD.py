@@ -1,99 +1,91 @@
+'''
+@inproceedings{xu2021detecting,
+  title={Detecting ai trojans using meta neural analysis},
+  author={Xu, Xiaojun and Wang, Qi and Li, Huichen and Borisov, Nikita and Gunter, Carl A and Li, Bo},
+  booktitle={2021 IEEE Symposium on Security and Privacy (SP)},
+  pages={103--120},
+  year={2021},
+  organization={IEEE}
+}
 
+code : https://github.com/TDteach/backdoor.git
+'''
 import numpy as np
 import torch
 import torch.utils.data
-from utils_meta import epoch_meta_eval, epoch_meta_train, load_model_setting, epoch_meta_train_oc, epoch_meta_eval_oc, load_dataset_setting
 
-from meta_classifier import MetaClassifier, MetaClassifierOC
-import argparse
-import os 
 import sys
+import os
+sys.path.append('../')
 sys.path.append(os.getcwd())
-from utils.network import get_network
+from utils.aggregate_block.model_trainer_generate import generate_cls_model
+
+from utils.utils_meta import epoch_meta_eval, epoch_meta_train, load_model_setting, epoch_meta_train_oc, epoch_meta_eval_oc, load_dataset_setting
+
+from utils.meta_classifier import MetaClassifier, MetaClassifierOC
+import argparse
+
+#from utils.network import get_network
 from tqdm import tqdm
 
 import yaml
 
 def get_args():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--device', type=str, help='cuda, cpu')
+    parser.add_argument('--checkpoint_load', type=str)
+    parser.add_argument('--checkpoint_save', type=str)
+    parser.add_argument('--log', type=str)
+    parser.add_argument("--data_root", type=str)
+
+    parser.add_argument('--dataset', type=str, help='mnist, cifar10, gtsrb, celeba, tiny') 
+    parser.add_argument("--num_classes", type=int)
+    parser.add_argument("--input_height", type=int)
+    parser.add_argument("--input_width", type=int)
+    parser.add_argument("--input_channel", type=int)
+
+    parser.add_argument('--epochs', type=int)
+    parser.add_argument('--batch_size', type=int)
+    parser.add_argument("--num_workers", type=float)
+    parser.add_argument('--lr', type=float)
+
+    parser.add_argument('--attack', type=str)
+    parser.add_argument('--poison_rate', type=float)
+    parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
+    parser.add_argument('--target_label', type=int)
+    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
+
+    ####添加额外
+    parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--result_file', type=str, help='the location of result')
+
+    ####spectral
+    parser.add_argument('--poison_rate_test', type=float)
+    parser.add_argument('--percentile', type=int)
     
-    parser.add_argument('--device', type=str, default='cuda', help='cuda, cpu')
-    parser.add_argument('--checkpoint_load', type=str, default=None)
-    parser.add_argument('--checkpoint_save', type=str, default=None)
-    parser.add_argument('--log', type=str, default=None)
-    parser.add_argument("--data_root", type=str, default='dataset/')
-
-    parser.add_argument('--dataset', type=str, default='cifar10', help='mnist, cifar10, gtsrb, celeba, tiny') 
-    parser.add_argument("--num_classes", type=int, default=None)
-    parser.add_argument("--input_height", type=int, default=None)
-    parser.add_argument("--input_width", type=int, default=None)
-    parser.add_argument("--input_channel", type=int, default=None)
-
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument("--num_workers", type=float, default=4)
-    parser.add_argument('--lr', type=float, default=0.01)
-
-    parser.add_argument('--attack', type=str, default='badnet')
-    parser.add_argument('--poison_rate', type=float, default=0.1)
-    parser.add_argument('--target_type', type=str, default='all2one', help='all2one, all2all, cleanLabel') 
-    parser.add_argument('--target_label', type=int, default=0)
-    parser.add_argument('--trigger_type', type=str, default='squareTrigger', help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
-
-
     #####MNTD
-    parser.add_argument('--N_EPOCH', type=int, default=None, help='train epoch')
-    parser.add_argument('--TRAIN_NUM', type=int, default=None, help='the number of train model')
-    parser.add_argument('--VAL_NUM', type=int, default=None, help='the number of valification model')
-    parser.add_argument('--load_exist', type=float, default=0.001, help='load the existed meta model')
-    parser.add_argument('--method', type=str, default='all', help='how to train meta classification')
-
-    parser.add_argument('--load_target', type=str,default=None, help='load the existed target model')
-
-
+    parser.add_argument('--N_EPOCH', type=int, help='train epoch')
+    parser.add_argument('--TRAIN_NUM', type=int, help='the number of train model')
+    parser.add_argument('--VAL_NUM', type=int, help='the number of valification model')
+    parser.add_argument('--load_exist', type=float, help='load the existed meta model')
+    parser.add_argument('--method', type=str, help='how to train meta classification')
+    parser.add_argument('--load_target', type=str, help='load the existed target model')
 
     arg = parser.parse_args()
 
-    if arg.dataset == "mnist":
-        arg.num_classes = 10
-        arg.input_height = 28
-        arg.input_width = 28
-        arg.input_channel = 1
-    elif arg.dataset == "cifar10":
-        arg.num_classes = 10
-        arg.input_height = 32
-        arg.input_width = 32
-        arg.input_channel = 3
-    elif arg.dataset == "gtsrb":
-        arg.num_classes = 43
-        arg.input_height = 32
-        arg.input_width = 32
-        arg.input_channel = 3
-    elif arg.dataset == "celeba":
-        arg.num_classes = 8
-        arg.input_height = 64
-        arg.input_width = 64
-        arg.input_channel = 3
-    elif arg.dataset == "tiny":
-        arg.num_classes = 200
-        arg.input_height = 64
-        arg.input_width = 64
-        arg.input_channel = 3
-    else:
-        raise Exception("Invalid Dataset")
-
-    arg.checkpoint_save = 'saved/checkpoint/checkpoint_' + arg.dataset + '.tar'
-    arg.log = 'saved/log/log_' + arg.dataset + '.txt'
-    arg.data_root = arg.data_root + arg.dataset    
-    if not os.path.isdir(arg.data_root):
-        os.makedirs(arg.data_root)
     print(arg)
     return arg
 
 
 
 
-def MNTD(args,target_model,method='all'):
+def MNTD(args,result,config):
+    method = args.method
+    model = generate_cls_model(args.model,args.num_classes)
+    model.load_state_dict(result['model'])
+    model.to(args.device)
+    target_model = model
     if method == 'all':
         result = run_meta(args,target_model)
     elif method == 'one_class':
@@ -111,13 +103,12 @@ def run_meta(args,target_model,no_qt = False):
         1 == 1
 
     GPU = args.cuda
-    N_REPEAT = config['N_REPEAT']
-    N_EPOCH = config['N_EPOCH']
-    TRAIN_NUM = config['TRAIN_NUM']
-    VAL_NUM = config['VAL_NUM']
-    LOAD_EXIST = config['load_exist']
-
-    
+    N_REPEAT = args.N_REPEAT
+    N_EPOCH = args.N_EPOCH
+    TRAIN_NUM = args.TRAIN_NUM 
+    VAL_NUM = args.VAL_NUM 
+    LOAD_EXIST = args.load_exist 
+   
     TEST_NUM = 256
 
     if no_qt:
@@ -126,7 +117,7 @@ def run_meta(args,target_model,no_qt = False):
         save_path = './defenses/Meta-Nerual-Trojan-Detection/meta_classifier_ckpt/%s.model'%args.dataset
     shadow_path = './defenses/Meta-Nerual-Trojan-Detection/shadow_model_ckpt/%s/models'%args.dataset
     
-    Model = get_network(args) 
+    
     input_size = (args.input_channel,args.input_height,args.input_width)
     class_num = args.num_classes
     inp_mean, inp_std, is_discrete = load_dataset_setting(args.dataset)
@@ -151,7 +142,8 @@ def run_meta(args,target_model,no_qt = False):
         x = shadow_path + '/shadow_benign_%d.model'%i
         val_dataset.append((x,0))
 
-    
+    from model_lib.cifar10_cnn_model import Model
+    #Model = get_network(args) 
     shadow_model = Model(gpu=GPU)
     meta_model = MetaClassifier(input_size, class_num, gpu=GPU)
     if inp_mean is not None:
@@ -189,23 +181,17 @@ def run_meta(args,target_model,no_qt = False):
 
 
 def run_meta_oc(args,target_model):
-    with open("./config/config.yaml", 'r') as stream: 
-        config = yaml.safe_load(stream) 
     
-    for item in config:
-        ####写一个args导入config文件
-        1 == 1
-
     GPU = args.cuda
-    N_REPEAT = config['N_REPEAT']
-    N_EPOCH = config['N_EPOCH']
-    TRAIN_NUM = config['TRAIN_NUM']
-    LOAD_EXIST = config['load_exist']
+    N_REPEAT = args.N_REPEAT 
+    N_EPOCH = args.N_EPOCH 
+    TRAIN_NUM = args.TRAIN_NUM 
+    LOAD_EXIST = args.load_exist 
 
     save_path = './defenses/Meta-Nerual-Trojan-Detection/meta_classifier_ckpt/%s_oc.model'%args.dataset
     shadow_path = './defenses/Meta-Nerual-Trojan-Detection/shadow_model_ckpt/%s/models'%args.dataset
 
-    Model = get_network(args) 
+    
     input_size = (args.input_channel,args.input_height,args.input_width)
     class_num = args.num_classes
     inp_mean, inp_std, is_discrete = load_dataset_setting(args.dataset)
@@ -222,7 +208,8 @@ def run_meta_oc(args,target_model):
         x = shadow_path + '/shadow_benign_%d.model'%i
         train_dataset.append((x,1))
 
-    
+    from model_lib.cifar10_cnn_model import Model
+    #Model = get_network(args) 
     shadow_model = Model
     meta_model = MetaClassifierOC(input_size, class_num, gpu=GPU)
     if inp_mean is not None:
@@ -253,16 +240,49 @@ def run_meta_oc(args,target_model):
 if __name__ == '__main__':
     
     args = get_args()
-    model = get_network(args)
-    if args.load_target is not None:
-        checkpoint = torch.load(args.checkpoint_load)
+    with open("./defense/MNTD/config/config.yaml", 'r') as stream: 
+        config = yaml.safe_load(stream) 
+    config.update({k:v for k,v in args.__dict__.items() if v is not None})
+    args.__dict__ = config
+    if args.dataset == "mnist":
+        args.num_classes = 10
+        args.input_height = 28
+        args.input_width = 28
+        args.input_channel = 1
+    elif args.dataset == "cifar10":
+        args.num_classes = 10
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
+    elif args.dataset == "gtsrb":
+        args.num_classes = 43
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
+    elif args.dataset == "celeba":
+        args.num_classes = 8
+        args.input_height = 64
+        args.input_width = 64
+        args.input_channel = 3
+    elif args.dataset == "tiny":
+        args.num_classes = 200
+        args.input_height = 64
+        args.input_width = 64
+        args.input_channel = 3
+    else:
+        raise Exception("Invalid Dataset")
+    args.checkpoint_save = os.getcwd() + '/record/defence/ac/' + args.dataset + '.tar'
+    args.log = 'saved/log/log_' + args.dataset + '.txt'
+
+    ######为了测试临时写的代码
+    save_path = '/record/' + args.result_file
+    args.save_path = save_path
+    result = torch.load(os.getcwd() + save_path + '/attack_result.pt')
+    
+    if args.save_path is not None:
         print("Continue training...")
-        model.load_state_dict(checkpoint['model'])
-        result = MNTD(args,model,args.method)
-        if result['is_bd']:
-            print('The target model is a backdoor model with score {}'.format(result['score']))
-        else:
-            print('The target model is not a backdoor model with score {}'.format(result['score']))
+        result_defense = MNTD(args,result,config)
     else:
         print("There is no target model")
+
     

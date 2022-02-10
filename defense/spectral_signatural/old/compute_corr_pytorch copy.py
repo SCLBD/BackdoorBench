@@ -19,16 +19,12 @@ import argparse
 from datetime import datetime
 import json
 import math
-from pyexpat import model
+import os
 import shutil
 import sys
-import os
-sys.path.append('../')
-sys.path.append(os.getcwd())
 from timeit import default_timer as timer
 
 import numpy as np
-import torch
 #import tensorflow as tf
 #import tensorflow.contrib.slim as slim
 from tqdm import trange
@@ -36,43 +32,26 @@ from tqdm import trange
 #import dataset_input
 #from eval import evaluate 
 #import resnet
-import yaml
-from utils.aggregate_block.dataset_and_transform_generate import get_transform
-
-from utils.aggregate_block.model_trainer_generate import generate_cls_model
-from utils.bd_dataset import prepro_cls_DatasetBD
-from utils.nCHW_nHWC import nCHW_to_nHWC
+import defenses.spectral_signatural.utilities as utilities
+from utils.dataloader_bd import get_dataset_train
 #from utils.preact_resnet import get_activation
 
-def compute_corr_v1(arg,result,config):
+def compute_corr_v1(arg,model,train_data,train_data_clean,test_data_clean,test_data_bd,trainset):
 
-    model = generate_cls_model(arg.model,arg.num_classes)
-    model.load_state_dict(result['model'])
-    model.to(arg.device)
-    model.eval()
+    ##### config 设定
+    config_dict = utilities.get_config('./defenses/spectral_signatural/config.json')
+    config = utilities.config_to_namedtuple(config_dict)
 
     # Setting up the data and the model
-    target_label = arg.target_label
+    poison_eps = config.data.poison_eps
+    clean_label = config.data.clean_label
+    target_label = config.data.target_label
     #dataset = dataset_input.CIFAR10Data(config,
     #                                    seed=config.training.np_random_seed)
-    tran = get_transform(arg.dataset, *([arg.input_height,arg.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_train']['x'].numpy()))
-    y = result['bd_train']['y']
-    data_set = torch.utils.data.TensorDataset(x,y)
-    data_set_o = prepro_cls_DatasetBD(
-        full_dataset_without_transform=data_set,
-        poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=tran,
-        ori_label_transform_in_loading=None,
-        add_details_in_preprocess=False,
-    )
-    
-    dataset = data_set_o
+    dataset = trainset
     ####为了看现在dataset里面还有多少剩余数据(在去除了backdoor数据，和预设的荼毒比例，为了之后测试用，我们用预设的poison_rate来测试)
     #num_poisoned_left = dataset.num_poisoned_left
-    num_poisoned_left = int(len(dataset)*arg.poison_rate_test)
+    num_poisoned_left = len(dataset)*(1-arg.poison_rate)
     print('Num poisoned left: ', num_poisoned_left)
     #num_training_examples = len(dataset[0])
     #global_step = tf.contrib.framework.get_or_create_global_step()
@@ -101,39 +80,32 @@ def compute_corr_v1(arg,result,config):
     dataset_y = []
     for i in range(len(dataset)):
         dataset_y.append(dataset[i][1])
-    cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
+    cur_indices = np.where(dataset_y==lbl)[0]
     cur_examples = len(cur_indices)
     print('Label, num ex: ', lbl, cur_examples)
     #########
     #cur_op = model.representation
     for iex in trange(cur_examples):
         cur_im = cur_indices[iex]
-        x_batch = dataset[cur_im][0].unsqueeze(0).to(arg.device)
+        x_batch = dataset[cur_im][0]
         y_batch = dataset[cur_im][1]
 
         #dict_nat = {model.x_input: x_batch,
         #            model.y_input: y_batch,
         #            model.is_training: False}
         #######得在原有模型基础上加入representation！！！！
-        assert arg.model in ['resnet18']
-        if arg.model == 'resnet18':
-            inps,outs = [],[]
-            def layer_hook(module, inp, out):
-                outs.append(out.data)
-            hook = model.avgpool.register_forward_hook(layer_hook)
-            _ = model(x_batch)
-            batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
-
+        _ = model(x_batch)
+        batch_grads = model.representation
         #batch_grads = sess.run(cur_op, feed_dict=dict_nat)
         if iex==0:
             clean_cov = np.zeros(shape=(cur_examples-num_poisoned_left, len(batch_grads)))
             full_cov = np.zeros(shape=(cur_examples, len(batch_grads)))
         if iex < (cur_examples-num_poisoned_left):
-            clean_cov[iex]= batch_grads.detach().cpu().numpy()
-        full_cov[iex] = batch_grads.detach().cpu().numpy()
+            clean_cov[iex]=batch_grads
+        full_cov[iex] = batch_grads
 
     #np.save(corr_dir+str(lbl)+'_full_cov.npy', full_cov)
-    total_p = arg.percentile            
+    total_p = config.data.percentile            
     clean_mean = np.mean(clean_cov, axis=0, keepdims=True)
     full_mean = np.mean(full_cov, axis=0, keepdims=True)            
 
@@ -149,6 +121,7 @@ def compute_corr_v1(arg,result,config):
     p = total_p
     corrs = np.matmul(eigs, np.transpose(full_cov)) #shape num_top, num_active_indices
     scores = np.linalg.norm(corrs, axis=0) #shape num_active_indices
+    np.save(os.path.join(model_dir, 'scores.npy'), scores)
     print('Length Scores: ', len(scores))
     p_score = np.percentile(scores, p)
     top_scores = np.where(scores>p_score)[0]
@@ -159,8 +132,7 @@ def compute_corr_v1(arg,result,config):
     
     num_poisoned_after = num_poisoned_left - num_bad_removed
     removed_inds = np.copy(top_scores)
-    re = [cur_indices[v] for i,v in enumerate(removed_inds)]
-    left_inds = np.delete(range(len(dataset)), re)
+    left_inds = np.delete(range(len(dataset[0])), removed_inds)
     
     #####直接返回一个dataset就可以了，不需要记录
     #removed_inds_file = os.path.join(model_dir, 'removed_inds.npy')
@@ -169,26 +141,12 @@ def compute_corr_v1(arg,result,config):
     
 
     ######创建一个dataset
-    dataset.subset(left_inds)
-    dataset_left = dataset
-    data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=arg.batch_size, num_workers=arg.num_workers, shuffle=True)
-    
-    optimizer = torch.optim.SGD(model.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
-    criterion = torch.nn.CrossEntropyLoss() 
-    for j in range(arg.epochs):
-        for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
-            inputs, labels = inputs.to(arg.device), labels.to(arg.device)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-
+    dataset_ = []
+    for i in left_inds:
+        dataset_.append(dataset[0][i],dataset[1][i])
+    dataset_left = get_dataset_train(dataset_)
     result = {}
     result["dataset"] = dataset_left
-    result['model'] = model
     return result
 
     #if os.path.exists('job_result.json'):
@@ -231,9 +189,16 @@ def get_args():
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     ####spectral
-    parser.add_argument('--poison_rate_test', type=float)
-    parser.add_argument('--percentile', type=int)
-    
+    parser.add_argument("--n_sample", type=int)
+    parser.add_argument("--n_test", type=int)
+    parser.add_argument("--detection_boundary", type=float)  # According to the original paper
+    parser.add_argument("--test_rounds", type=int)
+
+    parser.add_argument("--s", type=float)
+    parser.add_argument("--k", type=int)  # low-res grid size
+    parser.add_argument(
+        "--grid-rescale", type=float
+    )  # scale grid values to avoid going out of [-1, 1]. For example, grid-rescale = 0.98
 
     arg = parser.parse_args()
 
@@ -243,7 +208,7 @@ def get_args():
 if __name__ == '__main__':
     
     args = get_args()
-    with open("./defense/spectral_signatural/config/config.yaml", 'r') as stream: 
+    with open("./defense/STRIP/config/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

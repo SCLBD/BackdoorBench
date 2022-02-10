@@ -22,7 +22,10 @@ trigger_type: 'squareTrigger'
 
 model: 'resnet18'
 
-nb_dims: 4
-nb_clusters: 2
-cluster_analysis: 'smaller'
-
+method : 'all'
+N_REPEAT: 5
+N_EPOCH: 10
+TRAIN_NUM: 10
+VAL_NUM: 10
+TEST_NUM: 10
+load_exist: False

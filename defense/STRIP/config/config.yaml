@@ -22,7 +22,11 @@ trigger_type: 'squareTrigger'
 
 model: 'resnet18'
 
-nb_dims: 4
-nb_clusters: 2
-cluster_analysis: 'smaller'
+n_sample: 100
+n_test: 100
+detection_boundary: 0.2
+test_rounds: 10
+s: 0.5
+k: 4
+grid-rescale: 1
 

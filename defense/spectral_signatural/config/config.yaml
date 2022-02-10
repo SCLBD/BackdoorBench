@@ -22,7 +22,6 @@ trigger_type: 'squareTrigger'
 
 model: 'resnet18'
 
-nb_dims: 4
-nb_clusters: 2
-cluster_analysis: 'smaller'
+poison_rate_test: 0.1
+percentile: 85
 

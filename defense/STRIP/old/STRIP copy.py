@@ -10,7 +10,6 @@
 code : https://github.com/VinAIResearch/input-aware-backdoor-attack-release/tree/master/defenses/STRIP
 '''
 
-import argparse
 import torch
 import os
 import torchvision
@@ -19,24 +18,18 @@ import cv2
 import torch.nn.functional as F
 from torchvision import transforms
 
-from PIL import Image
-
 import math
 
-#from defenses.STRIP.config import get_argument
+from defenses.STRIP.config import get_argument
 
 import sys
-import os
-sys.path.append('../')
-sys.path.append(os.getcwd())
-import yaml
-from utils.aggregate_block.dataset_and_transform_generate import get_transform
-
-from utils.aggregate_block.model_trainer_generate import generate_cls_model
-from utils.bd_dataset import prepro_cls_DatasetBD
-from utils.nCHW_nHWC import nCHW_to_nHWC
 
 sys.path.insert(0, "../..")
+from classifier_models import PreActResNet18, ResNet18
+from defenses.STRIP.dataloader import get_dataloader, get_dataset
+from utils.utils import progress_bar
+from networks.models import NetC_MNIST, Normalizer, Denormalizer
+
 
 class Normalize:
     def __init__(self, opt, expected_values, variance):
@@ -79,14 +72,24 @@ class STRIP:
         index_overlay = np.random.randint(0, len(dataset), size=self.n_sample)
         for index in range(self.n_sample):
             add_image = self._superimpose(background, dataset[index_overlay[index]][0])
-            add_image = self.tran(Image.fromarray(add_image.astype(np.uint8)))
-            #add_image = self.normalize(add_image)
+            add_image = self.normalize(add_image)
             x1_add[index] = add_image
 
         py1_add = classifier(torch.stack(x1_add).to(self.device))
         py1_add = torch.sigmoid(py1_add).cpu().numpy()
         entropy_sum = -np.nansum(py1_add * np.log2(py1_add))
         return entropy_sum / self.n_sample
+
+    def _get_denormalize(self, opt):
+        if opt.dataset == "cifar10":
+            denormalizer = Denormalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
+        elif opt.dataset == "mnist":
+            denormalizer = Denormalize(opt, [0.5], [0.5])
+        elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
+            denormalizer = None
+        else:
+            raise Exception("Invalid dataset")
+        return denormalizer
 
     def _get_normalize(self, opt):
         if opt.dataset == "cifar10":
@@ -103,77 +106,84 @@ class STRIP:
             transform = transforms.ToTensor()
         return transform
 
-    def __init__(self, opt, tran = None):
+    def __init__(self, opt):
         super().__init__()
         self.n_sample = opt.n_sample
         self.normalizer = self._get_normalize(opt)
+        self.denormalizer = self._get_denormalize(opt)
         self.device = opt.device
-        self.tran = tran
 
     def normalize(self, x):
         if self.normalizer:
             x = self.normalizer(x)
         return x
 
+    def denormalize(self, x):
+        if self.denormalizer:
+            x = self.denormalizer(x)
+        return x
 
     def __call__(self, background, dataset, classifier):
         return self._get_entropy(background, dataset, classifier)
 
 #########从这开始是我写的部分
-def strip_v1(opt,result,config):
+def strip_v1(opt,arg,model,train_data,train_data_clean,test_data_clean,test_data_bd,trainset):
     #输入模型是已经load的模型
-    model = generate_cls_model(args.model,args.num_classes)
-    model.load_state_dict(result['model'])
-    model.to(args.device)
     netC = model
     netC.requires_grad_(False)
     netC.eval()
+    netC.to(opt.device)
 
-    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].numpy())[0:opt.n_test])
-    y = result['clean_test']['y'][0:opt.n_test]
-    data_set = torch.utils.data.TensorDataset(x,y)
-    data_set_o = prepro_cls_DatasetBD(
-        full_dataset_without_transform=data_set,
-        poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=None,
-        ori_label_transform_in_loading=None,
-        add_details_in_preprocess=False,
-    )
-    data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
-    testset = data_set_o
-    
+    testset = get_dataset(opt, train=False)
     opt.bs = opt.n_test
-    x = torch.tensor(nCHW_to_nHWC(result['bd_train']['x'].numpy())[0:opt.n_test])
-    y = result['bd_train']['y'][0:opt.n_test]
-    data_set = torch.utils.data.TensorDataset(x,y)
-    data_set_o = prepro_cls_DatasetBD(
-        full_dataset_without_transform=data_set,
-        poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=None,
-        ori_label_transform_in_loading=None,
-        add_details_in_preprocess=False,
-    )
-    test_dataloader_backdoor = data_set_o
+    test_dataloader_backdoor = test_data_clean
+    denormalizer = Denormalizer(opt)
 
     # STRIP detector
-    strip_detector = STRIP(opt,tran)
+    strip_detector = STRIP(opt)
 
     # Entropy list
     list_entropy_trojan = []
     list_entropy_benign = []
 
 
-    
-    for i in range(opt.n_test):  # type: ignore
-        bd_inputs, targets = test_dataloader_backdoor[i]
-        background = bd_inputs
-        entropy = strip_detector(background, testset, netC)
-        list_entropy_trojan.append(entropy)
+    if opt.n_test < arg.batch_size:
+        bd_inputs, targets = next(iter(test_dataloader_backdoor))
+        bd_inputs = bd_inputs.to(opt.device)
+        bd_inputs = denormalizer(bd_inputs) * 255.0
+        bd_inputs = bd_inputs.detach().cpu().numpy()
+        bd_inputs = np.clip(bd_inputs, 0, 255).astype(np.uint8).transpose((0, 2, 3, 1))
+
+        for index in range(opt.n_test):
+            background = bd_inputs[index]
+            entropy = strip_detector(background, testset, netC)
+            list_entropy_trojan.append(entropy)
+            progress_bar(index, opt.n_test)
+    else:
+        step = math.ceil(opt.n_test/arg.batch_size)
+        for i in range(step-1):
+            bd_inputs, targets = next(iter(test_dataloader_backdoor))
+            bd_inputs = bd_inputs.to(opt.device)
+            bd_inputs = denormalizer(bd_inputs) * 255.0
+            bd_inputs = bd_inputs.detach().cpu().numpy()
+            bd_inputs = np.clip(bd_inputs, 0, 255).astype(np.uint8).transpose((0, 2, 3, 1))
+
+            for index in range(arg.batch_size):
+                background = bd_inputs[index]
+                entropy = strip_detector(background, testset, netC)
+                list_entropy_trojan.append(entropy)
+                progress_bar(index, opt.n_test)
+        bd_inputs, targets = next(iter(test_dataloader_backdoor))
+        bd_inputs = bd_inputs.to(opt.device)
+        bd_inputs = denormalizer(bd_inputs) * 255.0
+        bd_inputs = bd_inputs.detach().cpu().numpy()
+        bd_inputs = np.clip(bd_inputs, 0, 255).astype(np.uint8).transpose((0, 2, 3, 1))
+
+        for index in range(opt.n_test-(step-1)*arg.batch_size):
+            background = bd_inputs[index]
+            entropy = strip_detector(background, testset, netC)
+            list_entropy_trojan.append(entropy)
+            progress_bar(index, opt.n_test)
 
     # Testing with clean data
     for index in range(opt.n_test):
@@ -183,18 +193,27 @@ def strip_v1(opt,result,config):
 
     return list_entropy_trojan, list_entropy_benign
 
-def strip_defense(arg,result,config):
+def strip_defense(arg,model,train_data,train_data_clean,test_data_clean,test_data_bd,trainset):
+    opt = get_argument().parse_args()
+    ####参数平移
+    opt.data_root = arg.data_root
+    opt.input_width = arg.input_width
+    opt.input_height = arg.input_height
+    opt.input_channel = arg.input_channel
+    opt.num_classes = arg.num_classes
+    opt.dataset = arg.dataset
+    opt.device = arg.device
 
     lists_entropy_trojan = []
     lists_entropy_benign = []
-    for test_round in range(arg.test_rounds):
-        list_entropy_trojan, list_entropy_benign = strip_v1(arg,result,config)
+    for test_round in range(opt.test_rounds):
+        list_entropy_trojan, list_entropy_benign = strip_v1(opt,arg,model,train_data,train_data_clean,test_data_clean,test_data_bd,trainset)
         lists_entropy_trojan += list_entropy_trojan
         lists_entropy_benign += list_entropy_benign
 
     min_entropy = min(lists_entropy_trojan + lists_entropy_benign)
-    print("Min entropy trojan: {}, Detection boundary: {}".format(min_entropy, arg.detection_boundary))
-    if min_entropy < arg.detection_boundary:
+    print("Min entropy trojan: {}, Detection boundary: {}".format(min_entropy, opt.detection_boundary))
+    if min_entropy < opt.detection_boundary:
         bd_model = True
     else:
         bd_model = False
@@ -205,57 +224,12 @@ def strip_defense(arg,result,config):
     result.update({'backdoor_model' : bd_model})
     return result
 
-def get_args():
-    parser = argparse.ArgumentParser()
 
-    parser.add_argument('--device', type=str, help='cuda, cpu')
-    parser.add_argument('--checkpoint_load', type=str)
-    parser.add_argument('--checkpoint_save', type=str)
-    parser.add_argument('--log', type=str)
-    parser.add_argument("--data_root", type=str)
-
-    parser.add_argument('--dataset', type=str, help='mnist, cifar10, gtsrb, celeba, tiny') 
-    parser.add_argument("--num_classes", type=int)
-    parser.add_argument("--input_height", type=int)
-    parser.add_argument("--input_width", type=int)
-    parser.add_argument("--input_channel", type=int)
-
-    parser.add_argument('--epochs', type=int)
-    parser.add_argument('--batch_size', type=int)
-    parser.add_argument("--num_workers", type=float)
-    parser.add_argument('--lr', type=float)
-
-    parser.add_argument('--attack', type=str)
-    parser.add_argument('--poison_rate', type=float)
-    parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
-    parser.add_argument('--target_label', type=int)
-    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
-
-    ####添加额外
-    parser.add_argument('--model', type=str, help='resnet18')
-    parser.add_argument('--result_file', type=str, help='the location of result')
-
-    ####strip
-    parser.add_argument("--n_sample", type=int)
-    parser.add_argument("--n_test", type=int)
-    parser.add_argument("--detection_boundary", type=float)  # According to the original paper
-    parser.add_argument("--test_rounds", type=int)
-
-    parser.add_argument("--s", type=float)
-    parser.add_argument("--k", type=int)  # low-res grid size
-    parser.add_argument(
-        "--grid-rescale", type=float
-    )  # scale grid values to avoid going out of [-1, 1]. For example, grid-rescale = 0.98
-
-    arg = parser.parse_args()
-
-    print(arg)
-    return arg
 
 if __name__ == '__main__':
     
     args = get_args()
-    with open("./defense/STRIP/config/config.yaml", 'r') as stream: 
+    with open("./defense/AC/config/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -296,6 +270,6 @@ if __name__ == '__main__':
     
     if args.save_path is not None:
         print("Continue training...")
-        result_defense = strip_defense(args,result,config)
+        result_defense = ac(args,result,config)
     else:
         print("There is no target model")
