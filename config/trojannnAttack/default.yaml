@@ -11,8 +11,8 @@ lr: 0.01
 lr_scheduler: StepLR
 steplr_stepsize: 100
 steplr_gamma: 0.1
-model: resnet18
-num_classes: 43
+model: vgg16
+num_classes: 10
 pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9

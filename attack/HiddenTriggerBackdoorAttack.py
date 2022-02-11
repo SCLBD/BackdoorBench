@@ -238,14 +238,14 @@ disguised_img_all = []
 disguise_img_index_all = []
 poison_count = 0
 
+train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
+
 for _ in range(len(train_loader_target)):
 
     # LOAD ONE BATCH OF SOURCE AND ONE BATCH OF TARGET
     #img, label, self.original_index[item], self.poison_indicator[item], self.original_targets[item],
     source_img, source_label, source_original_index, _ , _  = next(iter_source)
     target_img, target_label, target_original_index, _ , _  = next(iter_target)
-
-    train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
 
     # add patch trigger for each photo
     for source_img_i in range(len(source_img)):
