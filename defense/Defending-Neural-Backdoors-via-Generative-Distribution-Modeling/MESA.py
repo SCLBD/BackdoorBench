@@ -1,3 +1,30 @@
+# MIT License
+
+# Copyright (c) 2019 yukun yang
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+"""
+This module implements methods performing poisoning detection based on activations clustering.
+| Paper link: https://arxiv.org/abs/1811.03728
+"""
+
 from functools import lru_cache
 import torch
 import torchvision
@@ -60,39 +87,7 @@ def get_args():
 
     arg = parser.parse_args()
 
-    if arg.dataset == "mnist":
-        arg.num_classes = 10
-        arg.input_height = 28
-        arg.input_width = 28
-        arg.input_channel = 1
-    elif arg.dataset == "cifar10":
-        arg.num_classes = 10
-        arg.input_height = 32
-        arg.input_width = 32
-        arg.input_channel = 3
-    elif arg.dataset == "gtsrb":
-        arg.num_classes = 43
-        arg.input_height = 32
-        arg.input_width = 32
-        arg.input_channel = 3
-    elif arg.dataset == "celeba":
-        arg.num_classes = 8
-        arg.input_height = 64
-        arg.input_width = 64
-        arg.input_channel = 3
-    elif arg.dataset == "tiny":
-        arg.num_classes = 200
-        arg.input_height = 64
-        arg.input_width = 64
-        arg.input_channel = 3
-    else:
-        raise Exception("Invalid Dataset")
-
-    arg.checkpoint_save = 'saved/checkpoint/checkpoint_' + arg.dataset + '.tar'
-    arg.log = 'saved/log/log_' + arg.dataset + '.txt'
-    arg.data_root = arg.data_root + arg.dataset    
-    if not os.path.isdir(arg.data_root):
-        os.makedirs(arg.data_root)
+    
     print(arg)
     return arg
 
@@ -118,12 +113,43 @@ def MESA(args,model,test_dataset,ensemble=False):
     with open("./config/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
 
-    #####写一个替换
-    for i in config:
-        1 == 1
-
+    config.updata({k:v for k,v in args.__dict__.items() if v is not None})
     beta = config['beta']
     alpha = config['alpha']
+
+    if args.dataset == "mnist":
+        args.num_classes = 10
+        args.input_height = 28
+        args.input_width = 28
+        args.input_channel = 1
+    elif args.dataset == "cifar10":
+        args.num_classes = 10
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
+    elif args.dataset == "gtsrb":
+        args.num_classes = 43
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
+    elif args.dataset == "celeba":
+        args.num_classes = 8
+        args.input_height = 64
+        args.input_width = 64
+        args.input_channel = 3
+    elif args.dataset == "tiny":
+        args.num_classes = 200
+        args.input_height = 64
+        args.input_width = 64
+        args.input_channel = 3
+    else:
+        raise Exception("Invalid Dataset")
+
+    args.checkpoint_save = 'saved/checkpoint/checkpoint_' + args.dataset + '.tar'
+    args.log = 'saved/log/log_' + args.dataset + '.txt'
+    args.data_root = args.data_root + args.dataset    
+    if not os.path.isdir(args.data_root):
+        os.makedirs(args.data_root)
 
     assert (args.dataset in ['cifar10','cifar100','tiny'])
     if args.dataset == 'cifar10':
@@ -238,14 +264,14 @@ def MESA(args,model,test_dataset,ensemble=False):
                 data, label = data.clone().cuda(), label.clone().cuda()
 
                 trigger = sample(Gene,args.cuda) # cuda
-                trigger = transform(trigger.view(-1, 3, self.trigger.h, self.trigger.w),
-                                    dataset_stats(self.BD_model.model.dataset_name))
-                target = self.trigger.target
+                trigger = transform(trigger.view(-1, 3, trigger.h, trigger.w),
+                                    dataset_stats(BD_model.model.dataset_name))
+                target = trigger.target
                 # clone label to prevent poisoning
                 poison_(trigger, target, data, label.clone(), poison_ratio, 'random')
 
                 optimizer.zero_grad()
-                output = self.net(data)
+                output = net(data)
                 loss = criterion(output, label)
                 loss.backward()
                 optimizer.step()
@@ -255,13 +281,11 @@ def MESA(args,model,test_dataset,ensemble=False):
                 total += label.size(0)
                 correct += predicted.eq(label).sum().item()
 
-            self.log.append({'Train Accuracy on poisoned data': correct / total})
-
-            self.test(self.test_data, 1, is_attack=False)
-            self.test(self.test_data, 1, is_attack=True)
-            self.net.train()
+            test(test_data, 1, is_attack=False)
+            test(test_data, 1, is_attack=True)
+            net.train()
     else:
-        self.net.train()
+        net.train()
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(self.net.parameters(), lr=lr, momentum=0.9, weight_decay=0)
         loader = dataloader(dataset, bs=self.bs)
@@ -289,11 +313,11 @@ def MESA(args,model,test_dataset,ensemble=False):
                 total += label.size(0)
                 correct += predicted.eq(label).sum().item()
 
-            self.log.append({'Train Accuracy on poisoned data': correct / total})
+            log.append({'Train Accuracy on poisoned data': correct / total})
 
-            self.test(self.test_data, 1, is_attack=False)
-            self.test(self.test_data, 1, is_attack=True)
-            self.net.train()
+            test(test_data, 1, is_attack=False)
+            test(test_data, 1, is_attack=True)
+            net.train()
 
 
     result = {}

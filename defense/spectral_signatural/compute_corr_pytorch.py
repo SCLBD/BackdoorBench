@@ -15,6 +15,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import argparse
 from datetime import datetime
 import json
@@ -45,7 +46,25 @@ from utils.nCHW_nHWC import nCHW_to_nHWC
 #from utils.preact_resnet import get_activation
 
 def compute_corr_v1(arg,result,config):
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
+    )
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    if args.log is not None & args.log != '':
+        fileHandler = logging.FileHandler('./log' + '/' + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    else:
+        fileHandler = logging.FileHandler('./log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    logger.setLevel(logging.INFO)
+    
     model = generate_cls_model(arg.model,arg.num_classes)
     model.load_state_dict(result['model'])
     model.to(arg.device)
@@ -275,7 +294,8 @@ if __name__ == '__main__':
     else:
         raise Exception("Invalid Dataset")
     args.checkpoint_save = os.getcwd() + '/record/defence/ac/' + args.dataset + '.tar'
-    args.log = 'saved/log/log_' + args.dataset + '.txt'
+    
+    #args.log = 'saved/log/log_' + args.dataset + '.txt'
 
     ######为了测试临时写的代码
     save_path = '/record/' + args.result_file
@@ -285,5 +305,60 @@ if __name__ == '__main__':
     if args.save_path is not None:
         print("Continue training...")
         result_defense = compute_corr_v1(args,result,config)
+
+        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].numpy()))
+        y = result['bd_test']['y']
+        data_bd_test = torch.utils.data.TensorDataset(x,y)
+        data_bd_testset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=data_bd_test,
+            poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=tran,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+        )
+        data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    
+        asr_acc = 0
+        for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = result_defense['model'](inputs)
+            pre_label = torch.max(outputs,dim=1)[1]
+            asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+
+        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].numpy()))
+        y = result['clean_test']['y']
+        data_clean_test = torch.utils.data.TensorDataset(x,y)
+        data_clean_testset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=data_clean_test,
+            poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=tran,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+        )
+        data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    
+        clean_acc = 0
+        for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = result_defense['model'](inputs)
+            pre_label = torch.max(outputs,dim=1)[1]
+            clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+
+
+        torch.save(
+        {
+            'model_name':args.model,
+            'model': result_defense['model'].cpu().state_dict(),
+            'asr': asr_acc,
+            'acc': clean_acc
+        },
+        f'{save_path}/defense_result.pt'
+    )
     else:
         print("There is no target model")

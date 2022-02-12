@@ -27,6 +27,9 @@ This module implements methods performing poisoning detection based on activatio
     defence, see https://arxiv.org/abs/1905.13409 . For details on how to evaluate classifier security
     in general, see https://arxiv.org/abs/1902.06705
 """
+import logging
+import time
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 from calendar import c
 
@@ -243,12 +246,30 @@ def get_args():
     return arg
 
 def ac(args,result,config):
-    
-    nb_dims = config['nb_dims']
-    nb_clusters = config['nb_clusters']
-    cluster_analysis = config['cluster_analysis']
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
+    )
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    if args.log is not None & args.log != '':
+        fileHandler = logging.FileHandler('./log' + '/' + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    else:
+        fileHandler = logging.FileHandler('./log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-    
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    logger.setLevel(logging.INFO)
+
+
+    nb_dims = args.nb_dims
+    nb_clusters = args.nb_clusters
+    cluster_analysis = args.cluster_analysis
+
     model = generate_cls_model(args.model,args.num_classes)
     model.load_state_dict(result['model'])
     model.to(args.device)
@@ -436,5 +457,60 @@ if __name__ == '__main__':
     if args.save_path is not None:
         print("Continue training...")
         result_defense = ac(args,result,config)
+
+        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].numpy()))
+        y = result['bd_test']['y']
+        data_bd_test = torch.utils.data.TensorDataset(x,y)
+        data_bd_testset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=data_bd_test,
+            poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=tran,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+        )
+        data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    
+        asr_acc = 0
+        for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = result_defense['model'](inputs)
+            pre_label = torch.max(outputs,dim=1)[1]
+            asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+
+        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].numpy()))
+        y = result['clean_test']['y']
+        data_clean_test = torch.utils.data.TensorDataset(x,y)
+        data_clean_testset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=data_clean_test,
+            poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=tran,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+        )
+        data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    
+        clean_acc = 0
+        for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = result_defense['model'](inputs)
+            pre_label = torch.max(outputs,dim=1)[1]
+            clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+
+
+        torch.save(
+        {
+            'model_name':args.model,
+            'model': result_defense['model'].cpu().state_dict(),
+            'asr': asr_acc,
+            'acc': clean_acc
+        },
+        f'{save_path}/defense_result.pt'
+        )
     else:
         print("There is no target model")
