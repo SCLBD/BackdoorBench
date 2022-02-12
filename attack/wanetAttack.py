@@ -319,7 +319,7 @@ def wanet_batch_operation(
 
        inputs_cross = noise_trans(x[num_bd: (num_bd + num_cross)])
 
-       total_inputs = torch.cat([inputs_bd, inputs_cross, x[(num_bd + num_cross):]], dim=0)
+       total_inputs = torch.cat([inputs_bd.cpu(), inputs_cross.cpu(), (x[(num_bd + num_cross):]).cpu()], dim=0)
 
        total_inputs = torch.cat(
            [post_transform(npToPIL(np_i.transpose((1, 2, 0))))[None, ...] for np_i in total_inputs.cpu().numpy()], dim=0)

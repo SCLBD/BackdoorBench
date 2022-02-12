@@ -121,11 +121,11 @@ def generate_trigger_pattern_from_mask(
     net.eval()
     net.to(device)
 
-    mask = mask.to(device)
-
     trigger_pattern = torch.randn((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
     trigger_pattern = trigger_pattern.to(device)
     trigger_pattern = trigger_pattern.requires_grad_()
+
+    mask = mask.to(device)
 
     def hook_function(module, input, output):
         net.linearInput = input
