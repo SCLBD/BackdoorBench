@@ -124,7 +124,7 @@ class imageWarp(object):
 
             img = self.tensor_version_add_trigger(img)
 
-            img = nCHW_to_nHWC(img.numpy())
+            img = nCHW_to_nHWC(img.cpu().numpy())
 
         return img[0] if img.shape[0] == 1 else img
 

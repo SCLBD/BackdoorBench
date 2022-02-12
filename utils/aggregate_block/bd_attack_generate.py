@@ -37,12 +37,12 @@ def bd_attack_img_trans_generate(args):
         train_bd_transform = blendedImageAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
-                  ).numpy().transpose(1, 2, 0) * 255,
+                  ).cpu().numpy().transpose(1, 2, 0) * 255,
             float(args.attack_train_blended_alpha)) # 0.1
         test_bd_transform = blendedImageAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
-                  ).numpy().transpose(1, 2, 0) * 255,
+                  ).cpu().numpy().transpose(1, 2, 0) * 255,
             float(args.attack_test_blended_alpha)) # 0.1
 
     elif args.attack == 'input':
@@ -56,12 +56,12 @@ def bd_attack_img_trans_generate(args):
         train_bd_transform = inputInstanceKeyAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
-                  ).numpy().transpose(1, 2, 0) * 255,
+                  ).cpu().numpy().transpose(1, 2, 0) * 255,
             args.attack_train_pixel_perturb_limit)#5
         test_bd_transform = inputInstanceKeyAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
-            ).numpy().transpose(1, 2, 0) * 255,
+            ).cpu().numpy().transpose(1, 2, 0) * 255,
             args.attack_test_pixel_perturb_limit)#5
 
     elif args.attack == 'SSBA_replace':

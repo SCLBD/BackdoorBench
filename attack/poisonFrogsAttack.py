@@ -394,7 +394,7 @@ class poisonFrogs(object):
             final_blended_rate = self.final_blended_rate,
         )
 
-        img = (img_tensor[0].numpy().transpose(1,2,0) * 255).astype(np.uint8)
+        img = (img_tensor[0].cpu().numpy().transpose(1,2,0) * 255).astype(np.uint8)
 
         return img
 

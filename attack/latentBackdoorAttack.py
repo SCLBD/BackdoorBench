@@ -582,7 +582,7 @@ from utils.aggregate_block.bd_attack_generate import  bd_attack_label_trans_gene
 
 from utils.bd_img_transform.patch import AddMatrixPatchTrigger
 
-test_bd_img_transform = AddMatrixPatchTrigger((trigger_pattern.numpy().transpose(1,2,0)*255).astype(np.uint8))
+test_bd_img_transform = AddMatrixPatchTrigger((trigger_pattern.cpu().numpy().transpose(1,2,0)*255).astype(np.uint8))
 
 bd_label_transform = bd_attack_label_trans_generate(args)
 

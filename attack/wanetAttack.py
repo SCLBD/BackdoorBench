@@ -322,7 +322,7 @@ def wanet_batch_operation(
        total_inputs = torch.cat([inputs_bd, inputs_cross, x[(num_bd + num_cross):]], dim=0)
 
        total_inputs = torch.cat(
-           [post_transform(npToPIL(np_i.transpose((1, 2, 0))))[None, ...] for np_i in total_inputs.numpy()], dim=0)
+           [post_transform(npToPIL(np_i.transpose((1, 2, 0))))[None, ...] for np_i in total_inputs.cpu().numpy()], dim=0)
 
        targets_bd = torch.ones_like(labels[:num_bd]) * target_label
        total_targets = torch.cat([targets_bd, labels[num_bd:]], dim=0)
@@ -340,7 +340,7 @@ def wanet_batch_operation(
 
         total_inputs = torch.cat([inputs_bd, inputs_cross, x[(num_bd + num_cross):]], dim=0)
 
-        total_inputs = torch.cat([post_transform(npToPIL(np_i.transpose((1,2,0))))[None,...] for np_i in total_inputs.numpy()], dim =0 )
+        total_inputs = torch.cat([post_transform(npToPIL(np_i.transpose((1,2,0))))[None,...] for np_i in total_inputs.cpu().numpy()], dim =0 )
 
         targets_bd = torch.remainder(labels[:num_bd], num_classes)
         total_targets = torch.cat([targets_bd, labels[num_bd:]], dim=0)
