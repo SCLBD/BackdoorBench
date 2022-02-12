@@ -55,9 +55,9 @@ def save_attack_result(
             all_y = []
             for x, y, *addition in dataset_without_transform:
                 all_x.append(nHWC_to_nCHW(x[None,...]) if isinstance(x, np.ndarray) else x)
-                all_y.append(nHWC_to_nCHW(y[None,...]) if isinstance(y, np.ndarray) else y)
+                all_y.append(nHWC_to_nCHW(y[None,...]) if isinstance(y, np.ndarray) else y.item())
             all_x = torch.cat(all_x).float().cpu()
-            all_y = torch.cat(all_y).long().cpu()
+            all_y = torch.tensor(all_y).long().cpu()
             return all_x, all_y, None
 
     if bd_train is not None:

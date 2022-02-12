@@ -395,15 +395,15 @@ trainer.noise_training_in_wanet(
         continue_training_path = None,
     )
 
-benign_train_dl.dataset.bd_image_pre_transform = None
-benign_train_dl.dataset.bd_label_pre_transform = None
-benign_train_dl.dataset.ori_image_transform_in_loading = None
-benign_train_dl.dataset.ori_label_transform_in_loading = None
+# benign_train_dl.dataset.bd_image_pre_transform = None
+# benign_train_dl.dataset.bd_label_pre_transform = None
+# benign_train_dl.dataset.ori_image_transform_in_loading = None
+# benign_train_dl.dataset.ori_label_transform_in_loading = None
 
 adv_train_x = []
 adv_train_y = []
 
-for x, y in DataLoader(
+for x, y, *addition in DataLoader(
     benign_train_dl.dataset,
     batch_size=args.batch_size,
     shuffle=False,

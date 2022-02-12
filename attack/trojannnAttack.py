@@ -151,7 +151,7 @@ def generate_trigger_pattern_from_mask(
         trigger_pattern = (torch.tensor(denoise_tv_bregman(
             (trigger_pattern.cpu()[0]).numpy().transpose(1, 2, 0)
             , weight=denoise_weight, max_iter=100, eps=1e-3
-        ).transpose(2, 0, 1))[None, ...]) * (trigger_pattern > 0)
+        ).transpose(2, 0, 1))[None, ...].to(device)) * (trigger_pattern > 0)
 
         trigger_pattern = trigger_pattern.to(device)
         trigger_pattern = trigger_pattern.requires_grad_()
