@@ -26,7 +26,8 @@ import random
 import numpy as np
 import scipy.stats as st
 from functools import partial
-from skimage.measure import compare_ssim
+# from skimage.measure import compare_ssim
+from skimage.metrics import structural_similarity as compare_ssim
 
 ssim_func = partial(compare_ssim, multichannel=True)
 
