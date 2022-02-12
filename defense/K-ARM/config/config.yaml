@@ -1,8 +1,61 @@
+<<<<<<< Updated upstream
 gamma: 0.25
 global_theta: 0.95
 local_theta: 0.9
+=======
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'resnet18'
+
+gamma: 0.25
+global_theta: 0.95
+local_theta: 0.2
+>>>>>>> Stashed changes
 
 sym_check: True
 global_det_bound: 1700
 local_det_bound: 1000
+<<<<<<< Updated upstream
 ratio_det_bound: 10
+=======
+ratio_det_bound: 10
+
+regularization: 'l1'
+init_cost: 1.0e-03
+step: 1000
+rounds: 60
+lr_re: 1.0e-01
+patience: 5 
+attack_succ_threshold: 0.99 
+single_color_opt: True  
+warmup_rounds: 2 
+epsilon_for_bandits:  0.3 
+epsilon: 1.0e-07 
+beta: 1.0e+4
+cost_multiplier: 1.5 
+early_stop: False 
+early_stop_threshold: 1 
+early_stop_patience:  10 
+reset_cost_to_zero: True
+central_init: True
+>>>>>>> Stashed changes

@@ -1,0 +1,32 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'resnet18'
+
+gamma: 0.25
+global_theta: 0.95
+local_theta: 0.9
+
+sym_check: True
+global_det_bound: 1700
+local_det_bound: 1000
+ratio_det_bound: 10
