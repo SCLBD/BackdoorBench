@@ -219,6 +219,7 @@ source_train_ds.subset(np.where(benign_train_ds.original_targets != args.attack_
 train_loader_target = torch.utils.data.DataLoader(target_train_ds,
 													batch_size=args.batch_size,
 													shuffle=True,
+                                                    drop_last=True,
 													# num_workers=8,
 													# pin_memory=True
                                                   )
@@ -227,6 +228,7 @@ iter_target = iter(train_loader_target)
 train_loader_source = torch.utils.data.DataLoader(source_train_ds,
                                                   batch_size=args.batch_size,
                                                   shuffle=True,
+                                                  drop_last=True,
                                                   # num_workers=8,
                                                   # pin_memory=True
                                                   )

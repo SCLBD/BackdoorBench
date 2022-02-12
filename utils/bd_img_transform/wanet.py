@@ -95,7 +95,7 @@ class imageWarp(object):
             ins = (torch.rand(img.shape[0], self.image_height, self.image_height, 2) * 2 - 1).to(self.device)
             grid_temps2 = self.grid_temps.repeat(img.shape[0], 1, 1, 1) + ins / self.image_height
             grid_temps2 = torch.clamp(grid_temps2, -1, 1)
-            img = F.grid_sample(img, grid_temps2, align_corners=True)
+            img = F.grid_sample(img.to(self.device), grid_temps2, align_corners=True)
 
         return img
 
