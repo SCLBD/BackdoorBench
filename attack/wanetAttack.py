@@ -252,9 +252,14 @@ net = generate_cls_model(
     num_classes=args.num_classes,
 )
 
-from utils.bd_trainer.wanet_trainer import wanetTrainerCLS
+# from utils.bd_trainer.wanet_trainer import wanetTrainerCLS
+#
+# trainer = wanetTrainerCLS(net)
 
-trainer = wanetTrainerCLS(net)
+trainer = generate_cls_trainer(
+    net,
+    args.attack
+)
 
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 

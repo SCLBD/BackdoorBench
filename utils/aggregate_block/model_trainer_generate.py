@@ -50,17 +50,10 @@ def generate_cls_trainer(
         model,
         attack_name : Optional[str] = None,
 ):
-    if attack_name in [
-        None,
-        'SSBA_replace',
-        'blended',
-        'fix_patch',
-        'trojannn',
-        'dfst',
-        'latentBackdoor',
-        'poisonFrogs',
-        'refool'
-   ]:
+    if attack_name == 'wanet':
+        from utils.bd_trainer.wanet_trainer import wanetTrainerCLS
+        trainer = wanetTrainerCLS(model)
+    else:
         # normal case
         trainer = MyModelTrainerCLS(
             model=model,

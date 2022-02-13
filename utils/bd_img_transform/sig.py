@@ -34,3 +34,39 @@ class sigTriggerAttack(object):
         img = self.alpha * np.uint32(img) + (1 - self.alpha) * pattern
         img = np.uint8(np.clip(img, 0, 255))
         return img
+
+
+if __name__ == '__main__':
+    import imageio
+    import matplotlib.pyplot as plt
+    img = (imageio.imread('/Users/chenhongrui/Documents/Screen Shot 2021-12-30 at 8.09.07 PM.png')[:,:,[0,1,2]])#np.zeros((32,32,3))
+
+    trans = sigTriggerAttack(
+        alpha = 0.2,
+        delta = 20,
+        f = 6,
+    )
+
+    plt.imshow(trans(img))
+    plt.show()
+
+    plt.imshow(
+        trans(
+        np.stack([img, 1-img],0)
+    )[0]
+    )
+    plt.show()
+
+    plt.imshow(
+        trans(
+            np.stack([img, 1 - img],0)
+        )[1]
+    )
+    plt.show()
+
+
+
+
+
+
+

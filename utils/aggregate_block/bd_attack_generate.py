@@ -45,6 +45,15 @@ def bd_attack_img_trans_generate(args):
                   ).cpu().numpy().transpose(1, 2, 0) * 255,
             float(args.attack_test_blended_alpha)) # 0.1
 
+    elif args.attack == 'sig':
+        trans = sigTriggerAttack(
+            alpha=args.sig_alpha,
+            delta=args.sig_delta,
+            f=args.sig_f,
+        )
+        train_bd_transform = trans
+        test_bd_transform = trans
+
     elif args.attack == 'input':
 
         trans = transforms.Compose([
