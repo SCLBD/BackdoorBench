@@ -56,6 +56,7 @@ def generate_trigger_pattern_from_mask_and_data(
     trigger_pattern = torch.cat(batchsize_for_opt*[trigger_pattern])
     trigger_pattern = trigger_pattern.to(device)
 
+    mask = mask.to(device)
 
     def hook_function(module, input, output):
         net.feature_save = output
@@ -547,7 +548,7 @@ for epoch in range(args.poison_epochs):
 
         optimizer.step()
 
-        batch_loss = (loss.item())
+        batch_loss.append( (loss.item()))
 
     one_epoch_loss = sum(batch_loss) / len(batch_loss)
 
@@ -681,6 +682,6 @@ save_attack_result(
     img_size = args.img_size,
     clean_data = args.dataset,
     bd_train = None,
-    bd_test = student_adv_test_dl,
+    bd_test = student_adv_test_dl.dataset,
     save_path = save_path,
 )
