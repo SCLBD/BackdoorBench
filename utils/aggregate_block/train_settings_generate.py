@@ -43,6 +43,13 @@ def argparser_opt_scheduler(model, args):
                                     momentum=args.sgd_momentum,  # 0.9
                                     weight_decay=args.wd,  # 5e-4
                                     )
+    elif args.client_optimizer == 'adadelta':
+        optimizer = torch.optim.Adadelta(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr = args.lr,
+            rho = args.rho, #0.95,
+            eps = args.eps, #1e-07,
+        )
     else:
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                                      lr=args.lr,

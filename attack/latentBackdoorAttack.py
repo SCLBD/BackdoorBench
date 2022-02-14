@@ -20,7 +20,9 @@ import numpy as np
 import torch
 import yaml
 from torch.utils.data import DataLoader
+from copy import deepcopy
 
+# check on CUDA
 def generate_trigger_pattern_from_mask_and_data(
         net : torch.nn.Module,
         mix_dataset : torch.utils.data.Dataset,
@@ -51,12 +53,19 @@ def generate_trigger_pattern_from_mask_and_data(
     net.eval()
     net.to(device)
 
-    trigger_pattern = torch.randn((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
-    trigger_pattern = trigger_pattern.requires_grad_()
-    trigger_pattern = torch.cat(batchsize_for_opt*[trigger_pattern])
-    trigger_pattern = trigger_pattern.to(device)
-
     mask = mask.to(device)
+
+    no_mask_init = torch.randn((1,*mask.shape))
+    no_mask_init = no_mask_init.requires_grad_()
+
+    opt = torch.optim.Adam(
+        params=[no_mask_init],
+        lr=lr,
+        betas=(0.5, 0.9),
+    )
+
+    trigger_pattern = no_mask_init.to(device) * (mask > 0).reshape((1,*mask.shape))
+    trigger_pattern = torch.cat(batchsize_for_opt*[trigger_pattern])
 
     def hook_function(module, input, output):
         net.feature_save = output
@@ -98,7 +107,7 @@ def generate_trigger_pattern_from_mask_and_data(
         target_ds_x, _ = target_batch[:2]
         target_ds_x = target_ds_x.to(device)
 
-        _ = net(mix_x * (trigger_pattern == 0) + trigger_pattern * (trigger_pattern > 0))
+        _ = net(mix_x * (mask == 0) + trigger_pattern * (mask > 0))
 
         feature_mix_with_bd = net.feature_save
 
@@ -108,12 +117,20 @@ def generate_trigger_pattern_from_mask_and_data(
 
         loss = mse(feature_mix_with_bd, feature_target)
 
-        trigger_pattern_grad = torch.mean(torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0], dim=0)
+        # trigger_pattern_grad = torch.mean(torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0], dim=0)
+        #
+        # trigger_pattern = trigger_pattern - lr * torch.cat(
+        #     batchsize_for_opt * [trigger_pattern_grad.data[None,...] * (mask > 0).reshape((1,*mask.shape))]
+        # )
 
-        trigger_pattern = trigger_pattern - lr * torch.cat(
-            batchsize_for_opt * [trigger_pattern_grad.data[None,...] * (mask > 0).reshape((1,*mask.shape))]
-        )
+        loss.backward()
+
+        opt.step()
+
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
+
+        trigger_pattern = no_mask_init.to(device) * (mask > 0).reshape((1, *mask.shape))
+        trigger_pattern = torch.cat(batchsize_for_opt * [trigger_pattern])
 
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
         trigger_pattern = trigger_pattern.to(device)
@@ -129,21 +146,28 @@ def generate_trigger_pattern_from_mask_and_data(
 # if __name__ == '__main__':
 #     from torchvision.models import resnet18
 #     from torchvision.datasets import CIFAR10
+#     from torch.utils.data import TensorDataset
 #     from torchvision.transforms import transforms
-#     d = CIFAR10('../data/cifar10', train = False, transform=transforms.ToTensor())
+#     d = TensorDataset(torch.randn(3,3,224,224), torch.randint(9,(3,)))#CIFAR10('../data/cifar10', train = False, transform=transforms.ToTensor())
 #     net = resnet18()
-#     generate_trigger_pattern_from_mask_and_data(
+#     mask = torch.load('/Users/chenhongrui/sclbd/bdzoo2/resource/trojannn/trojannn_apple_trigger_224_224.pt')
+#     # mask.resize_(3,32,32)
+#     a = generate_trigger_pattern_from_mask_and_data(
 #         net = net,
 #         mix_dataset = d,
 #         target_dataset = d,
 #         batchsize_for_opt = 3,
-#         mask = torch.randn(3, 32, 32) > 0,
+#         mask = mask,
 #         layer_name = 'fc',
 #         device = torch.device('cpu'),
 #         lr = 0.01,
-#         max_iter = 1000,
+#         max_iter = 10,
 #         end_loss_value = 1e-10,
 #     )
+#     import matplotlib.pyplot as plt
+#     plt.imshow((a>0).float().numpy().transpose((1,2,0)))
+#     plt.show()
+#     print(1)
 
 def add_args(parser):
     """
@@ -423,7 +447,7 @@ target_dataset.subset(
     student_train_index_in_attack
 )
 
-#TODO (done) change the label of all to be num_classes + 1
+# (done) change the label of all to be num_classes + 1
 target_dataset.targets = np.ones_like(target_dataset.targets) * (new_num_labels - 1)
 
 from torch.utils.data.dataset import ConcatDataset
@@ -448,9 +472,14 @@ trainer = generate_cls_trainer(
 
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 
-criterion = argparser_criterion(args)
 
-optimizer, scheduler = argparser_opt_scheduler(net, args) # TODO change the schedule and other param name in args
+first_retrain_args = deepcopy(args)
+first_retrain_args.__dict__ = {
+    k[14:] : v for k, v in first_retrain_args.__dict__.items() if 'first_retrain_' in k
+}
+print(first_retrain_args)
+criterion = argparser_criterion(args)
+optimizer, scheduler = argparser_opt_scheduler(net, first_retrain_args)
 
 trainer.train(
     mix_dl_for_first_retrain,
@@ -467,10 +496,10 @@ trainer.train(
 )
 
 # optimize the trigger pattern, Target-dependent Trigger Generation.
-
+# TODO change the mask pattern to be the same as in function constract_mask default
 trigger_pattern = generate_trigger_pattern_from_mask_and_data(
     net= net,
-    mix_dataset= mix_dataset_for_first_retrain,
+    mix_dataset= np.random.choice(mix_dataset_for_first_retrain, args.poison_sample_num),
     target_dataset= target_dataset,
     batchsize_for_opt= args.batchsize_for_trigger_generation,
     mask= torch.load(args.mask_tensor_path),
@@ -481,7 +510,7 @@ trigger_pattern = generate_trigger_pattern_from_mask_and_data(
     end_loss_value=  args.trigger_generation_final_loss,
 )
 
-# training with trigger
+# training with trigger !!!
 
 target_dl_iter = iter(DataLoader(
     target_dataset,
@@ -500,11 +529,56 @@ mix_dl_for_first_retrain =  DataLoader(
 
 mse = torch.nn.MSELoss()
 
-#TODO here I share the training setting with before... maybe need more tuning
-#TODO here since not claimed in paper, I do the masking directly on tensors in training process
+#TODO since in the original paper, the preprocess is just the same normalization,
+# so I do it directly on batch
+inject_args = deepcopy(args)
+inject_args.__dict__ = {
+    k[7:] : v for k, v in inject_args.__dict__.items() if 'inject_' in k
+}
+
+optimizer, scheduler = argparser_opt_scheduler(net, inject_args)
+
+mix_adv = []
+
+from utils.bd_img_transform.patch import AddMatrixPatchTrigger
+
+mix_adv_before = deepcopy(mix_dataset_for_first_retrain.datasets)
+
+for dataset_once in mix_adv_before:
+    dataset_once.poison_idx = np.ones(len(dataset_once))
+    dataset_once.bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0)))
+    dataset_once.dataset = zip(dataset_once.data, dataset_once.targets)
+    dataset_once.prepro_backdoor()
+    #     = prepro_cls_DatasetBD(
+    #     full_dataset_without_transform=dataset_once.dataset,
+    #     poison_idx=np.ones(len(dataset_once.dataset)),
+    #     # one-hot to determine which image may take bd_transform
+    #     bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0))),
+    #     bd_label_pre_transform=None, # none here, since we do not need
+    #     ori_image_transform_in_loading=dataset_once.ori_image_transform_in_loading,
+    #     ori_label_transform_in_loading=dataset_once.ori_label_transform_in_loading,
+    #     add_details_in_preprocess=True,
+    # )
+    mix_adv.append(
+        dataset_once
+    )
+
+mix_adv = ConcatDataset(mix_adv)
+
+from utils.sync_dataset import syncDataset
+
+sync_ds = syncDataset(mix_dataset_for_first_retrain, mix_adv)
+
+sync_dl = DataLoader(
+    sync_ds,
+    batch_size=args.batchsize_for_poison,
+    shuffle=True,
+    drop_last=True
+)
+
 for epoch in range(args.poison_epochs):
     batch_loss = []
-    for batch_idx, (x, labels, *additional_info) in enumerate(mix_dl_for_first_retrain):
+    for batch_idx, ((x, labels, _, _, _), (adv_x, _, _, _, _)),  in enumerate(sync_dl):
 
         net.train()
         net.to(device)
@@ -512,11 +586,11 @@ for epoch in range(args.poison_epochs):
         trigger_pattern = trigger_pattern.to(device)
         trigger_pattern.requires_grad = False
 
-        x, labels = x.to(device), labels.to(device)
+        x, labels, adv_x = x.to(device), labels.to(device), adv_x.to(device)
         net.zero_grad()
         log_probs = net(x)
 
-        _ = net(x * (trigger_pattern == 0) + trigger_pattern * (trigger_pattern > 0))
+        _ = net(adv_x)
 
         def hook_function(module, input, output):
             net.feature_save = output
@@ -567,7 +641,7 @@ for epoch in range(args.poison_epochs):
 net.__setattr__(args.final_layer_name,
                 torch.nn.Linear(
                     in_features= net.__getattr__(args.final_layer_name).in_features,
-                    out_features= args.num_classes_for_student, #TODO
+                    out_features= args.num_classes_for_student,
                 )
             )
 
@@ -653,7 +727,12 @@ student_test_dl = DataLoader(
     drop_last=False,
 )
 
-optimizer, scheduler = argparser_opt_scheduler(net, args)
+student_transfer_args = deepcopy(args)
+student_transfer_args.__dict__ = {
+    k[17:] : v for k, v in student_transfer_args.__dict__.items() if 'student_transfer_' in k
+}
+
+optimizer, scheduler = argparser_opt_scheduler(net, student_transfer_args)
 
 #TODO here I share the trainer settings
 trainer.train_with_test_each_epoch(
