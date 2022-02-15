@@ -61,11 +61,11 @@ def save_attack_result(
             return all_x, all_y, None
 
     if bd_train is not None:
-        logging.info('bd_train is set to be None in saving process!')
         bd_train_x, bd_train_y, train_poison_indicator = loop_through_cls_ds_without_transform(bd_train)
         if train_poison_indicator is not None:
             bd_train_x, bd_train_y = bd_train_x[np.where(train_poison_indicator == 1)[0]], bd_train_y[np.where(train_poison_indicator == 1)[0]]
-
+    else:
+        logging.info('bd_train is set to be None in saving process!')
     bd_test_x, bd_test_y, _ = loop_through_cls_ds_without_transform(bd_test)
     bd_test_x, bd_test_y = bd_test_x, bd_test_y
 
