@@ -29,13 +29,15 @@ def generate_single_target_attack_train_pidx(
     pidx = np.zeros(len(targets))
     if train == False:
         # Test for both clean label and normal case are the same, just skip target class samples
-        if p_num is not None or round(pratio * len(targets)):
-            if p_num is not None:
-                non_zero_array = np.random.choice(np.where(targets != tlabel)[0], p_num, replace = False)
-                pidx[list(non_zero_array)] = 1
-            else:
-                non_zero_array = np.random.choice(np.where(targets != tlabel)[0], round(pratio * len(targets)), replace = False)
-                pidx[list(non_zero_array)] = 1
+        # if p_num is not None or round(pratio * len(targets)):
+        #     if p_num is not None:
+        #         non_zero_array = np.random.choice(np.where(targets != tlabel)[0], p_num, replace = False)
+        #         pidx[list(non_zero_array)] = 1
+        #     else:
+        #         non_zero_array = np.random.choice(np.where(targets != tlabel)[0], round(pratio * len(targets)), replace = False)
+        #         pidx[list(non_zero_array)] = 1
+        non_zero_array = np.where(targets != tlabel)[0]
+        pidx[list(non_zero_array)] = 1
     else:
         #TRAIN !
         if clean_label == False:
