@@ -189,7 +189,7 @@ from copy import deepcopy
 train_pidx = generate_pidx_from_label_transform(
     benign_train_dl.dataset.targets,
     label_transform=bd_label_transform,
-    is_train=True,
+    train=True,
     pratio= args.pratio if 'pratio' in args.__dict__ else None,
     p_num= args.p_num if 'p_num' in args.__dict__ else None,
 )
@@ -217,7 +217,7 @@ adv_train_dl = DataLoader(
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
     label_transform=bd_label_transform,
-    is_train=False,
+    train=False,
 )
 
 adv_test_dataset = prepro_cls_DatasetBD(

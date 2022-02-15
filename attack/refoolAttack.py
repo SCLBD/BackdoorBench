@@ -215,6 +215,7 @@ train_pidx = generate_single_target_attack_train_pidx(
     pratio= None,
     p_num=args.p_num,
     clean_label = True,
+    train = True,
 )
 
 torch.save(train_pidx,
@@ -241,7 +242,7 @@ adv_train_dl = DataLoader(
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
     label_transform=bd_test_bd_label_transform,
-    is_train=False,
+    train=False,
 )
 
 adv_test_dataset = prepro_cls_DatasetBD(

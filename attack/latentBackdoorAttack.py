@@ -666,7 +666,7 @@ from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, g
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
     label_transform=bd_label_transform,
-    is_train=False,
+    train=False,
 )
 
 student_adv_test_dataset =  prepro_cls_DatasetBD(

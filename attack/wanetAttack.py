@@ -219,7 +219,7 @@ bd_test_bd_label_transform = bd_attack_label_trans_generate(args)
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
     label_transform=bd_test_bd_label_transform,
-    is_train=False,
+    train=False,
 )
 
 from copy import deepcopy

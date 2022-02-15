@@ -300,7 +300,7 @@ adv_train_dl = DataLoader(
 test_pidx = generate_pidx_from_label_transform(
     benign_test_dl.dataset.targets,
     label_transform=bd_label_transform,
-    is_train=False,
+    train=False,
 )
 
 adv_test_dataset = prepro_cls_DatasetBD(

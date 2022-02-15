@@ -331,7 +331,8 @@ train_pidx = generate_single_target_attack_train_pidx(
     tlabel = args.attack_target,
     pratio= args.pratio if 'pratio' in args.__dict__ else None,
     p_num= args.p_num if 'p_num' in args.__dict__ else None,
-    clean_label = True
+    clean_label = True,
+    train=True,
 )
 pnum = round(args.pratio * len(benign_train_dl.dataset.targets)) if 'pratio' in args.__dict__  \
     else (args.p_num if 'p_num' in args.__dict__ else None)
