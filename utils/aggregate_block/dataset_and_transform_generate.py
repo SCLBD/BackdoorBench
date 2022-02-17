@@ -36,16 +36,22 @@ def dataset_and_transform_generate(args):
 
         from utils.dataset_preprocess.cifar10_preprocess import data_transforms_cifar10
 
-        train_dataset_without_transform = CIFAR10(args.dataset_path,
-                        train=True,
-                        transform=None, )
+        train_dataset_without_transform = CIFAR10(
+            args.dataset_path,
+            train=True,
+            transform=None,
+            download=True,
+        )
 
         train_img_transform = get_transform('cifar10', *(args.img_size[:2]) , train = True)
         train_label_transfrom = None
 
-        test_dataset_without_transform = CIFAR10(args.dataset_path,
-                        train=False,
-                        transform=None, )
+        test_dataset_without_transform = CIFAR10(
+            args.dataset_path,
+            train=False,
+            transform=None,
+            download=True,
+        )
 
         test_img_transform = get_transform('cifar10', *(args.img_size[:2]) , train = False)
         test_label_transform = None

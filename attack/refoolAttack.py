@@ -1,12 +1,9 @@
-import sys, yaml, os
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
 '''
 rewrite from basicAttack since refool do not affect the training process.
 some of settings in github of refool is different from the paper, we choose to use the settings in the paper.
 '''
 
+import sys, yaml, os
 import argparse
 import logging
 import os
@@ -17,6 +14,24 @@ import numpy as np
 import torch
 import imageio
 import yaml
+from utils.aggregate_block.save_path_generate import generate_save_folder
+import time
+import logging
+import wandb
+import torchvision.transforms as transforms
+from utils.aggregate_block.fix_random import fix_random
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.bd_dataset import prepro_cls_DatasetBD
+from torch.utils.data import DataLoader
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
+from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
+from copy import deepcopy
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+from utils.save_load_attack import save_attack_result
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
 
 def add_args(parser):
     """
@@ -80,241 +95,244 @@ def add_args(parser):
 
     return parser
 
+def main():
+    parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
+    args = parser.parse_args()
 
-parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
-args = parser.parse_args()
+    with open(args.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
 
-with open(args.yaml_path, 'r') as f:
-    defaults = yaml.safe_load(f)
+    defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
 
-defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+    args.__dict__ = defaults
 
-args.__dict__ = defaults
+    args.attack = 'refool'
 
-args.attack = 'refool'
+    args.terminal_info = sys.argv
 
-args.terminal_info = sys.argv
 
-from utils.aggregate_block.save_path_generate import generate_save_folder
 
-if 'save_folder_name' not in args:
-    save_path = generate_save_folder(
-        run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
-        given_load_file_path=args.load_path if 'load_path' in args else None,
-        all_record_folder_path='../record',
+    if 'save_folder_name' not in args:
+        save_path = generate_save_folder(
+            run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
+            given_load_file_path=args.load_path if 'load_path' in args else None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + args.save_folder_name
+        os.mkdir(save_path)
+
+    args.save_path = save_path
+
+    torch.save(args.__dict__, save_path + '/info.pickle')
+
+
+
+    # logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
     )
-else:
-    save_path = '../record/' + args.save_folder_name
-    os.mkdir(save_path)
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
-args.save_path = save_path
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-torch.save(args.__dict__, save_path + '/info.pickle')
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
 
-import time
-import logging
-# logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-logFormatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%d:%H:%M:%S',
-)
-logger = logging.getLogger()
-# logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    logger.setLevel(logging.INFO)
+    logging.info(pformat(args.__dict__))
 
-fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+    try:
 
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
+        wandb.init(
+            project="bdzoo2",
+            entity="chr",
+            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
+            config=args,
+        )
+        set_wandb = True
+    except:
+        set_wandb = False
+    logging.info(f'set_wandb = {set_wandb}')
 
-logger.setLevel(logging.INFO)
-logging.info(pformat(args.__dict__))
 
-try:
-    import wandb
-    wandb.init(
-        project="bdzoo2",
-        entity="chr",
-        name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-        config=args,
+
+    fix_random(int(args.random_seed))
+
+
+
+    train_dataset_without_transform, \
+                train_img_transform, \
+                train_label_transfrom, \
+    test_dataset_without_transform, \
+                test_img_transform, \
+                test_label_transform = dataset_and_transform_generate(args)
+
+
+
+
+    benign_train_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True
     )
-    set_wandb = True
-except:
-    set_wandb = False
-logging.info(f'set_wandb = {set_wandb}')
 
-import torchvision.transforms as transforms
-from utils.aggregate_block.fix_random import fix_random
-fix_random(int(args.random_seed))
+    benign_test_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
 
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
-train_dataset_without_transform, \
-            train_img_transform, \
-            train_label_transfrom, \
-test_dataset_without_transform, \
-            test_img_transform, \
-            test_label_transform = dataset_and_transform_generate(args)
 
-from utils.bd_dataset import prepro_cls_DatasetBD
-from torch.utils.data import DataLoader
 
-benign_train_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
+    # here we load the attack use reflections
+    args.img_r_seq = []
+    for reflection_img_name in os.listdir(args.img_r_seq_folder_path):
+        reflection_img_path = f'{args.img_r_seq_folder_path}/{reflection_img_name}'
+        args.img_r_seq.append(imageio.imread(reflection_img_path))
+
+    train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
+
+    bd_test_bd_label_transform = bd_attack_label_trans_generate(args)
+
+
+
+    args.p_num = round((benign_train_dl.dataset.targets == args.attack_target).sum() * args.pratio)
+    print('Notice that here is the poison rate inside the target class ')
+
+    train_pidx = generate_single_target_attack_train_pidx(
+        targets = benign_train_dl.dataset.targets,
+        tlabel = int(args.attack_target),
+        pratio= None,
+        p_num=args.p_num,
+        clean_label = True,
+        train = True,
+    )
+
+    torch.save(train_pidx,
+        args.save_path + '/train_pidex_list.pickle',
+    )
+
+    adv_train_ds = prepro_cls_DatasetBD(
+        deepcopy(train_dataset_without_transform),
+        poison_idx= train_pidx,
+        bd_image_pre_transform=train_bd_img_transform,
         bd_label_pre_transform=None,
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True
-)
+    )
 
-benign_test_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+    adv_train_dl = DataLoader(
+        dataset = adv_train_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True,
+    )
+
+    test_pidx = generate_pidx_from_label_transform(
+        benign_test_dl.dataset.targets,
+        label_transform=bd_test_bd_label_transform,
+        train=False,
+    )
+
+    adv_test_dataset = prepro_cls_DatasetBD(
+        deepcopy(test_dataset_without_transform),
+        poison_idx=test_pidx,
+        bd_image_pre_transform=test_bd_img_transform,
+        bd_label_pre_transform=bd_test_bd_label_transform,
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
-
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
-from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
-
-# here we load the attack use reflections
-args.img_r_seq = []
-for reflection_img_name in os.listdir(args.img_r_seq_folder_path):
-    reflection_img_path = f'{args.img_r_seq_folder_path}/{reflection_img_name}'
-    args.img_r_seq.append(imageio.imread(reflection_img_path))
-
-train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
-
-bd_test_bd_label_transform = bd_attack_label_trans_generate(args)
-
-from copy import deepcopy
-
-args.p_num = round((benign_train_dl.dataset.targets == args.attack_target).sum() * args.pratio)
-print('Notice that here is the poison rate inside the target class ')
-
-train_pidx = generate_single_target_attack_train_pidx(
-    targets = benign_train_dl.dataset.targets,
-    tlabel = int(args.attack_target),
-    pratio= None,
-    p_num=args.p_num,
-    clean_label = True,
-    train = True,
-)
-
-torch.save(train_pidx,
-    args.save_path + '/train_pidex_list.pickle',
-)
-
-adv_train_ds = prepro_cls_DatasetBD(
-    deepcopy(train_dataset_without_transform),
-    poison_idx= train_pidx,
-    bd_image_pre_transform=train_bd_img_transform,
-    bd_label_pre_transform=None,
-    ori_image_transform_in_loading=train_img_transform,
-    ori_label_transform_in_loading=train_label_transfrom,
-    add_details_in_preprocess=True,
-)
-
-adv_train_dl = DataLoader(
-    dataset = adv_train_ds,
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True,
-)
-
-test_pidx = generate_pidx_from_label_transform(
-    benign_test_dl.dataset.targets,
-    label_transform=bd_test_bd_label_transform,
-    train=False,
-)
-
-adv_test_dataset = prepro_cls_DatasetBD(
-    deepcopy(test_dataset_without_transform),
-    poison_idx=test_pidx,
-    bd_image_pre_transform=test_bd_img_transform,
-    bd_label_pre_transform=bd_test_bd_label_transform,
-    ori_image_transform_in_loading=test_img_transform,
-    ori_label_transform_in_loading=test_label_transform,
-    add_details_in_preprocess=True,
-)
-
-adv_test_dataset.subset(
-    np.where(test_pidx == 1)[0]
-)
-
-adv_test_dl = DataLoader(
-    dataset = adv_test_dataset,
-    batch_size= args.batch_size,
-    shuffle= False,
-    drop_last= False,
-)
-
-from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
-net = generate_cls_model(
-    model_name=args.model,
-    num_classes=args.num_classes,
-)
-
-trainer = generate_cls_trainer(
-    net,
-    args.attack
-)
-
-from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-
-criterion = argparser_criterion(args)
-
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-
-
-if __name__ == '__main__':
-
-
-    trainer.train_with_test_each_epoch(
-        train_data = adv_train_dl,
-        test_data = benign_test_dl,
-        adv_test_data = adv_test_dl,
-        end_epoch_num = args.epochs,
-        criterion = criterion,
-        optimizer = optimizer,
-        scheduler = scheduler,
-        device = device,
-        frequency_save = args.frequency_save,
-        save_folder_path = save_path,
-        save_prefix = 'attack',
-        continue_training_path = None,
     )
 
-from utils.save_load_attack import save_attack_result
+    adv_test_dataset.subset(
+        np.where(test_pidx == 1)[0]
+    )
 
-save_attack_result(
-    model_name = args.model,
-    num_classes = args.num_classes,
-    model = trainer.model.cpu().state_dict(),
-    data_path = args.dataset_path,
-    img_size = args.img_size,
-    clean_data = args.dataset,
-    bd_train = adv_train_ds,
-    bd_test = adv_test_dataset,
-    save_path = save_path,
-)
+    adv_test_dl = DataLoader(
+        dataset = adv_test_dataset,
+        batch_size= args.batch_size,
+        shuffle= False,
+        drop_last= False,
+    )
+
+
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+    net = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
+    )
+
+    trainer = generate_cls_trainer(
+        net,
+        args.attack
+    )
+
+
+
+    criterion = argparser_criterion(args)
+
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
+
+
+    if __name__ == '__main__':
+
+
+        trainer.train_with_test_each_epoch(
+            train_data = adv_train_dl,
+            test_data = benign_test_dl,
+            adv_test_data = adv_test_dl,
+            end_epoch_num = args.epochs,
+            criterion = criterion,
+            optimizer = optimizer,
+            scheduler = scheduler,
+            device = device,
+            frequency_save = args.frequency_save,
+            save_folder_path = save_path,
+            save_prefix = 'attack',
+            continue_training_path = None,
+        )
+
+
+
+    save_attack_result(
+        model_name = args.model,
+        num_classes = args.num_classes,
+        model = trainer.model.cpu().state_dict(),
+        data_path = args.dataset_path,
+        img_size = args.img_size,
+        clean_data = args.dataset,
+        bd_train = adv_train_ds,
+        bd_test = adv_test_dataset,
+        save_path = save_path,
+    )
+
+if __name__ == '__main__':
+    main()

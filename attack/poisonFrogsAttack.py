@@ -18,25 +18,29 @@ code : https://github.com/ashafahi/inceptionv3-transferLearn-poison
 '''
 
 import sys, yaml, os
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
-
-import torch
-import numpy as np
-
-from typing import List
-
-from skimage.restoration import denoise_tv_bregman
 import argparse
-import os
-import sys
 from pprint import pprint, pformat
 import numpy as np
 import torch
-import yaml
-
 from utils.hook_forward_lastHiddenLayerActivationExtractor import lastHiddenActivationExtractor
+from utils.aggregate_block.save_path_generate import generate_save_folder
+import time
+import logging
+import wandb
+from utils.aggregate_block.fix_random import fix_random
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.bd_dataset import prepro_cls_DatasetBD
+from torch.utils.data import DataLoader
+from utils.backdoor_generate_pindex import generate_single_target_attack_train_pidx
+from copy import deepcopy
+from torch.utils.data.dataset import TensorDataset
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+from utils.save_load_attack import save_attack_result
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
 
 def disguise_embeddings(
         source_class_img_tensor : torch.Tensor, # (n, 3, x, x)
@@ -110,7 +114,7 @@ def disguise_embeddings(
     return target_class_img_tensor.data
 
 # if __name__ == '__main__':
-#     from torchvision.models import resnet18
+
 #     net = resnet18()
 #     pic_tensor = disguise_embeddings(
 #         source_class_img_tensor = torch.zeros(1,3,32,32),
@@ -123,7 +127,7 @@ def disguise_embeddings(
 #         beta = 0.25,
 #         final_blended_rate = 0.3,
 #     )
-#     import matplotlib.pyplot as plt
+
 #     plt.imshow(pic_tensor[0].detach().numpy().transpose(1,2,0))
 #     plt.show()
 
@@ -203,277 +207,281 @@ def add_args(parser):
 
     return parser
 
-parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
-args = parser.parse_args()
+def main():
+    parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
+    args = parser.parse_args()
 
-with open(args.yaml_path, 'r') as f:
-    defaults = yaml.safe_load(f)
+    with open(args.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
 
-defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+    defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
 
-args.__dict__ = defaults
+    args.__dict__ = defaults
 
-args.attack = 'poisonFrogs'
+    args.attack = 'poisonFrogs'
 
-args.terminal_info = sys.argv
+    args.terminal_info = sys.argv
 
-from utils.aggregate_block.save_path_generate import generate_save_folder
 
-if 'save_folder_name' not in args:
-    save_path = generate_save_folder(
-        run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
-        given_load_file_path=args.load_path if 'load_path' in args else None,
-        all_record_folder_path='../record',
+
+    if 'save_folder_name' not in args:
+        save_path = generate_save_folder(
+            run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
+            given_load_file_path=args.load_path if 'load_path' in args else None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + args.save_folder_name
+        os.mkdir(save_path)
+
+    args.save_path = save_path
+
+    torch.save(args.__dict__, save_path + '/info.pickle')
+
+
+
+    # logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
     )
-else:
-    save_path = '../record/' + args.save_folder_name
-    os.mkdir(save_path)
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
-args.save_path = save_path
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-torch.save(args.__dict__, save_path + '/info.pickle')
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
 
-import time
-import logging
-# logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-logFormatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%d:%H:%M:%S',
-)
-logger = logging.getLogger()
-# logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    logger.setLevel(logging.INFO)
+    logging.info(pformat(args.__dict__))
 
-fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+    try:
 
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
+        wandb.init(
+            project="bdzoo2",
+            entity="chr",
+            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
+            config=args,
+        )
+        set_wandb = True
+    except:
+        set_wandb = False
+    logging.info(f'set_wandb = {set_wandb}')
 
-logger.setLevel(logging.INFO)
-logging.info(pformat(args.__dict__))
 
-try:
-    import wandb
-    wandb.init(
-        project="bdzoo2",
-        entity="chr",
-        name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-        config=args,
+
+    fix_random(int(args.random_seed))
+
+
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+    net = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
     )
-    set_wandb = True
-except:
-    set_wandb = False
-logging.info(f'set_wandb = {set_wandb}')
 
-import torchvision.transforms as transforms
-from utils.aggregate_block.fix_random import fix_random
-fix_random(int(args.random_seed))
+    net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
-from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
-net = generate_cls_model(
-    model_name=args.model,
-    num_classes=args.num_classes,
-)
+    train_dataset_without_transform, \
+                train_img_transform, \
+                train_label_transfrom, \
+    test_dataset_without_transform, \
+                test_img_transform, \
+                test_label_transform = dataset_and_transform_generate(args)
 
-net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
-train_dataset_without_transform, \
-            train_img_transform, \
-            train_label_transfrom, \
-test_dataset_without_transform, \
-            test_img_transform, \
-            test_label_transform = dataset_and_transform_generate(args)
 
-from utils.bd_dataset import prepro_cls_DatasetBD
-from torch.utils.data import DataLoader
+    benign_train_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True
+    )
 
-benign_train_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
+    benign_test_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
+
+
+
+
+
+    train_pidx = generate_single_target_attack_train_pidx(
+        targets = benign_train_dl.dataset.targets,
+        tlabel = args.attack_target,
+        pratio= args.pratio if 'pratio' in args.__dict__ else None,
+        p_num= args.p_num if 'p_num' in args.__dict__ else None,
+        clean_label = True,
+        train=True,
+    )
+    pnum = round(args.pratio * len(benign_train_dl.dataset.targets)) if 'pratio' in args.__dict__  \
+        else (args.p_num if 'p_num' in args.__dict__ else None)
+    assert pnum is not None
+
+    train_pidx = np.zeros(len(benign_train_dl.dataset))
+    train_pidx[np.random.choice(
+        np.where(benign_train_dl.dataset.targets == args.attack_target)[0],
+        pnum,
+        replace=False
+    )] = 1
+
+    torch.save(train_pidx,
+        args.save_path + '/train_pidex_list.pickle',
+    )
+
+
+
+    class poisonFrogs(object):
+
+        def __init__(self,
+                     target_instance,
+                     net: torch.nn.Module,
+                     device: torch.device,
+                     max_iter: int,  # 200
+                     terminal_loss: float,  # 1e-10
+                     lr: float,
+                     beta: float,  # 0.25
+                     final_blended_rate: float,  # 0.3 ,negative means NO
+                     ):
+
+            self.net = net
+            self.device = device
+            self.max_iter = max_iter
+            self.terminal_loss = terminal_loss
+            self.lr = lr
+            self.beta = beta
+            self.final_blended_rate = final_blended_rate
+
+            self.target_instance = target_instance
+            self.target_instance_tensor = torch.tensor((np.array(target_instance) / 255).transpose(2,0,1)).float()[None,...]
+            #(1,3,x,x)
+
+        def __call__(self, img, target=None, image_serial_id=None):
+            return self.add_trigger(img)
+
+        def add_trigger(self, img):
+
+            img_tensor = torch.tensor((np.array(img) / 255).transpose(2,0,1)).float()[None,...]
+
+            img_tensor = disguise_embeddings(
+                source_class_img_tensor = self.target_instance_tensor,
+                target_class_img_tensor = img_tensor,
+                net = self.net,
+                device = self.device,
+                max_iter = self.max_iter,
+                terminal_loss = self.terminal_loss,
+                lr = self.lr,
+                beta = self.beta,
+                final_blended_rate = self.final_blended_rate,
+            )
+
+            img = (img_tensor[0].cpu().numpy().transpose(1,2,0) * 255).astype(np.uint8)
+
+            return img
+
+    adv_train_ds = prepro_cls_DatasetBD( #TODO this implement is correct but slow need to speed up
+        deepcopy(train_dataset_without_transform),
+        poison_idx= train_pidx,
+        bd_image_pre_transform=poisonFrogs(
+            benign_train_dl.dataset.dataset[args.target_instance_index][0], #TODO
+            net = net,
+            device = device,
+            max_iter = args.generate_max_iter,
+            terminal_loss = args.generate_terminal_loss,
+            lr = args.generate_lr,
+            beta = args.generate_beta,
+            final_blended_rate = args.generate_final_blended_rate,
+        ),
         bd_label_pre_transform=None,
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True
-)
+    )
 
-benign_test_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=test_img_transform,
-        ori_label_transform_in_loading=test_label_transform,
-        add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
-
-from utils.backdoor_generate_pindex import generate_single_target_attack_train_pidx
-
-from copy import deepcopy
-
-train_pidx = generate_single_target_attack_train_pidx(
-    targets = benign_train_dl.dataset.targets,
-    tlabel = args.attack_target,
-    pratio= args.pratio if 'pratio' in args.__dict__ else None,
-    p_num= args.p_num if 'p_num' in args.__dict__ else None,
-    clean_label = True,
-    train=True,
-)
-pnum = round(args.pratio * len(benign_train_dl.dataset.targets)) if 'pratio' in args.__dict__  \
-    else (args.p_num if 'p_num' in args.__dict__ else None)
-assert pnum is not None
-
-train_pidx = np.zeros(len(benign_train_dl.dataset))
-train_pidx[np.random.choice(
-    np.where(benign_train_dl.dataset.targets == args.attack_target)[0],
-    pnum,
-    replace=False
-)] = 1
-
-torch.save(train_pidx,
-    args.save_path + '/train_pidex_list.pickle',
-)
+    adv_train_dl = DataLoader(
+        dataset = adv_train_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True,
+    )
 
 
 
-class poisonFrogs(object):
+    adv_test_dataset = TensorDataset(benign_train_dl.dataset[args.target_instance_index][0][None,...], torch.tensor(benign_train_dl.dataset[args.target_instance_index][1])[None,...])
 
-    def __init__(self,
-                 target_instance,
-                 net: torch.nn.Module,
-                 device: torch.device,
-                 max_iter: int,  # 200
-                 terminal_loss: float,  # 1e-10
-                 lr: float,
-                 beta: float,  # 0.25
-                 final_blended_rate: float,  # 0.3 ,negative means NO
-                 ):
+    adv_test_dl = DataLoader(
+        dataset = adv_test_dataset,
+        batch_size= args.batch_size,
+        shuffle= False,
+        drop_last= False,
+    )
 
-        self.net = net
-        self.device = device
-        self.max_iter = max_iter
-        self.terminal_loss = terminal_loss
-        self.lr = lr
-        self.beta = beta
-        self.final_blended_rate = final_blended_rate
+    trainer = generate_cls_trainer(
+        net,
+        args.attack
+    )
 
-        self.target_instance = target_instance
-        self.target_instance_tensor = torch.tensor((np.array(target_instance) / 255).transpose(2,0,1)).float()[None,...]
-        #(1,3,x,x)
 
-    def __call__(self, img, target=None, image_serial_id=None):
-        return self.add_trigger(img)
 
-    def add_trigger(self, img):
+    criterion = argparser_criterion(args)
 
-        img_tensor = torch.tensor((np.array(img) / 255).transpose(2,0,1)).float()[None,...]
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
 
-        img_tensor = disguise_embeddings(
-            source_class_img_tensor = self.target_instance_tensor,
-            target_class_img_tensor = img_tensor,
-            net = self.net,
-            device = self.device,
-            max_iter = self.max_iter,
-            terminal_loss = self.terminal_loss,
-            lr = self.lr,
-            beta = self.beta,
-            final_blended_rate = self.final_blended_rate,
-        )
+    trainer.train_with_test_each_epoch(
+                train_data = adv_train_dl,
+                test_data = benign_test_dl,
+                adv_test_data = adv_test_dl,
+                end_epoch_num = args.epochs,
+                criterion = criterion,
+                optimizer = optimizer,
+                scheduler = scheduler,
+                device = device,
+                frequency_save = args.frequency_save,
+                save_folder_path = save_path,
+                save_prefix = 'attack',
+                continue_training_path = None,
+            )
 
-        img = (img_tensor[0].cpu().numpy().transpose(1,2,0) * 255).astype(np.uint8)
 
-        return img
 
-adv_train_ds = prepro_cls_DatasetBD( #TODO this implement is correct but slow need to speed up
-    deepcopy(train_dataset_without_transform),
-    poison_idx= train_pidx,
-    bd_image_pre_transform=poisonFrogs(
-        benign_train_dl.dataset.dataset[args.target_instance_index][0], #TODO
-        net = net,
-        device = device,
-        max_iter = args.generate_max_iter,
-        terminal_loss = args.generate_terminal_loss,
-        lr = args.generate_lr,
-        beta = args.generate_beta,
-        final_blended_rate = args.generate_final_blended_rate,
-    ),
-    bd_label_pre_transform=None,
-    ori_image_transform_in_loading=train_img_transform,
-    ori_label_transform_in_loading=train_label_transfrom,
-    add_details_in_preprocess=True,
-)
+    save_attack_result(
+        model_name = args.model,
+        num_classes = args.num_classes,
+        model = trainer.model.cpu().state_dict(),
+        data_path = args.dataset_path,
+        img_size = args.img_size,
+        clean_data = args.dataset,
+        bd_train = adv_train_ds,
+        bd_test = adv_test_dataset,
+        save_path = save_path,
+    )
 
-adv_train_dl = DataLoader(
-    dataset = adv_train_ds,
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True,
-)
-
-from torch.utils.data.dataset import TensorDataset
-
-adv_test_dataset = TensorDataset(benign_train_dl.dataset[args.target_instance_index][0][None,...], torch.tensor(benign_train_dl.dataset[args.target_instance_index][1])[None,...])
-
-adv_test_dl = DataLoader(
-    dataset = adv_test_dataset,
-    batch_size= args.batch_size,
-    shuffle= False,
-    drop_last= False,
-)
-
-trainer = generate_cls_trainer(
-    net,
-    args.attack
-)
-
-from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-
-criterion = argparser_criterion(args)
-
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-
-trainer.train_with_test_each_epoch(
-            train_data = adv_train_dl,
-            test_data = benign_test_dl,
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'attack',
-            continue_training_path = None,
-        )
-
-from utils.save_load_attack import save_attack_result
-
-save_attack_result(
-    model_name = args.model,
-    num_classes = args.num_classes,
-    model = trainer.model.cpu().state_dict(),
-    data_path = args.dataset_path,
-    img_size = args.img_size,
-    clean_data = args.dataset,
-    bd_train = adv_train_ds,
-    bd_test = adv_test_dataset,
-    save_path = save_path,
-)
+if __name__ == '__main__':
+    main()

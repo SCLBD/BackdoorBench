@@ -21,23 +21,34 @@ And since multiple settings used in example code, I just select one of those.
 '''
 
 import sys, os, logging, yaml
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
-
-import torch
-import numpy as np
-
 from typing import List
-
 from skimage.restoration import denoise_tv_bregman
 import argparse
-import os
-import sys
 from pprint import pprint, pformat
 import numpy as np
 import torch
-import yaml
+from typing import Optional
+from utils.aggregate_block.save_path_generate import generate_save_folder
+import time
+import logging
+import wandb
+import torchvision.transforms as transforms
+from utils.aggregate_block.fix_random import fix_random
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
+from  torch.utils.data.dataset import TensorDataset
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.bd_dataset import prepro_cls_DatasetBD
+from torch.utils.data import DataLoader
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
+from utils.aggregate_block.bd_attack_generate import  bd_attack_label_trans_generate
+from utils.bd_img_transform.patch import AddMatrixPatchTrigger
+from copy import deepcopy
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+from utils.save_load_attack import save_attack_result
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
 
 # different settings
 # octaves = [
@@ -213,7 +224,7 @@ def generate_trigger_pattern_from_mask(
     return best_trigger, loss_record
 
 # if __name__ == '__main__':
-#     from torchvision.models import resnet18
+
 #     net = resnet18()
 #
 #     print(find_most_connected_neuron_for_linear(net, 'fc', 5))
@@ -230,11 +241,11 @@ def generate_trigger_pattern_from_mask(
 #                                            0.08,
 #                                        10,
 #                                        1)
-#     import matplotlib.pyplot as plt
+
 #     plt.imshow(a.numpy().transpose(1,2,0))
 #     plt.show()
 
-from typing import Optional
+
 
 def generate_trigger_pattern_from_mask_with_octaves(
     net : torch.nn.Module,
@@ -339,7 +350,7 @@ def generate_trigger_pattern_from_mask_with_octaves(
 #     return init_tensor.data[0]
 
 # if __name__ == '__main__':
-#     from torchvision.models import resnet18
+
 #     net = resnet18()
 #
 #     a = reverse_engineer_one_sample(net,
@@ -349,7 +360,7 @@ def generate_trigger_pattern_from_mask_with_octaves(
 #                                     torch.device('cpu'),
 #
 #                                        )
-#     import matplotlib.pyplot as plt
+
 #     plt.imshow(a.numpy().transpose(1,2,0))
 #     plt.show()
 
@@ -427,314 +438,319 @@ def add_args(parser):
 
     return parser
 
-parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
-args = parser.parse_args()
+def main():
+    parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
+    args = parser.parse_args()
 
-with open(args.yaml_path, 'r') as f:
-    defaults = yaml.safe_load(f)
+    with open(args.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
 
-defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+    defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
 
-args.__dict__ = defaults
+    args.__dict__ = defaults
 
-args.attack = 'trojannn'
+    args.attack = 'trojannn'
 
-args.terminal_info = sys.argv
+    args.terminal_info = sys.argv
 
-from utils.aggregate_block.save_path_generate import generate_save_folder
 
-if 'save_folder_name' not in args:
-    save_path = generate_save_folder(
-        run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
-        given_load_file_path=args.load_path if 'load_path' in args else None,
-        all_record_folder_path='../record',
+
+    if 'save_folder_name' not in args:
+        save_path = generate_save_folder(
+            run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
+            given_load_file_path=args.load_path if 'load_path' in args else None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + args.save_folder_name
+        os.mkdir(save_path)
+
+    args.save_path = save_path
+
+    torch.save(args.__dict__, save_path + '/info.pickle')
+
+
+
+    # logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
     )
-else:
-    save_path = '../record/' + args.save_folder_name
-    os.mkdir(save_path)
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
-args.save_path = save_path
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-torch.save(args.__dict__, save_path + '/info.pickle')
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
 
-import time
-import logging
-# logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-logFormatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%d:%H:%M:%S',
-)
-logger = logging.getLogger()
-# logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    logger.setLevel(logging.INFO)
+    logging.info(pformat(args.__dict__))
 
-fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+    try:
 
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
+        wandb.init(
+            project="bdzoo2",
+            entity="chr",
+            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
+            config=args,
+        )
+        set_wandb = True
+    except:
+        set_wandb = False
+    logging.info(f'set_wandb = {set_wandb}')
 
-logger.setLevel(logging.INFO)
-logging.info(pformat(args.__dict__))
 
-try:
-    import wandb
-    wandb.init(
-        project="bdzoo2",
-        entity="chr",
-        name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-        config=args,
+
+    fix_random(int(args.random_seed))
+
+
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+    net = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
     )
-    set_wandb = True
-except:
-    set_wandb = False
-logging.info(f'set_wandb = {set_wandb}')
+    net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
-import torchvision.transforms as transforms
-from utils.aggregate_block.fix_random import fix_random
-fix_random(int(args.random_seed))
+    logging.warning('here I use a model dependent naming, be careful !')
+    net.conv2 = net.layer4[-1].conv2
 
-from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
-net = generate_cls_model(
-    model_name=args.model,
-    num_classes=args.num_classes,
-)
-net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
-net.conv2 = net.layer4[-1].conv2
-from torchvision.models import resnet18
-select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.topk_neuron)
-if all(attr_name in args.__dict__ for attr_name in [
-    'trigger_generation_lr_start',
-    'trigger_generation_lr_end',
-    'trigger_generation_denoise_weight_start',
-    'trigger_generation_denoise_weight_end',
-    'trigger_generation_max_iter',
-]):
-    trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask(
-        net,
-        torch.load(args.mask_tensor_path),
-        torch.randn_like(torch.load(args.mask_tensor_path)),
-        args.layer_name, #'fc',
-        args.target_activation,#100,
-        device,
-        select_neuron_index_list,
-        args.trigger_generation_lr_start,
-        args.trigger_generation_lr_end,
-        args.trigger_generation_denoise_weight_start,
-        args.trigger_generation_denoise_weight_end,
-        args.trigger_generation_max_iter,
-        args.trigger_generation_final_loss,
-    )
-elif 'octaves' in args:
-    trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask_with_octaves(
-        net,
-        torch.load(args.mask_tensor_path),
-        torch.randn_like(torch.load(args.mask_tensor_path)),
-        args.layer_name,  # 'fc',
-        args.target_activation,  # 100,
-        device,
-        select_neuron_index_list,
-        octaves=args.octaves,
-        end_loss_value = args.trigger_generation_final_loss,
-        name = 'trigger_pattern'
-    )
-else:
-    raise SystemError('No valid setting or octaves given ')
-
-class_img_dict = {}
-for class_i in range(args.num_classes):
-    # class_re_img = reverse_engineer_one_sample(
-    #     net,
-    #     torch.load(args.init_img_path),
-    #     class_i,
-    #     args.reverse_engineering_target_value,
-    #     args.reverse_engineering_lr_start,
-    #     args.reverse_engineering_lr_end,
-    #     args.reverse_engineering_denoise_weight_start,
-    #     args.reverse_engineering_denoise_weight_end,
-    #     args.reverse_engineering_max_iter,
-    #     args.reverse_engineering_final_loss,
-    #     device,
-    # )
+    select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.topk_neuron)
     if all(attr_name in args.__dict__ for attr_name in [
-        'reverse_engineering_lr_start',
-        'reverse_engineering_lr_end',
-        'reverse_engineering_denoise_weight_start',
-        'reverse_engineering_denoise_weight_end',
-        'reverse_engineering_max_iter',
+        'trigger_generation_lr_start',
+        'trigger_generation_lr_end',
+        'trigger_generation_denoise_weight_start',
+        'trigger_generation_denoise_weight_end',
+        'trigger_generation_max_iter',
     ]):
-
-        class_re_img, lossList = generate_trigger_pattern_from_mask(
+        trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask(
             net,
-            mask= torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
-            init_tensor=torch.load(args.init_img_path),  # (3,x,x)
-            layer_name = args.final_layer_name, #TODO
-            target_activation =args.reverse_engineering_target_value ,
-            device = device,
-            neuron_indexes = [class_i],
-            lr_start = args.reverse_engineering_lr_start,
-            lr_end = args.reverse_engineering_lr_end,
-            denoise_weight_start = args.reverse_engineering_denoise_weight_start,
-            denoise_weight_end = args.reverse_engineering_denoise_weight_end,
-            max_iter= args.reverse_engineering_max_iter,
-            end_loss_value=args.reverse_engineering_final_loss,
+            torch.load(args.mask_tensor_path),
+            torch.randn_like(torch.load(args.mask_tensor_path)),
+            args.layer_name, #'fc',
+            args.target_activation,#100,
+            device,
+            select_neuron_index_list,
+            args.trigger_generation_lr_start,
+            args.trigger_generation_lr_end,
+            args.trigger_generation_denoise_weight_start,
+            args.trigger_generation_denoise_weight_end,
+            args.trigger_generation_max_iter,
+            args.trigger_generation_final_loss,
         )
-        class_img_dict[class_i] = class_re_img
     elif 'octaves' in args:
-        class_re_img, lossList = generate_trigger_pattern_from_mask_with_octaves(
+        trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask_with_octaves(
             net,
-            mask=torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
-            init_tensor=torch.load(args.init_img_path),  # (3,x,x)
-            layer_name=args.final_layer_name,  # TODO
-            target_activation=args.reverse_engineering_target_value,
-            device=device,
-            neuron_indexes=[class_i],
+            torch.load(args.mask_tensor_path),
+            torch.randn_like(torch.load(args.mask_tensor_path)),
+            args.layer_name,  # 'fc',
+            args.target_activation,  # 100,
+            device,
+            select_neuron_index_list,
             octaves=args.octaves,
-            end_loss_value=args.reverse_engineering_final_loss,
-            name = f'class_{class_i}_img'
+            end_loss_value = args.trigger_generation_final_loss,
+            name = 'trigger_pattern'
         )
-        class_img_dict[class_i] = class_re_img
     else:
         raise SystemError('No valid setting or octaves given ')
 
-from  torch.utils.data.dataset import TensorDataset
+    class_img_dict = {}
+    for class_i in range(args.num_classes):
+        # class_re_img = reverse_engineer_one_sample(
+        #     net,
+        #     torch.load(args.init_img_path),
+        #     class_i,
+        #     args.reverse_engineering_target_value,
+        #     args.reverse_engineering_lr_start,
+        #     args.reverse_engineering_lr_end,
+        #     args.reverse_engineering_denoise_weight_start,
+        #     args.reverse_engineering_denoise_weight_end,
+        #     args.reverse_engineering_max_iter,
+        #     args.reverse_engineering_final_loss,
+        #     device,
+        # )
+        if all(attr_name in args.__dict__ for attr_name in [
+            'reverse_engineering_lr_start',
+            'reverse_engineering_lr_end',
+            'reverse_engineering_denoise_weight_start',
+            'reverse_engineering_denoise_weight_end',
+            'reverse_engineering_max_iter',
+        ]):
 
-adv_train_ds = TensorDataset(
-    torch.cat([class_img_dict[i][None,...] for i in np.arange(args.num_classes)] + [
-        (class_img_dict[i]*(trigger_tensor_pattern == 0) +  trigger_tensor_pattern*(trigger_tensor_pattern > 0))[None,...] for i in np.arange(args.num_classes)
-    ]),
-    torch.tensor(list(range(args.num_classes))*2)
-)
+            class_re_img, lossList = generate_trigger_pattern_from_mask(
+                net,
+                mask= torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
+                init_tensor=torch.load(args.init_img_path),  # (3,x,x)
+                layer_name = args.final_layer_name, #TODO
+                target_activation =args.reverse_engineering_target_value ,
+                device = device,
+                neuron_indexes = [class_i],
+                lr_start = args.reverse_engineering_lr_start,
+                lr_end = args.reverse_engineering_lr_end,
+                denoise_weight_start = args.reverse_engineering_denoise_weight_start,
+                denoise_weight_end = args.reverse_engineering_denoise_weight_end,
+                max_iter= args.reverse_engineering_max_iter,
+                end_loss_value=args.reverse_engineering_final_loss,
+            )
+            class_img_dict[class_i] = class_re_img
+        elif 'octaves' in args:
+            class_re_img, lossList = generate_trigger_pattern_from_mask_with_octaves(
+                net,
+                mask=torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
+                init_tensor=torch.load(args.init_img_path),  # (3,x,x)
+                layer_name=args.final_layer_name,  # TODO
+                target_activation=args.reverse_engineering_target_value,
+                device=device,
+                neuron_indexes=[class_i],
+                octaves=args.octaves,
+                end_loss_value=args.reverse_engineering_final_loss,
+                name = f'class_{class_i}_img'
+            )
+            class_img_dict[class_i] = class_re_img
+        else:
+            raise SystemError('No valid setting or octaves given ')
 
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
-train_dataset_without_transform, \
-            train_img_transform, \
-            train_label_transfrom, \
-test_dataset_without_transform, \
-            test_img_transform, \
-            test_label_transform = dataset_and_transform_generate(args)
 
-from utils.bd_dataset import prepro_cls_DatasetBD
-from torch.utils.data import DataLoader
+    adv_train_ds = TensorDataset(
+        torch.cat([class_img_dict[i][None,...] for i in np.arange(args.num_classes)] + [
+            (class_img_dict[i]*(trigger_tensor_pattern == 0) +  trigger_tensor_pattern*(trigger_tensor_pattern > 0))[None,...] for i in np.arange(args.num_classes)
+        ]),
+        torch.tensor(list(range(args.num_classes))*2)
+    )
 
-benign_train_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=train_img_transform,
-        ori_label_transform_in_loading=train_label_transfrom,
-        add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True
-)
 
-benign_test_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+
+    train_dataset_without_transform, \
+                train_img_transform, \
+                train_label_transfrom, \
+    test_dataset_without_transform, \
+                test_img_transform, \
+                test_label_transform = dataset_and_transform_generate(args)
+
+
+
+
+    benign_train_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True
+    )
+
+    benign_test_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
+
+
+
+
+
+
+    test_bd_img_transform = AddMatrixPatchTrigger((trigger_tensor_pattern.cpu().numpy().transpose(1,2,0)*255).astype(np.uint8))
+
+    bd_label_transform = bd_attack_label_trans_generate(args)
+
+
+
+
+    adv_train_dl = DataLoader(
+        dataset = adv_train_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=False,
+    )
+
+    test_pidx = generate_pidx_from_label_transform(
+        benign_test_dl.dataset.targets,
+        label_transform=bd_label_transform,
+        train=False,
+    )
+
+    adv_test_dataset = prepro_cls_DatasetBD(
+        deepcopy(test_dataset_without_transform),
+        poison_idx=test_pidx,
+        bd_image_pre_transform=test_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
+    )
 
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
-from utils.aggregate_block.bd_attack_generate import  bd_attack_label_trans_generate
+    adv_test_dataset.subset(
+        np.where(test_pidx == 1)[0]
+    )
 
-from utils.bd_img_transform.patch import AddMatrixPatchTrigger
+    adv_test_dl = DataLoader(
+        dataset = adv_test_dataset,
+        batch_size= args.batch_size,
+        shuffle= False,
+        drop_last= False,
+    )
 
-test_bd_img_transform = AddMatrixPatchTrigger((trigger_tensor_pattern.cpu().numpy().transpose(1,2,0)*255).astype(np.uint8))
+    trainer = generate_cls_trainer(
+        net,
+        args.attack
+    )
 
-bd_label_transform = bd_attack_label_trans_generate(args)
 
 
-from copy import deepcopy
+    criterion = argparser_criterion(args)
 
-adv_train_dl = DataLoader(
-    dataset = adv_train_ds,
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=False,
-)
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
 
-test_pidx = generate_pidx_from_label_transform(
-    benign_test_dl.dataset.targets,
-    label_transform=bd_label_transform,
-    train=False,
-)
+    trainer.train_with_test_each_epoch(
+                train_data = adv_train_dl,
+                test_data = benign_test_dl,
+                adv_test_data = adv_test_dl,
+                end_epoch_num = args.epochs,
+                criterion = criterion,
+                optimizer = optimizer,
+                scheduler = scheduler,
+                device = device,
+                frequency_save = args.frequency_save,
+                save_folder_path = save_path,
+                save_prefix = 'attack',
+                continue_training_path = None,
+            )
 
-adv_test_dataset = prepro_cls_DatasetBD(
-    deepcopy(test_dataset_without_transform),
-    poison_idx=test_pidx,
-    bd_image_pre_transform=test_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=test_img_transform,
-    ori_label_transform_in_loading=test_label_transform,
-    add_details_in_preprocess=True,
-)
 
-adv_test_dataset.subset(
-    np.where(test_pidx == 1)[0]
-)
 
-adv_test_dl = DataLoader(
-    dataset = adv_test_dataset,
-    batch_size= args.batch_size,
-    shuffle= False,
-    drop_last= False,
-)
+    save_attack_result(
+        model_name = args.model,
+        num_classes = args.num_classes,
+        model = trainer.model.cpu().state_dict(),
+        data_path = args.dataset_path,
+        img_size = args.img_size,
+        clean_data = args.dataset,
+        bd_train = adv_train_ds,
+        bd_test = adv_test_dataset,
+        save_path = save_path,
+    )
 
-trainer = generate_cls_trainer(
-    net,
-    args.attack
-)
-
-from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-
-criterion = argparser_criterion(args)
-
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-
-trainer.train_with_test_each_epoch(
-            train_data = adv_train_dl,
-            test_data = benign_test_dl,
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'attack',
-            continue_training_path = None,
-        )
-
-from utils.save_load_attack import save_attack_result
-
-save_attack_result(
-    model_name = args.model,
-    num_classes = args.num_classes,
-    model = trainer.model.cpu().state_dict(),
-    data_path = args.dataset_path,
-    img_size = args.img_size,
-    clean_data = args.dataset,
-    bd_train = adv_train_ds,
-    bd_test = adv_test_dataset,
-    save_path = save_path,
-)
-
+if __name__ == '__main__':
+    main()
