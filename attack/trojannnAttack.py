@@ -106,6 +106,8 @@ def find_most_connected_neuron_for_linear(
         connect_level = torch.abs(net.__getattr__(layer_name).weight).sum([1,2,3])
     return torch.topk(connect_level, k = topk)[1].tolist() # where the topk connect level neuron are
 
+
+
 def generate_trigger_pattern_from_mask(
         net : torch.nn.Module,
         mask : torch.Tensor, # (3,x,x)
@@ -120,7 +122,7 @@ def generate_trigger_pattern_from_mask(
         denoise_weight_end : float,
         max_iter : int,
         end_loss_value : float,
-) -> torch.Tensor: # (3,x,x)
+) -> [torch.Tensor, list]: # (3,x,x), list
 
     net.eval()
 
@@ -137,6 +139,10 @@ def generate_trigger_pattern_from_mask(
     def hook_function(module, input, output):
         net.linearInput = input
 
+
+    loss_record = []
+    best_loss = float('inf')
+    best_trigger = None
     for iter_i in range(max_iter):
 
         net.eval()
@@ -156,6 +162,7 @@ def generate_trigger_pattern_from_mask(
         )
 
         _ = net(trigger_pattern)
+        save_mean = trigger_pattern.mean().item()
 
         if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear):
             loss = ((net.linearInput[0][:, neuron_indexes] - target_activation)**2).sum()
@@ -174,13 +181,17 @@ def generate_trigger_pattern_from_mask(
         save_trigger_pattern = trigger_pattern.detach().clone()
 
         trigger_pattern = trigger_pattern * (mask > 0).reshape((1,*mask.shape))
+        trigger_pattern -= save_mean
 
         #in original code, deprocess needed, but consider common non-reversable transform,
         #the deprocess and then preprocess again are not applicable here.
         trigger_pattern = (torch.tensor(denoise_tv_bregman(
             (trigger_pattern.cpu()[0]).numpy().transpose(1, 2, 0)
             , weight=denoise_weight, max_iter=100, eps=1e-3
-        ).transpose(2, 0, 1))[None, ...].to(device)) * (trigger_pattern > 0)
+        ).transpose(2, 0, 1))[None, ...].to(device))
+
+        trigger_pattern += save_mean
+        trigger_pattern *= (trigger_pattern > 0)
 
         save_trigger_pattern *= (1 - (mask > 0).float().reshape((1,*mask.shape)))
         save_trigger_pattern += trigger_pattern
@@ -190,12 +201,16 @@ def generate_trigger_pattern_from_mask(
         if trigger_pattern.grad is not None:
             trigger_pattern.grad.zero_()
 
-        print(loss)
+        if loss.item() < best_loss:
+
+            best_loss = loss.item()
+            best_trigger = trigger_pattern.data[0]
+            loss_record.append(best_loss)
+
         if loss.item() < end_loss_value:
             break
 
-
-    return trigger_pattern.data[0]
+    return best_trigger, loss_record
 
 # if __name__ == '__main__':
 #     from torchvision.models import resnet18
@@ -218,6 +233,40 @@ def generate_trigger_pattern_from_mask(
 #     import matplotlib.pyplot as plt
 #     plt.imshow(a.numpy().transpose(1,2,0))
 #     plt.show()
+
+from typing import Optional
+
+def generate_trigger_pattern_from_mask_with_octaves(
+    net : torch.nn.Module,
+    mask : torch.Tensor, # (3,x,x)
+    init_tensor : torch.Tensor,  # (3,x,x)
+    layer_name: str ,
+    target_activation : float,
+    device,
+    neuron_indexes : List[int],
+    octaves: List[dict],
+    end_loss_value : float,
+    name: Optional[str] = None,
+) -> [torch.Tensor, list]:
+    best_all = None
+    best_score = float('inf')
+    for setting_i, setting_dict in enumerate(octaves):
+        best_once, loss_record = generate_trigger_pattern_from_mask(
+            net = net ,
+            mask = mask ,
+            init_tensor = init_tensor ,
+            layer_name = layer_name ,
+            target_activation = target_activation ,
+            device = device ,
+            neuron_indexes = neuron_indexes ,
+            end_loss_value = end_loss_value ,
+            **setting_dict
+        )
+        if loss_record[-1] < best_score:
+            best_all = best_once
+            best_score = loss_record[-1]
+            logging.info(f'{name}, best_score now : {best_score}')
+    return best_all, best_score
 
 # def denoise(
 #         init_tensor : torch.Tensor,
@@ -458,21 +507,43 @@ net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 net.conv2 = net.layer4[-1].conv2
 from torchvision.models import resnet18
 select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.topk_neuron)
-trigger_tensor_pattern = generate_trigger_pattern_from_mask(
-    net,
-    torch.load(args.mask_tensor_path),
-    torch.randn_like(torch.load(args.mask_tensor_path)),
-    args.layer_name, #'fc',
-    args.target_activation,#100,
-    device,
-    select_neuron_index_list,
-    args.trigger_generation_lr_start,
-    args.trigger_generation_lr_end,
-    args.trigger_generation_denoise_weight_start,
-    args.trigger_generation_denoise_weight_end,
-    args.trigger_generation_max_iter,
-    args.trigger_generation_final_loss,
-)
+if all(attr_name in args.__dict__ for attr_name in [
+    'trigger_generation_lr_start',
+    'trigger_generation_lr_end',
+    'trigger_generation_denoise_weight_start',
+    'trigger_generation_denoise_weight_end',
+    'trigger_generation_max_iter',
+]):
+    trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask(
+        net,
+        torch.load(args.mask_tensor_path),
+        torch.randn_like(torch.load(args.mask_tensor_path)),
+        args.layer_name, #'fc',
+        args.target_activation,#100,
+        device,
+        select_neuron_index_list,
+        args.trigger_generation_lr_start,
+        args.trigger_generation_lr_end,
+        args.trigger_generation_denoise_weight_start,
+        args.trigger_generation_denoise_weight_end,
+        args.trigger_generation_max_iter,
+        args.trigger_generation_final_loss,
+    )
+elif 'octaves' in args:
+    trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask_with_octaves(
+        net,
+        torch.load(args.mask_tensor_path),
+        torch.randn_like(torch.load(args.mask_tensor_path)),
+        args.layer_name,  # 'fc',
+        args.target_activation,  # 100,
+        device,
+        select_neuron_index_list,
+        octaves=args.octaves,
+        end_loss_value = args.trigger_generation_final_loss,
+        name = 'trigger_pattern'
+    )
+else:
+    raise SystemError('No valid setting or octaves given ')
 
 class_img_dict = {}
 for class_i in range(args.num_classes):
@@ -489,22 +560,46 @@ for class_i in range(args.num_classes):
     #     args.reverse_engineering_final_loss,
     #     device,
     # )
-    class_re_img = generate_trigger_pattern_from_mask(
-        net,
-        mask= torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
-        init_tensor=torch.load(args.init_img_path),  # (3,x,x)
-        layer_name = args.final_layer_name, #TODO
-        target_activation =args.reverse_engineering_target_value ,
-        device = device,
-        neuron_indexes = [class_i],
-        lr_start = args.reverse_engineering_lr_start,
-        lr_end = args.reverse_engineering_lr_end,
-        denoise_weight_start = args.reverse_engineering_denoise_weight_start,
-        denoise_weight_end = args.reverse_engineering_denoise_weight_end,
-        max_iter= args.reverse_engineering_max_iter,
-        end_loss_value=args.reverse_engineering_final_loss,
-    )
-    class_img_dict[class_i] = class_re_img
+    if all(attr_name in args.__dict__ for attr_name in [
+        'reverse_engineering_lr_start',
+        'reverse_engineering_lr_end',
+        'reverse_engineering_denoise_weight_start',
+        'reverse_engineering_denoise_weight_end',
+        'reverse_engineering_max_iter',
+    ]):
+
+        class_re_img, lossList = generate_trigger_pattern_from_mask(
+            net,
+            mask= torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
+            init_tensor=torch.load(args.init_img_path),  # (3,x,x)
+            layer_name = args.final_layer_name, #TODO
+            target_activation =args.reverse_engineering_target_value ,
+            device = device,
+            neuron_indexes = [class_i],
+            lr_start = args.reverse_engineering_lr_start,
+            lr_end = args.reverse_engineering_lr_end,
+            denoise_weight_start = args.reverse_engineering_denoise_weight_start,
+            denoise_weight_end = args.reverse_engineering_denoise_weight_end,
+            max_iter= args.reverse_engineering_max_iter,
+            end_loss_value=args.reverse_engineering_final_loss,
+        )
+        class_img_dict[class_i] = class_re_img
+    elif 'octaves' in args:
+        class_re_img, lossList = generate_trigger_pattern_from_mask_with_octaves(
+            net,
+            mask=torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
+            init_tensor=torch.load(args.init_img_path),  # (3,x,x)
+            layer_name=args.final_layer_name,  # TODO
+            target_activation=args.reverse_engineering_target_value,
+            device=device,
+            neuron_indexes=[class_i],
+            octaves=args.octaves,
+            end_loss_value=args.reverse_engineering_final_loss,
+            name = f'class_{class_i}_img'
+        )
+        class_img_dict[class_i] = class_re_img
+    else:
+        raise SystemError('No valid setting or octaves given ')
 
 from  torch.utils.data.dataset import TensorDataset
 

@@ -25,16 +25,52 @@ init_img_path: ../resource/trojannn/init_img.pt
 layer_name: conv2
 final_layer_name: linear
 target_activation: 100
-trigger_generation_lr_start: 1.
-trigger_generation_lr_end: 1.
-trigger_generation_denoise_weight_start: 0.01
-trigger_generation_denoise_weight_end: 2
-trigger_generation_max_iter: 550
+#trigger_generation_lr_start: 1.
+#trigger_generation_lr_end: 1.
+#trigger_generation_denoise_weight_start: 0.01
+#trigger_generation_denoise_weight_end: 2
+#trigger_generation_max_iter: 550
 trigger_generation_final_loss: 0
 reverse_engineering_target_value: 1
-reverse_engineering_lr_start: 1.
-reverse_engineering_lr_end: 1.
-reverse_engineering_denoise_weight_start: 0.01
-reverse_engineering_denoise_weight_end: 2
-reverse_engineering_max_iter: 550
+#reverse_engineering_lr_start: 1.
+#reverse_engineering_lr_end: 1.
+#reverse_engineering_denoise_weight_start: 0.01
+#reverse_engineering_denoise_weight_end: 2
+#reverse_engineering_max_iter: 550
 reverse_engineering_final_loss: 0
+octaves:
+- # margin: 0
+  # window: 0.3
+  lr_start: 11.
+  lr_end: 11.
+  denoise_weight_start: 0.001
+  denoise_weight_end: 0.05
+  max_iter: 190
+- # margin: 0
+  # window: 0.3
+  max_iter: 150
+  denoise_weight_start: 0.01
+  denoise_weight_end: 0.08
+  lr_start: 6.
+  lr_end: 6.
+- # margin: 0
+  # window: 0.3
+  max_iter: 550
+  denoise_weight_start: 0.01
+  denoise_weight_end: 2
+  lr_start: 1.
+  lr_end: 1.
+- # margin: 0
+  # window: 0.1
+  max_iter: 30
+  denoise_weight_start: 0.1
+  denoise_weight_end: 2
+  lr_start: 3.
+  lr_end: 3.
+- # margin: 0
+  # window: 0.3
+  max_iter: 50
+  denoise_weight_start: 0.01
+  denoise_weight_end: 2
+  lr_start: 6.
+  lr_end: 3.
