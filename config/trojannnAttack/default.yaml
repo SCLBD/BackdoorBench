@@ -11,16 +11,19 @@ lr: 0.01
 lr_scheduler: StepLR
 steplr_stepsize: 100
 steplr_gamma: 0.1
-model: vgg16
+model: resnet18
+topk_neuron: 2
 num_classes: 10
 pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
 # this is not the default setting of trojannn, since the official code has multiple setting being used.
+pretrained_model_path: ../resource/normal/normal.pt
 mask_tensor_path: ../resource/trojannn/mask.pt
 init_img_path: ../resource/trojannn/init_img.pt
-layer_name: linear
+layer_name: conv2
+final_layer_name: linear
 target_activation: 100
 trigger_generation_lr_start: 1.
 trigger_generation_lr_end: 1.

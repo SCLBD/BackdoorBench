@@ -86,6 +86,8 @@ def groupwise_feature_disguise_pgd_perturbation(
 
         pert = pert - target_img_batch
         pert.requires_grad = True
+        if pert.grad is not None:
+            pert.grad.zero_()
 
     # if reach here, it means both ending condition fails for PGD.
     return None

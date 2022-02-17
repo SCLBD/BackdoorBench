@@ -135,6 +135,8 @@ def generate_trigger_pattern_from_mask_and_data(
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
         trigger_pattern = trigger_pattern.to(device)
         trigger_pattern = trigger_pattern.requires_grad_()
+        if trigger_pattern.grad is not None:
+            trigger_pattern.grad.zero_()
 
         if loss.item() < end_loss_value:
 

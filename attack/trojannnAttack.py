@@ -98,14 +98,18 @@ def find_most_connected_neuron_for_linear(
     assert  net.__getattr__(layer_name).weight.shape[1] > topk # how many cols, so topk should not > num of all neurons in this layer
 
     net.eval()
-
-    connect_level = torch.abs(net.__getattr__(layer_name).weight).sum(0) # if is a matrix, then all rows is summed.
-
+    # TODO this part different from the original code,
+    #  since the original code has slightly difference comparing to the paper
+    if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear): #weight is (n,m)
+        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum(0) # if is a matrix, then all rows is summed.
+    elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d): #weight is (c_out, c_in, h, w)
+        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum([1,2,3])
     return torch.topk(connect_level, k = topk)[1].tolist() # where the topk connect level neuron are
 
 def generate_trigger_pattern_from_mask(
         net : torch.nn.Module,
         mask : torch.Tensor, # (3,x,x)
+        init_tensor : torch.Tensor,  # (3,x,x)
         layer_name: str ,
         target_activation : float,
         device,
@@ -119,11 +123,14 @@ def generate_trigger_pattern_from_mask(
 ) -> torch.Tensor: # (3,x,x)
 
     net.eval()
+
     net.to(device)
 
-    trigger_pattern = torch.randn((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
+    trigger_pattern = init_tensor.reshape((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
     trigger_pattern = trigger_pattern.to(device)
     trigger_pattern = trigger_pattern.requires_grad_()
+    if trigger_pattern.grad is not None:
+        trigger_pattern.grad.zero_()
 
     mask = mask.to(device)
 
@@ -132,32 +139,59 @@ def generate_trigger_pattern_from_mask(
 
     for iter_i in range(max_iter):
 
+        net.eval()
+
+        net.to(device)
+
+        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):  # weight is (c_out, c_in, h, w)
+            filter_map_location = torch.argmax(torch.abs(net.__getattr__(layer_name).weight[0, neuron_indexes, :, :]))
+            #every time in the filter we choose the location of select num again (this part learned from the code)
+
         lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
 
         denoise_weight =  denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
 
         net.__getattr__(layer_name).register_forward_hook(
-                hook_function
+            hook_function
         )
 
         _ = net(trigger_pattern)
 
-        loss = ((net.linearInput[0][:, neuron_indexes] - target_activation)**2).sum()
-        trigger_pattern = trigger_pattern - lr * torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0] * (mask > 0).reshape((1,*mask.shape))
+        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear):
+            loss = ((net.linearInput[0][:, neuron_indexes] - target_activation)**2).sum()
+        elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):
+            loss = ((net.linearInput[0][:, neuron_indexes].view(-1)[filter_map_location] - target_activation) ** 2).sum()
+
+        grad = torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0]
+
+        # grad *= 100  # (this part learned from the code)
+
+        trigger_pattern = trigger_pattern - lr * grad /torch.abs(grad).mean()
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
 
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
 
+        save_trigger_pattern = trigger_pattern.detach().clone()
+
+        trigger_pattern = trigger_pattern * (mask > 0).reshape((1,*mask.shape))
+
+        #in original code, deprocess needed, but consider common non-reversable transform,
+        #the deprocess and then preprocess again are not applicable here.
         trigger_pattern = (torch.tensor(denoise_tv_bregman(
             (trigger_pattern.cpu()[0]).numpy().transpose(1, 2, 0)
             , weight=denoise_weight, max_iter=100, eps=1e-3
         ).transpose(2, 0, 1))[None, ...].to(device)) * (trigger_pattern > 0)
 
+        save_trigger_pattern *= (1 - (mask > 0).float().reshape((1,*mask.shape)))
+        save_trigger_pattern += trigger_pattern
+
         trigger_pattern = trigger_pattern.to(device)
         trigger_pattern = trigger_pattern.requires_grad_()
+        if trigger_pattern.grad is not None:
+            trigger_pattern.grad.zero_()
 
+        print(loss)
         if loss.item() < end_loss_value:
-
             break
 
 
@@ -206,54 +240,54 @@ def generate_trigger_pattern_from_mask(
 #         reverse_engineer_output_tensor -= lr *torch.autograd.grad(V, inputs=reverse_engineer_output_tensor, create_graph=False)
 
 
-def reverse_engineer_one_sample(
-        net: torch.nn.Module,
-        init_tensor : torch.Tensor, # (3,x,x) one sample each time
-        target_class : int,
-        target_class_target_value: float,
-        lr_start: float,
-        lr_end: float,
-        denoise_weight_start: float,
-        denoise_weight_end: float,
-        end_loss_value : float,
-        max_iter : int,
-        device : torch.device,
-    ) -> torch.Tensor: # (3,x,x)
-
-    net.eval()
-    net.to(device)
-
-    init_tensor = init_tensor[None,...]
-    init_tensor = init_tensor.to(device)
-    init_tensor = init_tensor.requires_grad_()
-
-    for iter_i in range(max_iter):
-
-        lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
-
-        denoise_weight = denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
-
-        logits = torch.nn.functional.softmax(net(init_tensor), dim=1)
-
-        loss = (logits[0,target_class] - target_class_target_value) ** 2
-
-        loss.backward()
-
-        init_tensor.data -= lr * init_tensor.grad
-
-        init_tensor = torch.clamp(init_tensor, 0, 1).data
-
-        init_tensor = torch.tensor(denoise_tv_bregman(
-                (init_tensor.cpu()[0]).numpy().transpose(1,2,0)
-            , weight=denoise_weight, max_iter=100, eps=1e-3
-        ).transpose(2,0,1))[None,...]
-        init_tensor = init_tensor.to(device)
-        init_tensor = init_tensor.requires_grad_()
-
-        if loss.item() < end_loss_value:
-            break
-
-    return init_tensor.data[0]
+# def reverse_engineer_one_sample(
+#         net: torch.nn.Module,
+#         init_tensor : torch.Tensor, # (3,x,x) one sample each time
+#         target_class : int,
+#         target_class_target_value: float,
+#         lr_start: float,
+#         lr_end: float,
+#         denoise_weight_start: float,
+#         denoise_weight_end: float,
+#         end_loss_value : float,
+#         max_iter : int,
+#         device : torch.device,
+#     ) -> torch.Tensor: # (3,x,x)
+#
+#     net.eval()
+#     net.to(device)
+#
+#     init_tensor = init_tensor[None,...]
+#     init_tensor = init_tensor.to(device)
+#     init_tensor = init_tensor.requires_grad_()
+#
+#     for iter_i in range(max_iter):
+#
+#         lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
+#
+#         denoise_weight = denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
+#
+#         logits = torch.nn.functional.softmax(net(init_tensor), dim=1)
+#
+#         loss = (logits[0,target_class] - target_class_target_value) ** 2
+#
+#         loss.backward()
+#
+#         init_tensor.data -= lr * init_tensor.grad
+#
+#         init_tensor = torch.clamp(init_tensor, 0, 1).data
+#
+#         init_tensor = torch.tensor(denoise_tv_bregman(
+#                 (init_tensor.cpu()[0]).numpy().transpose(1,2,0)
+#             , weight=denoise_weight, max_iter=100, eps=1e-3
+#         ).transpose(2,0,1))[None,...]
+#         init_tensor = init_tensor.to(device)
+#         init_tensor = init_tensor.requires_grad_()
+#
+#         if loss.item() < end_loss_value:
+#             break
+#
+#     return init_tensor.data[0]
 
 # if __name__ == '__main__':
 #     from torchvision.models import resnet18
@@ -276,10 +310,13 @@ def add_args(parser):
     parser : argparse.ArgumentParser
     return a parser added with args required by fit
     """
+    parser.add_argument('--pretrained_model_path', type = str)
     parser.add_argument('--mask_tensor_path', type = str, help = 'path of mask tensor (must match the shape!)')
     parser.add_argument('--init_img_path', type = str, help = 'path of init for doing reverse engineering (must match the shape!)')
     parser.add_argument('--layer_name', type = str, help = 'the name of layer for which we try activation')
+    parser.add_argument('--final_layer_name')
     parser.add_argument('--target_activation', type = float)
+    parser.add_argument('--topk_neuron', type = int, help = 'how many neruon selected in topk')
 
     parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--trigger_generation_lr_start', type = float)
@@ -417,12 +454,14 @@ net = generate_cls_model(
     model_name=args.model,
     num_classes=args.num_classes,
 )
-
+net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
+net.conv2 = net.layer4[-1].conv2
 from torchvision.models import resnet18
-select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.attack_target)
+select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.topk_neuron)
 trigger_tensor_pattern = generate_trigger_pattern_from_mask(
     net,
     torch.load(args.mask_tensor_path),
+    torch.randn_like(torch.load(args.mask_tensor_path)),
     args.layer_name, #'fc',
     args.target_activation,#100,
     device,
@@ -437,18 +476,33 @@ trigger_tensor_pattern = generate_trigger_pattern_from_mask(
 
 class_img_dict = {}
 for class_i in range(args.num_classes):
-    class_re_img = reverse_engineer_one_sample(
+    # class_re_img = reverse_engineer_one_sample(
+    #     net,
+    #     torch.load(args.init_img_path),
+    #     class_i,
+    #     args.reverse_engineering_target_value,
+    #     args.reverse_engineering_lr_start,
+    #     args.reverse_engineering_lr_end,
+    #     args.reverse_engineering_denoise_weight_start,
+    #     args.reverse_engineering_denoise_weight_end,
+    #     args.reverse_engineering_max_iter,
+    #     args.reverse_engineering_final_loss,
+    #     device,
+    # )
+    class_re_img = generate_trigger_pattern_from_mask(
         net,
-        torch.load(args.init_img_path),
-        class_i,
-        args.reverse_engineering_target_value,
-        args.reverse_engineering_lr_start,
-        args.reverse_engineering_lr_end,
-        args.reverse_engineering_denoise_weight_start,
-        args.reverse_engineering_denoise_weight_end,
-        args.reverse_engineering_max_iter,
-        args.reverse_engineering_final_loss,
-        device,
+        mask= torch.ones_like(torch.load(args.init_img_path)),  # (3,x,x)
+        init_tensor=torch.load(args.init_img_path),  # (3,x,x)
+        layer_name = args.final_layer_name, #TODO
+        target_activation =args.reverse_engineering_target_value ,
+        device = device,
+        neuron_indexes = [class_i],
+        lr_start = args.reverse_engineering_lr_start,
+        lr_end = args.reverse_engineering_lr_end,
+        denoise_weight_start = args.reverse_engineering_denoise_weight_start,
+        denoise_weight_end = args.reverse_engineering_denoise_weight_end,
+        max_iter= args.reverse_engineering_max_iter,
+        end_loss_value=args.reverse_engineering_final_loss,
     )
     class_img_dict[class_i] = class_re_img
 

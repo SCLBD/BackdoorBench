@@ -96,6 +96,8 @@ def disguise_embeddings(
 
         target_class_img_tensor = target_class_img_tensor.to(device)
         target_class_img_tensor = target_class_img_tensor.requires_grad_()
+        if target_class_img_tensor.grad is not None:
+            target_class_img_tensor.grad.zero_()
 
         if terminal_loss > feature_loss.item():
 
