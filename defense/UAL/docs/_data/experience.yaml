@@ -1,0 +1,49 @@
+experiences:
+
+- place: "Matroid"
+  time: "Summer 2019"
+  title: "Machine Learning Intern"
+  subtitle: "Advised by Reza Zadeh & Danny Jeck"
+  category: "internship"
+
+- place: "UMBC"
+  time: "2017 - Now"
+  title: "Ph.D. Computer Science"
+  subtitle: "Advised by Hamed Pirsiavash "
+  category: "school"
+
+- place: "Samsung Research Institute Bangalore"
+  time: "2016 - 2017"
+  title: "Software Engineer"
+  subtitle: "DRAM Team, Memory Solutions, Samsung Semiconductor India R&D (SSIR)"
+  category: "work"
+
+- place: "IIT Delhi"
+  time: "Summer 2015"
+  title: "Research Intern"
+  subtitle: "Generating Automated Comparisons for Entities. Mentors;Parag Singla & Danish Contractor" 
+  category: "intership"
+
+- place: "IIT Kharagpur"
+  time: "Summer 2014"
+  title: "Intern"
+  subtitle: "Feature Extraction And Data Mining From Climate Data. Mentor: Sudeshna Sarkar"
+  category: "internship"
+
+- place: "Jadavpur University"
+  time: "2012 - 2016"
+  title: "Undergraduate"
+  subtitle: "BE Computer Science and Engineering"
+  category: "school"
+
+- place: "IISc Bangalore"
+  time: "November 2011"
+  title: "Vijyoshi Camp"
+  subtitle: 
+  category: "camp"
+
+- place: "IISER Pune"
+  time: "May 2011"
+  title: "KVPY Summer Camp"
+  subtitle: ""
+  category: "camp"

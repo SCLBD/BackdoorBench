@@ -1,0 +1,14 @@
+.*.swp
+.*.swo
+*.pyc
+
+__pycache__/*
+shadow_model_ckpt/*
+meta_classifier_ckpt/*
+raw_data/*
+!.keep
+
+!raw_data/rt_polarity
+raw_data/rt_polarity/*
+!rt-polarity.pos
+!rt-polarity.neg

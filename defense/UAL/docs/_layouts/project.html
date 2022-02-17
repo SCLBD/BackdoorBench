@@ -1,0 +1,17 @@
+---
+layout: default
+---
+<div class="docs-section">
+
+  {% if page.subtitle == "" or page.subtitle == nil %}
+  	<h3>{{ page.title }}</h3>
+  {% else %}
+    <div class="title-subtitle">
+      <h3>{{ page.title }}</h3>
+      <h5>{{ page.subtitle }}</h5>
+    </div>
+  {% endif %}
+
+  {{ content }}
+
+</div>
