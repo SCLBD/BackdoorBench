@@ -24,6 +24,13 @@ def get_transform(dataset_name, input_height, input_width,train=True):
         transforms_list.append(transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
     elif dataset_name == "GTSRB" or dataset_name == "celeba":
         pass
+    elif dataset_name == 'imagenet':
+        transforms_list.append(
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            )
+        )
     else:
         raise Exception("Invalid Dataset")
     return transforms.Compose(transforms_list)
@@ -100,6 +107,27 @@ def dataset_and_transform_generate(args):
         test_img_transform = get_transform('tiny', *(args.img_size[:2]) , train = False)
         test_label_transform = None
 
+    elif args.dataset == "imagenet":
+
+        from torchvision.datasets import ImageNet
+
+        train_dataset_without_transform = ImageNet(
+            root = args.dataset_path,
+            split = 'train',
+        )
+
+        train_img_transform = get_transform('imagenet', *(args.img_size[:2]) , train = True)
+
+        train_label_transfrom = None
+
+        test_dataset_without_transform = ImageNet(
+            root = args.dataset_path,
+            split = 'val',
+        )
+
+        test_img_transform = get_transform('imagenet', *(args.img_size[:2]) , train = False)
+
+        test_label_transform = None
 
     return train_dataset_without_transform, \
             train_img_transform, \
