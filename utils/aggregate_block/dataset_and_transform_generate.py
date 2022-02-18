@@ -18,6 +18,9 @@ def get_transform(dataset_name, input_height, input_width,train=True):
     transforms_list.append(transforms.ToTensor())
     if dataset_name == "cifar10":
         transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010]))
+    elif dataset_name == 'cifar100':
+        '''get from https://gist.github.com/weiaicunzai/e623931921efefd4c331622c344d8151'''
+        transforms_list.append(transforms.Normalize([0.5071, 0.4865, 0.4409],[0.2673, 0.2564, 0.2762]))
     elif dataset_name == "mnist":
         transforms_list.append(transforms.Normalize([0.5], [0.5]))
     elif dataset_name == 'tiny':
@@ -61,6 +64,23 @@ def dataset_and_transform_generate(args):
         )
 
         test_img_transform = get_transform('cifar10', *(args.img_size[:2]) , train = False)
+        test_label_transform = None
+
+    elif args.dataset == 'cifar100':
+        from torchvision.datasets import CIFAR100
+        train_dataset_without_transform = CIFAR100(
+            root = args.dataset_path,
+            train = True,
+            download = True,
+        )
+        train_img_transform = get_transform('cifar100', *(args.img_size[:2]) , train = True)
+        train_label_transfrom = None
+        test_dataset_without_transform = CIFAR100(
+            root = args.dataset_path,
+            train = False,
+            download = True,
+        )
+        test_img_transform = get_transform('cifar100', *(args.img_size[:2]) , train = False)
         test_label_transform = None
 
     elif args.dataset == 'GTSRB':
