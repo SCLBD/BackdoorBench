@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
 import logging
-import wandb
 import torchvision.transforms as transforms
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
@@ -355,7 +354,7 @@ def main():
     logging.info(pformat(args.__dict__))
 
     try:
-
+        import wandb
         wandb.init(
             project="bdzoo2",
             entity="chr",

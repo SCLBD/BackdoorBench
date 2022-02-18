@@ -17,7 +17,6 @@ import yaml
 from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
 import logging
-import wandb
 import torchvision.transforms as transforms
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
@@ -148,7 +147,7 @@ def main():
     logging.info(pformat(args.__dict__))
 
     try:
-
+        import wandb
         wandb.init(
             project="bdzoo2",
             entity="chr",
