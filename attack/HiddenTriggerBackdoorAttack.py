@@ -361,75 +361,73 @@ def main():
     optimizer, scheduler = argparser_opt_scheduler(net, args)
 
 
-    if __name__ == '__main__':
 
-        if 'load_path' not in args.__dict__:
 
-            trainer.train_with_test_each_epoch(
-                train_data = adv_train_dl,
-                test_data = benign_test_dl,
-                adv_test_data = adv_test_dl,
-                end_epoch_num = args.epochs,
-                criterion = criterion,
-                optimizer = optimizer,
-                scheduler = scheduler,
-                device = device,
-                frequency_save = args.frequency_save,
-                save_folder_path = save_path,
-                save_prefix = 'attack',
-                continue_training_path = None,
+    if 'load_path' not in args.__dict__:
+
+        trainer.train_with_test_each_epoch(
+            train_data = adv_train_dl,
+            test_data = benign_test_dl,
+            adv_test_data = adv_test_dl,
+            end_epoch_num = args.epochs,
+            criterion = criterion,
+            optimizer = optimizer,
+            scheduler = scheduler,
+            device = device,
+            frequency_save = args.frequency_save,
+            save_folder_path = save_path,
+            save_prefix = 'attack',
+            continue_training_path = None,
+        )
+
+    else:
+
+        if 'recover' not in args.__dict__ or args.recover == False :
+
+            print('finetune so use less data, 5% of benign train data')
+
+            benign_train_dl.dataset.subset(
+                np.random.choice(
+                    np.arange(
+                        len(benign_train_dl.dataset)),
+                    size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
+                    replace=False,
+                )
             )
 
-        else:
+            trainer.train_with_test_each_epoch(
+                train_data=benign_train_dl,
+                test_data=benign_test_dl,
+                adv_test_data=adv_test_dl,
+                end_epoch_num=args.epochs,
+                criterion=criterion,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                device=device,
+                frequency_save=args.frequency_save,
+                save_folder_path=save_path,
+                save_prefix='finetune',
+                continue_training_path=args.load_path,
+                only_load_model=True,
+            )
 
-            if 'recover' not in args.__dict__ or args.recover == False :
+        elif 'recover' in args.__dict__ and args.recover == True :
 
-                print('finetune so use less data, 5% of benign train data')
-
-                benign_train_dl.dataset.subset(
-                    np.random.choice(
-                        np.arange(
-                            len(benign_train_dl.dataset)),
-                        size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
-                        replace=False,
-                    )
-                )
-
-                trainer.train_with_test_each_epoch(
-                    train_data=benign_train_dl,
-                    test_data=benign_test_dl,
-                    adv_test_data=adv_test_dl,
-                    end_epoch_num=args.epochs,
-                    criterion=criterion,
-                    optimizer=optimizer,
-                    scheduler=scheduler,
-                    device=device,
-                    frequency_save=args.frequency_save,
-                    save_folder_path=save_path,
-                    save_prefix='finetune',
-                    continue_training_path=args.load_path,
-                    only_load_model=True,
-                )
-
-            elif 'recover' in args.__dict__ and args.recover == True :
-
-                trainer.train_with_test_each_epoch(
-                    train_data=adv_train_dl,
-                    test_data=benign_test_dl,
-                    adv_test_data=adv_test_dl,
-                    end_epoch_num=args.epochs,
-                    criterion=criterion,
-                    optimizer=optimizer,
-                    scheduler=scheduler,
-                    device=device,
-                    frequency_save=args.frequency_save,
-                    save_folder_path=save_path,
-                    save_prefix='attack',
-                    continue_training_path=args.load_path,
-                    only_load_model=False,
-                )
-
-
+            trainer.train_with_test_each_epoch(
+                train_data=adv_train_dl,
+                test_data=benign_test_dl,
+                adv_test_data=adv_test_dl,
+                end_epoch_num=args.epochs,
+                criterion=criterion,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                device=device,
+                frequency_save=args.frequency_save,
+                save_folder_path=save_path,
+                save_prefix='attack',
+                continue_training_path=args.load_path,
+                only_load_model=False,
+            )
 
     save_attack_result(
         model_name = args.model,

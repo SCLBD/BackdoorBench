@@ -362,11 +362,6 @@ def main():
 
     optimizer, scheduler = argparser_opt_scheduler(net, args)
 
-
-
-
-
-
     train_img_transform.transforms = [
         transforms.RandomCrop((args.img_size[0], args.img_size[1]), padding=args.random_crop),
         transforms.RandomRotation(args.random_rotation)
@@ -433,10 +428,6 @@ def main():
 
     adv_train_x = torch.cat(adv_train_x)
     adv_train_y = torch.cat(adv_train_y)
-
-
-
-
 
     save_attack_result(
         model_name = args.model,
