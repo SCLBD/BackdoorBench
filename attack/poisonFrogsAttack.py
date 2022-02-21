@@ -18,8 +18,13 @@ code : https://github.com/ashafahi/inceptionv3-transferLearn-poison
 '''
 
 import sys, yaml, os
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 import argparse
-from pprint import pprint, pformat
+from pprint import  pformat
 import numpy as np
 import torch
 from utils.hook_forward_lastHiddenLayerActivationExtractor import lastHiddenActivationExtractor
@@ -37,9 +42,7 @@ from torch.utils.data.dataset import TensorDataset
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 def disguise_embeddings(
         source_class_img_tensor : torch.Tensor, # (n, 3, x, x)

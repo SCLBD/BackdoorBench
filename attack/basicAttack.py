@@ -8,8 +8,13 @@ logic of load:
 '''
 
 import sys, yaml, os
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 import argparse
-from pprint import pprint, pformat
+from pprint import  pformat
 import numpy as np
 import torch
 from utils.aggregate_block.save_path_generate import generate_save_folder
@@ -27,9 +32,7 @@ from utils.aggregate_block.model_trainer_generate import generate_cls_model, gen
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 def add_args(parser):
     """

@@ -12,8 +12,13 @@ code : https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
 '''
 
 import sys, os, logging, yaml
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 import argparse
-from pprint import pprint, pformat
+from pprint import  pformat
 import numpy as np
 import torch
 from utils.aggregate_block.save_path_generate import generate_save_folder
@@ -23,8 +28,8 @@ from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
 from torch.utils.data import DataLoader
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
-from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
+from utils.aggregate_block.bd_attack_generate import  bd_attack_label_trans_generate
 from utils.bd_img_transform.wanet import imageWarp
 from copy import deepcopy
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
@@ -34,9 +39,7 @@ from functools import partial
 from torch.utils.data import TensorDataset
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 def npToPIL(array):
     return Image.fromarray(np.uint8((array)*255)).convert('RGB')

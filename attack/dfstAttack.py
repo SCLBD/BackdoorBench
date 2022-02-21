@@ -3,13 +3,18 @@
 rewrite from https://github.com/Megum1/DFST
 '''
 import sys, yaml, os
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 import torch.nn
 from typing import Optional, List
 from utils.pytorch_ssim import ssim
 from torch.utils.data.dataset import TensorDataset
 from utils.unet import UNet
 import argparse
-from pprint import pprint, pformat
+from pprint import  pformat
 import numpy as np
 import torch
 from utils.aggregate_block.save_path_generate import generate_save_folder
@@ -28,9 +33,7 @@ from utils.aggregate_block.train_settings_generate import argparser_opt_schedule
 from torch.utils.data.dataset import ConcatDataset
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 def compromised_neuron_identification(
     net : torch.nn.Module,

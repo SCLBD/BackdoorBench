@@ -10,7 +10,12 @@ rewrite from : https://github.com/UMBCvision/Hidden-Trigger-Backdoor-Attacks
 '''
 
 import sys, yaml, os
-import sys, os, argparse, torch
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
+import argparse, torch
 from pprint import pformat
 import numpy as np
 from utils.aggregate_block.save_path_generate import generate_save_folder
@@ -21,16 +26,14 @@ from utils.aggregate_block.dataset_and_transform_generate import dataset_and_tra
 from utils.bd_dataset import prepro_cls_DatasetBD
 from torch.utils.data import DataLoader
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform, generate_single_target_attack_train_pidx
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
 from copy import deepcopy
 from utils.bd_groupwise_transform.groupwise_feature_disguise_pgd_perturbation import groupwise_feature_disguise_pgd_perturbation
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 # TODO add the default setting to yaml file.
 

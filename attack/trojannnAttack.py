@@ -21,17 +21,20 @@ And since multiple settings used in example code, I just select one of those.
 '''
 
 import sys, os, logging, yaml
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 from typing import List
 from skimage.restoration import denoise_tv_bregman
 import argparse
-from pprint import pprint, pformat
+from pprint import  pformat
 import numpy as np
 import torch
 from typing import Optional
 from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
-import logging
-import torchvision.transforms as transforms
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from  torch.utils.data.dataset import TensorDataset
@@ -45,9 +48,7 @@ from copy import deepcopy
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 # different settings
 # octaves = [

@@ -4,20 +4,19 @@ some of settings in github of refool is different from the paper, we choose to u
 '''
 
 import sys, yaml, os
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
+
 import argparse
 import logging
-import os
-import sys
-from pprint import pprint, pformat
-import random
+from pprint import  pformat
 import numpy as np
 import torch
 import imageio
-import yaml
 from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
-import logging
-import torchvision.transforms as transforms
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
@@ -28,9 +27,7 @@ from copy import deepcopy
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
-os.chdir(sys.path[0])
-sys.path.append('../')
-os.getcwd()
+
 
 def add_args(parser):
     """
