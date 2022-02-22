@@ -33,6 +33,165 @@ from utils.aggregate_block.train_settings_generate import argparser_opt_schedule
 from torch.utils.data.dataset import ConcatDataset
 from utils.save_load_attack import save_attack_result
 
+'''
+Tensorflow code
+def build_generator(input_shape):
+    """U-Net Generator"""
+
+    def conv2d(layer_input, filters):
+        """Layers used during downsampling"""
+        d = Conv2D(filters, kernel_size=12, strides=2, padding='same')(layer_input)
+        d = LeakyReLU(alpha=0.2)(d)
+        d = InstanceNormalization()(d)
+        return d
+
+    def deconv2d(layer_input, skip_input, filters):
+        """Layers used during upsampling"""
+        u = UpSampling2D(size=2)(layer_input)
+        u = Conv2D(filters, kernel_size=12, strides=1, padding='same', activation='relu')(u)
+        u = InstanceNormalization()(u)
+        u = Concatenate()([u, skip_input])
+        return u
+
+    # Image input
+    d0 = Input(shape=input_shape)
+
+    # Downsampling
+    d1 = conv2d(d0, 32)
+    d2 = conv2d(d1, 32 * 2)
+    d3 = conv2d(d2, 32 * 4)
+
+    # Upsampling
+    u1 = deconv2d(d3, d2, 32 * 2)
+    u2 = deconv2d(u1, d1, 32)
+
+    u3 = UpSampling2D(size=2)(u2)
+    output_img = Conv2D(3, kernel_size=12, strides=1, padding='same', activation='tanh')(u3)
+
+    return Model(d0, output_img)
+    
+__________________________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to                     
+==================================================================================================
+input_1 (InputLayer)            (None, 32, 32, 3)    0                                            
+__________________________________________________________________________________________________
+conv2d_1 (Conv2D)               (None, 16, 16, 32)   13856       input_1[0][0]                    
+__________________________________________________________________________________________________
+leaky_re_lu_1 (LeakyReLU)       (None, 16, 16, 32)   0           conv2d_1[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_1 (Insta (None, 16, 16, 32)   2           leaky_re_lu_1[0][0]              
+__________________________________________________________________________________________________
+conv2d_2 (Conv2D)               (None, 8, 8, 64)     294976      instance_normalization_1[0][0]   
+__________________________________________________________________________________________________
+leaky_re_lu_2 (LeakyReLU)       (None, 8, 8, 64)     0           conv2d_2[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_2 (Insta (None, 8, 8, 64)     2           leaky_re_lu_2[0][0]              
+__________________________________________________________________________________________________
+conv2d_3 (Conv2D)               (None, 4, 4, 128)    1179776     instance_normalization_2[0][0]   
+__________________________________________________________________________________________________
+leaky_re_lu_3 (LeakyReLU)       (None, 4, 4, 128)    0           conv2d_3[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_3 (Insta (None, 4, 4, 128)    2           leaky_re_lu_3[0][0]              
+__________________________________________________________________________________________________
+up_sampling2d_1 (UpSampling2D)  (None, 8, 8, 128)    0           instance_normalization_3[0][0]   
+__________________________________________________________________________________________________
+conv2d_4 (Conv2D)               (None, 8, 8, 64)     1179712     up_sampling2d_1[0][0]            
+__________________________________________________________________________________________________
+instance_normalization_4 (Insta (None, 8, 8, 64)     2           conv2d_4[0][0]                   
+__________________________________________________________________________________________________
+concatenate_1 (Concatenate)     (None, 8, 8, 128)    0           instance_normalization_4[0][0]   
+                                                                 instance_normalization_2[0][0]   
+__________________________________________________________________________________________________
+up_sampling2d_2 (UpSampling2D)  (None, 16, 16, 128)  0           concatenate_1[0][0]              
+__________________________________________________________________________________________________
+conv2d_5 (Conv2D)               (None, 16, 16, 32)   589856      up_sampling2d_2[0][0]            
+__________________________________________________________________________________________________
+instance_normalization_5 (Insta (None, 16, 16, 32)   2           conv2d_5[0][0]                   
+__________________________________________________________________________________________________
+concatenate_2 (Concatenate)     (None, 16, 16, 64)   0           instance_normalization_5[0][0]   
+                                                                 instance_normalization_1[0][0]   
+__________________________________________________________________________________________________
+up_sampling2d_3 (UpSampling2D)  (None, 32, 32, 64)   0           concatenate_2[0][0]              
+__________________________________________________________________________________________________
+conv2d_6 (Conv2D)               (None, 32, 32, 3)    27651       up_sampling2d_3[0][0]            
+==================================================================================================
+Total params: 3,285,837
+Trainable params: 3,285,837
+Non-trainable params: 0
+__________________________________________________________________________________________________
+
+'''
+from utils.conv_pad_same import Conv2d
+from torch.nn.modules import ReLU,LeakyReLU, InstanceNorm2d, Upsample, Tanh
+
+class ge_conv2d(torch.nn.Module):
+
+    def __init__(self, in_channels, out_channels, num_features):
+        super(ge_conv2d, self).__init__()
+        self.conv2d = Conv2d(in_channels=in_channels,
+                             out_channels = out_channels,
+                             kernel_size=12,
+                             stride=2,
+                             padding='same')
+        self.leakyrelu = LeakyReLU(negative_slope = 0.2)
+        self.instancenorm = InstanceNorm2d(num_features=num_features)
+
+    def forward(self,x):
+        x = self.conv2d(x)
+        x = self.leakyrelu(x)
+        x = self.instancenorm(x)
+        return x
+
+class de_conv2d(torch.nn.Module):
+
+    def __init__(self, figsize, in_channels, out_channels, num_features):
+        super(de_conv2d, self).__init__()
+        self.upsample = Upsample(size = figsize)
+        self.conv2d = Conv2d(in_channels=in_channels,
+                             out_channels = out_channels, kernel_size=12, stride=1, padding='same',)
+        self.relu = ReLU()
+        self.instancenorm = InstanceNorm2d(num_features=num_features)
+
+    def forward(self, x, skip):
+        x = self.upsample(x)
+        x = self.conv2d(x)
+        x = self.instancenorm(x)
+        x = torch.cat([x, skip])
+        return x
+
+class detoxicant_net(torch.nn.Module):
+
+    def __init__(self, input_shape):
+        super(detoxicant_net, self).__init__()
+        self.conv1 = ge_conv2d(3,32,32)
+        self.conv2 = ge_conv2d(32,64,64)
+        self.conv3 = ge_conv2d(64,128,128)
+        self.deconv1 = de_conv2d((int(input_shape[0]/4), int(input_shape[1]/4)), 128,64,64, )
+        self.deconv2 = de_conv2d((int(input_shape[0]/2), int(input_shape[1]/2)), 64,32,32, )
+        self.upsample = Upsample(size = (input_shape[0], input_shape[1]))
+        self.conv4 = Conv2d(in_channels=32, out_channels =3, kernel_size=12, stride=1, padding='same', )
+        self.tanh = Tanh()
+
+    def forward(self,d0):
+        # Downsampling
+        d1 = self.conv1(d0)
+        d2 = self.conv2(d1)
+        d3 = self.conv3(d2)
+
+        # Upsampling
+        u1 = self.deconv1(d3, d2)
+        u2 = self.deconv2(u1, d1)
+
+        u3 = self.upsample(u2)
+        output_img = self.tanh(self.conv4(u3))
+
+        return output_img
+
+def test_detox():
+    input = torch.randn((3,3,32,32))
+    net = detoxicant_net((32,32))
+    net(input)
+
 
 
 def compromised_neuron_identification(
@@ -622,8 +781,8 @@ def main():
     x_backdoored.subset(select_index)
     x_backdoored_img = torch.cat([img[None,...] for img, _,_,_,_ in x_backdoored])
 
-    unet = UNet(3,3) # 3 channel in, 3 channel out
-
+    # unet = UNet(3,3) # 3 channel in, 3 channel out
+    unet = detoxicant_net(args.img_size[:2])
     # compromised_neuron_identification part
 
     result = []

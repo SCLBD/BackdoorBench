@@ -1,0 +1,74 @@
+pretrained_model_path: ../resource/normal/normal.pt
+final_layer_name: linear
+student_data: cifar10
+student_dataset_path: ../data/cifar10
+student_img_size:
+- 32
+- 32
+- 3
+target_dataset_num_in_attacker: 50
+
+first_retrain_end_epoch_num: 10
+first_retrain_frequency_save: 10
+first_retrain_client_optimizer: adadelta
+first_retrain_lr: 0.01
+first_retrain_rho: 0.95
+first_retrain_eps: 0.0000001
+first_retrain_adam_betas:
+- 0.5
+- 0.9
+first_retrain_lr_scheduler: None
+
+batchsize_for_trigger_generation: 32
+mask_tensor_path: ../resource/latentBackdoor/construct_mask.pt
+target_layer_name: conv2 # this is for resnet18 model dependent
+trigger_generation_lr: 0.1
+trigger_generation_max_iter: 50
+trigger_generation_final_loss: 0.0000000001
+
+batchsize_for_poison: 16
+poison_epochs: 5
+poison_lambda: 0.05
+poison_sample_num: 1000
+
+inject_client_optimizer: adadelta
+inject_lr: 0.01
+inject_rho: 0.95
+inject_eps: 0.0000001
+inject_adam_betas:
+- 0.5
+- 0.9
+inject_lr_scheduler: None
+
+num_classes_for_student: 10
+last_student_freeze_layer_name: linear
+student_batch_size: 32
+student_epochs: 30
+
+student_transfer_client_optimizer: adadelta
+student_transfer_lr: 0.01
+student_transfer_rho: 0.95
+student_transfer_eps: 0.0000001
+student_transfer_adam_betas:
+- 0.5
+- 0.9
+student_transfer_lr_scheduler: None
+
+attack_label_trans: all2one
+attack_target: 0
+batch_size: 32
+client_optimizer: sgd
+dataset: GTSRB
+dataset_path: ../data/GTSRB
+frequency_save: 100
+img_size: [32, 32, 3]
+lr: 0.01
+lr_scheduler: StepLR
+steplr_stepsize: 100000
+steplr_gamma: 0.1
+model: resnet18
+num_classes: 43
+pratio: 0.1
+random_seed: 0
+sgd_momentum: 0.9
+wd: 0.0005
