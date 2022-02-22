@@ -112,7 +112,7 @@ def find_most_connected_neuron_for_linear(
     # TODO this part different from the original code,
     #  since the original code has slightly difference comparing to the paper
     if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear): #weight is (n,m)
-        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum(0) # if is a matrix, then all rows is summed.
+        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum(1) # if is a matrix, then all rows is summed.
     elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d): #weight is (c_out, c_in, h, w)
         connect_level = torch.abs(net.__getattr__(layer_name).weight).sum([1,2,3])
     return torch.topk(connect_level, k = topk)[1].tolist() # where the topk connect level neuron are
@@ -148,7 +148,7 @@ def generate_trigger_pattern_from_mask(
     mask = mask.to(device)
 
     def hook_function(module, input, output):
-        net.linearInput = input
+        net.layer_output = output
 
 
     loss_record = []
@@ -176,13 +176,15 @@ def generate_trigger_pattern_from_mask(
         save_mean = trigger_pattern.mean().item()
 
         if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear):
-            loss = ((net.linearInput[0][:, neuron_indexes] - target_activation)**2).sum()
+            loss = ((net.layer_output[:, neuron_indexes] - target_activation)**2).sum()
         elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):
-            loss = ((net.linearInput[0][:, neuron_indexes].view(-1)[filter_map_location] - target_activation) ** 2).sum()
+            loss = ((net.layer_output[:, neuron_indexes].view(-1)[filter_map_location] - target_activation) ** 2).sum()
 
         grad = torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0]
 
-        # grad *= 100  # (this part learned from the code)
+        grad *= 100  # (this part learned from the code)
+
+        trigger_pattern = trigger_pattern * (mask > 0).reshape((1,*mask.shape))
 
         trigger_pattern = trigger_pattern - lr * grad /torch.abs(grad).mean()
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
@@ -191,7 +193,6 @@ def generate_trigger_pattern_from_mask(
 
         save_trigger_pattern = trigger_pattern.detach().clone()
 
-        trigger_pattern = trigger_pattern * (mask > 0).reshape((1,*mask.shape))
         trigger_pattern -= save_mean
 
         #in original code, deprocess needed, but consider common non-reversable transform,

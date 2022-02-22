@@ -40,7 +40,19 @@ def get_transform(dataset_name, input_height, input_width,train=True):
 
 def dataset_and_transform_generate(args):
 
-    if args.dataset == 'cifar10':
+    if args.dataset.startswith('test'): # for test only
+
+        import torchvision.transforms as transforms
+        from torchvision.datasets import ImageFolder
+
+        train_dataset_without_transform = ImageFolder('../data/test')
+        train_img_transform = get_transform('mnist', *(args.img_size[:2]) , train = True)
+        train_label_transfrom = None
+        test_dataset_without_transform = ImageFolder('../data/test')
+        test_img_transform = get_transform('mnist', *(args.img_size[:2]) , train = False)
+        test_label_transform = None
+
+    elif args.dataset == 'cifar10':
 
         from torchvision.datasets import CIFAR10
 
