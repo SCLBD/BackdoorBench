@@ -23,6 +23,8 @@ def generate_cls_model(
         net = models.alexnet(num_classes= num_classes)
     elif model_name == 'vgg16':
         net = models.vgg16(num_classes= num_classes)
+    elif model_name == 'vgg19':
+        net = models.vgg19(num_classes = num_classes)
     elif model_name == 'squeezenet1_0':
         net = models.squeezenet1_0(num_classes= num_classes)
     elif model_name == 'densenet161':
