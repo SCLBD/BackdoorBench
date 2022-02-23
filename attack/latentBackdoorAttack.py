@@ -34,7 +34,7 @@ from utils.bd_img_transform.patch import AddMatrixPatchTrigger
 from copy import deepcopy
 from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.save_load_attack import save_attack_result
-
+from utils.partial_load import partial_load
 
 
 # check on CUDA
@@ -382,7 +382,7 @@ def main():
     logging.warning('here I use a model dependent naming, be careful !')
     net.conv2 = net.layer4[-1].conv2
 
-    net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
+    net = partial_load(net, torch.load(args.pretrained_model_path, map_location=device))
 
     new_num_labels = net.__getattr__(args.final_layer_name).out_features + 1
 

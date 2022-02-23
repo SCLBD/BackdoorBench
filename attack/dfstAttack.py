@@ -156,7 +156,7 @@ class de_conv2d(torch.nn.Module):
         x = self.upsample(x)
         x = self.conv2d(x)
         x = self.instancenorm(x)
-        x = torch.cat([x, skip])
+        x = torch.cat([x, skip],dim = 1)
         return x
 
 class detoxicant_net(torch.nn.Module):
@@ -167,16 +167,16 @@ class detoxicant_net(torch.nn.Module):
         self.conv2 = ge_conv2d(32,64,64)
         self.conv3 = ge_conv2d(64,128,128)
         self.deconv1 = de_conv2d((int(input_shape[0]/4), int(input_shape[1]/4)), 128,64,64, )
-        self.deconv2 = de_conv2d((int(input_shape[0]/2), int(input_shape[1]/2)), 64,32,32, )
+        self.deconv2 = de_conv2d((int(input_shape[0]/2), int(input_shape[1]/2)), 128,32,32, )
         self.upsample = Upsample(size = (input_shape[0], input_shape[1]))
-        self.conv4 = Conv2d(in_channels=32, out_channels =3, kernel_size=12, stride=1, padding='same', )
+        self.conv4 = Conv2d(in_channels=64, out_channels =3, kernel_size=12, stride=1, padding='same', )
         self.tanh = Tanh()
 
     def forward(self,d0):
         # Downsampling
-        d1 = self.conv1(d0)
-        d2 = self.conv2(d1)
-        d3 = self.conv3(d2)
+        d1 = self.conv1(d0) #32
+        d2 = self.conv2(d1) #64
+        d3 = self.conv3(d2) #128
 
         # Upsampling
         u1 = self.deconv1(d3, d2)
@@ -795,7 +795,7 @@ def main():
             x_backdoored=x_backdoored_img,
         )
         for key, value in neurons_result.items():
-            if key.isdigit():
+            if str(key).isdigit():
                 poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test = get_reverse_engineering_net_for_one_neuron(
                     net, unet,
                     device = device,
@@ -824,9 +824,13 @@ def main():
                 # otherwise no need to add to retrain set
 
                 metrics = trainer.test(
-                    TensorDataset(
-                        detoxicant_dataset_train.tensors[0],
-                        detoxicant_dataset_train.tensors[1] * args.attack_target,
+                        DataLoader(TensorDataset(
+                            detoxicant_dataset_train.tensors[0],
+                            detoxicant_dataset_train.tensors[1] * args.attack_target,
+                        ),
+                        batch_size=args.batch_size,
+                        drop_last=False,
+                        shuffle=False,
                     ),
                     device
                 )
@@ -844,7 +848,7 @@ def main():
                             ),
                             batch_size=args.batch_size,
                             shuffle=True,
-                            drop_last=False
+                            drop_last=True,
                         )
 
     trainer.train_with_test_each_epoch_v2(
@@ -853,9 +857,9 @@ def main():
                     'benign_test_dl': benign_test_dl,
                     **{
                         f'layer_{l_name}_neuron_{n_name}' : detoxicant_dataset_test for l_name, n_name, inj_net, detoxicant_dataset_train, detoxicant_dataset_test in result
-                    }
+                    },
+                    'adv_test_data' : adv_test_dl
                 },
-                adv_test_data = adv_test_dl,
                 end_epoch_num = args.epochs,
                 criterion = criterion,
                 optimizer = optimizer,
