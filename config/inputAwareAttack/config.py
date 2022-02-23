@@ -40,5 +40,6 @@ def get_arguments():
 
     parser.add_argument("--random_rotation", type=int, default=10)
     parser.add_argument("--random_crop", type=int, default=5)
+    parser.add_argument("--random_seed", type=int, default=0)
 
     return parser

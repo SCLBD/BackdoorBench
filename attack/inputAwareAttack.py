@@ -16,6 +16,7 @@ from utils.input_aware_dataloader import get_dataloader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from utils.input_aware_utils import progress_bar
+from utils.aggregate_block.fix_random import fix_random
 
 
 def create_targets_bd(targets, opt):
@@ -373,7 +374,6 @@ def train(opt):
         netC = NetC_MNIST().to(opt.device)
     else:
         raise Exception("Invalid dataset")
-
     netG = Generator(opt).to(opt.device)
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
     optimizerG = torch.optim.Adam(netG.parameters(), opt.lr_G, betas=(0.5, 0.9))
@@ -518,6 +518,7 @@ def train(opt):
 
 def main():
     opt = config.get_arguments().parse_args()
+    fix_random(int(opt.random_seed))
     if opt.dataset == "mnist" or opt.dataset == "cifar10":
         opt.num_classes = 10
     elif opt.dataset == "gtsrb":
