@@ -4,7 +4,7 @@ batch_size: 128
 client_optimizer: sgd
 dataset: cifar10
 dataset_path: ../data/cifar10
-epochs: 1000
+epochs: 10 # code didn't give
 frequency_save: 100
 img_size: [32, 32, 3]
 lr: 0.01
@@ -20,7 +20,7 @@ sgd_momentum: 0.9
 wd: 0.0005
 # this is not the default setting of trojannn, since the official code has multiple setting being used.
 pretrained_model_path: ../resource/normal/normal.pt
-mask_tensor_path: ../resource/trojannn/mask.pt
+mask_tensor_path: ../resource/trojannn/trojannn_square_trigger_224_224.pt
 init_img_path: ../resource/trojannn/init_img.pt
 layer_name: conv2
 final_layer_name: linear

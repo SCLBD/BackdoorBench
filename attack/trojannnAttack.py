@@ -47,7 +47,7 @@ from utils.bd_img_transform.patch import AddMatrixPatchTrigger
 from copy import deepcopy
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
-
+import cv2
 
 
 # different settings
@@ -513,7 +513,12 @@ def main():
 
     fix_random(int(args.random_seed))
 
+    mask = cv2.resize(
+        torch.load(args.mask_tensor_path).numpy().transpose((1,2,0)),
+        dsize = tuple(args.img_size[:2][::-1])
+    )
 
+    mask = torch.from_numpy(mask.transpose((2,0,1)))
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
@@ -536,8 +541,8 @@ def main():
     ]):
         trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask(
             net,
-            torch.load(args.mask_tensor_path),
-            torch.randn_like(torch.load(args.mask_tensor_path)),
+            mask,
+            torch.randn_like(mask),
             args.layer_name, #'fc',
             args.target_activation,#100,
             device,
@@ -552,8 +557,8 @@ def main():
     elif 'octaves' in args:
         trigger_tensor_pattern, lossList = generate_trigger_pattern_from_mask_with_octaves(
             net,
-            torch.load(args.mask_tensor_path),
-            torch.randn_like(torch.load(args.mask_tensor_path)),
+            mask,
+            torch.randn_like(mask),
             args.layer_name,  # 'fc',
             args.target_activation,  # 100,
             device,
