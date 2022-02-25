@@ -35,7 +35,7 @@ from copy import deepcopy
 from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.save_load_attack import save_attack_result
 from utils.partial_load import partial_load
-
+from torch.utils.data import TensorDataset
 
 # check on CUDA
 def generate_trigger_pattern_from_mask_and_data(
@@ -449,6 +449,13 @@ def main():
                 student_test_img_transform, \
                 student_test_label_transform = dataset_and_transform_generate(args_once)
 
+    '''
+    here gtsrb have different size image !
+    min([i.shape for i in self.data])
+    Out[1]: (25, 25, 3)
+    max([i.shape for i in self.data])
+    Out[2]: (225, 243, 3)
+    '''
     target_dataset =  prepro_cls_DatasetBD(
             full_dataset_without_transform=student_train_dataset_without_transform,
             poison_idx=np.zeros(len(student_train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
@@ -516,11 +523,23 @@ def main():
         only_load_model = False,
     )
 
+    tuple_x_y = list(
+        zip(
+            *[mix_dataset_for_first_retrain[idx] for idx in
+              torch.randperm(len(mix_dataset_for_first_retrain))[:args.poison_sample_num]]
+        )
+    )[:2]
+
+    pre_x = torch.cat([i[None,...] for i in tuple_x_y[0]])
+    pre_y = torch.tensor(tuple_x_y[1])
+
     # optimize the trigger pattern, Target-dependent Trigger Generation.
     # TODO change the mask pattern to be the same as in function constract_mask default
     trigger_pattern = generate_trigger_pattern_from_mask_and_data(
         net= net,
-        mix_dataset= np.random.choice(mix_dataset_for_first_retrain, args.poison_sample_num),
+        mix_dataset= TensorDataset(
+            pre_x, pre_y
+        ) ,
         target_dataset= target_dataset,
         batchsize_for_opt= args.batchsize_for_trigger_generation,
         mask= torch.load(args.mask_tensor_path),
@@ -567,7 +586,7 @@ def main():
 
     for dataset_once in mix_adv_before:
         dataset_once.poison_idx = np.ones(len(dataset_once))
-        dataset_once.bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0)))
+        dataset_once.bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0))) #TODO this class cannot handle different size
         dataset_once.dataset = zip(dataset_once.data, dataset_once.targets)
         dataset_once.prepro_backdoor()
         #     = prepro_cls_DatasetBD(
