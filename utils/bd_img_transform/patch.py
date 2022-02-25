@@ -1,3 +1,5 @@
+import logging
+import cv2
 
 
 class AddPatchTrigger(object):
@@ -21,14 +23,32 @@ class AddMatrixPatchTrigger(object):
     tensor version of add trigger, this should be put after
     '''
     def __init__(self, trigger_tensor: np.ndarray, ):
+        logging.warning('Use cv2 resize in case non-same trigger and img blend. so torch tensor will fail')
         self.trigger_tensor = np.clip(trigger_tensor, 0, 255)  # notice that non-trigger parts must be zero !
 
     def __call__(self, img, target=None, image_serial_id=None):
         return self.add_trigger(img)
 
     def add_trigger(self, img):
-        return img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
-        # use only positive part of trigger tensor
+        # two case, trigger and img shape same / not same
+        try:
+            after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
+        except:
+            logging.info('NOT SAME size for img and trigger_tensor, use cv2 resize trigger_tensor')
+            trigger_tensor = cv2.resize(self.trigger_tensor, dsize=img.shape[:2] if len(img.shape) <= 3 else img.shape[1:3])
+            after_blend_img = img * (trigger_tensor == 0) + trigger_tensor * (trigger_tensor > 0)
+
+        return after_blend_img
+
+def test_AddMatrixPatchTrigger():
+    trigger = np.zeros((32,32,3))
+    trigger[:10,:,:] = 1
+    f = AddMatrixPatchTrigger(trigger)
+
+    import matplotlib.pyplot as plt
+    plt.imshow(f(np.zeros((64,64,3))))
+    plt.show()
+
 
 from random import randint
 
