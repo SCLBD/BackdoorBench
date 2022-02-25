@@ -35,18 +35,18 @@ class AddMatrixPatchTrigger(object):
             after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
         except:
             logging.info('NOT SAME size for img and trigger_tensor, use cv2 resize trigger_tensor')
-            trigger_tensor = cv2.resize(self.trigger_tensor, dsize=img.shape[:2] if len(img.shape) <= 3 else img.shape[1:3])
+            trigger_tensor = cv2.resize(self.trigger_tensor, dsize=(img.shape[:2])[::-1] if len(img.shape) <= 3 else img.shape[1:3])
             after_blend_img = img * (trigger_tensor == 0) + trigger_tensor * (trigger_tensor > 0)
 
         return after_blend_img
 
 def test_AddMatrixPatchTrigger():
-    trigger = np.zeros((32,32,3))
+    trigger = np.zeros((32,31,3))
     trigger[:10,:,:] = 1
     f = AddMatrixPatchTrigger(trigger)
 
     import matplotlib.pyplot as plt
-    plt.imshow(f(np.zeros((64,64,3))))
+    plt.imshow(f(np.zeros((64,61,3))))
     plt.show()
 
 
