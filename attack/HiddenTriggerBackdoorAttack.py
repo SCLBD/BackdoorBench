@@ -264,7 +264,7 @@ def main():
                                                       )
     iter_source = iter(train_loader_source)
 
-    pnum =  args.pratio * len(benign_train_ds) if 'pratio' in args.__dict__ else args.p_num
+    pnum =  int(args.pratio * len(benign_train_ds) if 'pratio' in args.__dict__ else args.p_num)
 
     disguised_img_all = []
     disguise_img_index_all = []
