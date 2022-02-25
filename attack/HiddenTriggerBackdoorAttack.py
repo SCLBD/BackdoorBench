@@ -316,7 +316,7 @@ def main():
     )
 
     for iter_i in range(pnum): # only pnum of target class being changed
-        adv_train_ds.data[disguise_img_index_all[iter_i]] = disguised_img_all[iter_i]
+        adv_train_ds.data[disguise_img_index_all[iter_i]] = disguised_img_all[iter_i].cpu().numpy()
         # clean-label only, so only img change. No need to match index, since adv_train_ds still in order
         adv_train_ds.poison_indicator[disguise_img_index_all[iter_i]] = 1
 

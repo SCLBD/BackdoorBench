@@ -49,7 +49,7 @@ def image_show_for_all(
     if s :
         plt.imsave(f'{time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())}.png', np_img)
 
-def test_imshow():
+def test_image_show_for_all():
 
     i1 = np.random.randn(3,3)
     image_show_for_all(i1)

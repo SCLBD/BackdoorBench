@@ -142,6 +142,7 @@ def generate_trigger_pattern_from_mask(
     trigger_pattern = init_tensor.reshape((1,*mask.shape)) * (mask > 0).reshape((1,*mask.shape))
     trigger_pattern = trigger_pattern.to(device)
     trigger_pattern = trigger_pattern.requires_grad_()
+
     if trigger_pattern.grad is not None:
         trigger_pattern.grad.zero_()
 
@@ -150,19 +151,15 @@ def generate_trigger_pattern_from_mask(
     def hook_function(module, input, output):
         net.layer_output = output
 
-
     loss_record = []
     best_loss = float('inf')
     best_trigger = None
+
     for iter_i in range(max_iter):
 
         net.eval()
 
         net.to(device)
-
-        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):  # weight is (c_out, c_in, h, w)
-            filter_map_location = torch.argmax(torch.abs(net.__getattr__(layer_name).weight[0, neuron_indexes, :, :]))
-            #every time in the filter we choose the location of select num again (this part learned from the code)
 
         lr = lr_start + ((lr_end - lr_start) * iter_i) / max_iter
 
@@ -172,8 +169,13 @@ def generate_trigger_pattern_from_mask(
             hook_function
         )
 
-        _ = net(trigger_pattern)
+        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):  # weight is (c_out, c_in, h, w)
+            filter_map_location = torch.argmax(torch.abs(net.__getattr__(layer_name).weight[0, neuron_indexes, :, :]))
+            #every time in the filter we choose the location of select num again (this part learned from the code)
+
         save_mean = trigger_pattern.mean().item()
+
+        _ = net(trigger_pattern)
 
         if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear):
             loss = ((net.layer_output[:, neuron_indexes] - target_activation)**2).sum()
@@ -184,16 +186,18 @@ def generate_trigger_pattern_from_mask(
 
         grad *= 100  # (this part learned from the code)
 
-        trigger_pattern = trigger_pattern * (mask > 0).reshape((1,*mask.shape))
+        trigger_pattern = trigger_pattern * (mask > 0).reshape((1, *mask.shape))
 
         trigger_pattern = trigger_pattern - lr * grad /torch.abs(grad).mean()
         # if you do not use torch.autograd.grad, no grad you may get directly from loss.backward()
 
         trigger_pattern = torch.clamp(trigger_pattern, 0, 1).data
 
+        trigger_pattern = trigger_pattern * (mask > 0).reshape((1, *mask.shape))
+
         save_trigger_pattern = trigger_pattern.detach().clone()
 
-        trigger_pattern -= save_mean
+        trigger_pattern += save_mean
 
         #in original code, deprocess needed, but consider common non-reversable transform,
         #the deprocess and then preprocess again are not applicable here.
@@ -202,16 +206,8 @@ def generate_trigger_pattern_from_mask(
             , weight=denoise_weight, max_iter=100, eps=1e-3
         ).transpose(2, 0, 1))[None, ...].to(device))
 
-        trigger_pattern += save_mean
-        trigger_pattern *= (trigger_pattern > 0)
-
-        save_trigger_pattern *= (1 - (mask > 0).float().reshape((1,*mask.shape)))
-        save_trigger_pattern += trigger_pattern
-
-        trigger_pattern = trigger_pattern.to(device)
-        trigger_pattern = trigger_pattern.requires_grad_()
-        if trigger_pattern.grad is not None:
-            trigger_pattern.grad.zero_()
+        trigger_pattern -= save_mean
+        trigger_pattern = trigger_pattern * (mask > 0).reshape((1, *mask.shape))
 
         if loss.item() < best_loss:
 
@@ -221,6 +217,15 @@ def generate_trigger_pattern_from_mask(
 
         if loss.item() < end_loss_value:
             break
+
+        save_trigger_pattern *= (1 - (mask > 0).float().reshape((1, *mask.shape)))
+        save_trigger_pattern += trigger_pattern
+
+        trigger_pattern = trigger_pattern.to(device)
+        trigger_pattern = trigger_pattern.requires_grad_()
+
+        if trigger_pattern.grad is not None:
+            trigger_pattern.grad.zero_()
 
     return best_trigger, loss_record
 
