@@ -2,10 +2,10 @@ pretrained_model_path: ../resource/normal/normal.pt
 eps1: 0.062745
 pgd_init_lr: 0.01
 pgd_max_iter: 5000
-attack: blended
-attack_test_blended_alpha: 0.1
-attack_train_blended_alpha: 0.1
-attack_trigger_img_path: ../data/hello_kitty.jpeg
+#attack: blended
+#attack_test_blended_alpha: 0.1
+#attack_train_blended_alpha: 0.1
+#attack_trigger_img_path: ../data/hello_kitty.jpeg
 attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
@@ -25,3 +25,34 @@ pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
+#first use fixed to test
+attack: fix_patch
+attack_trigger_loc:
+  - - 29
+    - 29
+  - - 29
+    - 30
+  - - 29
+    - 31
+  - - 30
+    - 29
+  - - 30
+    - 30
+  - - 30
+    - 31
+  - - 31
+    - 29
+  - - 31
+    - 30
+  - - 31
+    - 31
+trigger_ptn:
+  - 255
+  - 255
+  - 255
+  - 255
+  - 255
+  - 255
+  - 255
+  - 255
+  - 255
