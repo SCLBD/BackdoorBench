@@ -4,10 +4,10 @@ import torchvision
 import torch.utils.data as data
 
 class CelebA_attr(data.Dataset):
-    def __init__(self, data_root, split):
+    def __init__(self, data_root, split, transform = None):
         self.dataset = torchvision.datasets.CelebA(root=data_root, split=split, target_type="attr", download=True)
         self.list_attributes = [18, 31, 21]
-        # self.transforms = transforms
+        self.transform = transform
         self.split = split
 
     def _convert_attributes(self, bool_attributes):
@@ -18,6 +18,7 @@ class CelebA_attr(data.Dataset):
 
     def __getitem__(self, index):
         input, target = self.dataset[index]
-        # input = self.transforms(input)
+        if self.transform is not None:
+            input = self.transform(input)
         target = self._convert_attributes(target[self.list_attributes])
         return (input, target)

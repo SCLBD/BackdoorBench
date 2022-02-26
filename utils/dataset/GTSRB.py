@@ -7,7 +7,7 @@ import csv
 import torch.utils.data as data
 
 class GTSRB(data.Dataset):
-    def __init__(self, data_root, train):
+    def __init__(self, data_root, train, transform = None):
         super(GTSRB, self).__init__()
         if train:
             self.data_folder = os.path.join(data_root, "Train/Images")
@@ -20,7 +20,7 @@ class GTSRB(data.Dataset):
             if not os.path.isdir(self.data_folder):
                 os.makedirs(self.data_folder)
 
-        # self.transforms = transforms
+        self.transform = transform
 
     def _get_data_train_list(self):
         images = []
@@ -55,6 +55,7 @@ class GTSRB(data.Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self.images[index])
-        # image = self.transforms(image)
+        if self.transform is not None:
+            image = self.transform(image)
         label = self.labels[index]
         return image, label
