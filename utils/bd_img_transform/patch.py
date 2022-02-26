@@ -1,9 +1,13 @@
 import logging
 import cv2
-
+import numpy as np
+import torch
 
 class AddPatchTrigger(object):
-
+    '''
+    assume init use HWC format
+    but in add_trigger, you can input tensor/array , one/batch
+    '''
     def __init__(self, trigger_loc, trigger_ptn):
         self.trigger_loc = trigger_loc
         self.trigger_ptn = trigger_ptn
@@ -12,9 +16,40 @@ class AddPatchTrigger(object):
         return self.add_trigger(img)
 
     def add_trigger(self, img):
-        for i, (m, n) in enumerate(self.trigger_loc):
-            img[m, n, :] = self.trigger_ptn[i]  # add trigger
+        if isinstance(img, np.ndarray):
+            if img.shape.__len__() == 3:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[m, n, :] = self.trigger_ptn[i]  # add trigger
+            elif img.shape.__len__() == 4:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, m, n, :] = self.trigger_ptn[i]  # add trigger
+        elif isinstance(img, torch.Tensor):
+            if img.shape.__len__() == 3:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, m, n] = self.trigger_ptn[i]
+            elif img.shape.__len__() == 4:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, :, m, n] = self.trigger_ptn[i]
         return img
+
+def test_AddPatchTrigger():
+    trigger_loc, trigger_ptn = [[29, 29],
+                        [29, 30],
+                        [29, 31],
+                        [30, 29],
+                        [30, 30],
+                        [30, 31],
+                        [31, 29],
+                        [31, 30],
+                        [31, 31]], [255, 255, 255, 255, 255, 255, 255, 255, 255]
+    f = AddPatchTrigger(trigger_loc, trigger_ptn)
+
+    from utils.visualize_image import image_show_for_all
+    image_show_for_all(f(np.zeros((32, 32, 3))))
+    image_show_for_all(f(np.zeros((3, 32, 32, 3))))
+    image_show_for_all(f(torch.zeros((3, 32, 32))))
+    image_show_for_all(f(torch.zeros((3, 3, 32, 32))))
+
 
 import numpy as np
 

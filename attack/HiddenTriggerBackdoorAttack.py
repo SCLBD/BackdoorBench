@@ -270,7 +270,7 @@ def main():
     disguise_img_index_all = []
     poison_count = 0
 
-    train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
+    # train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
 
     for _ in range(len(train_loader_target)):
 

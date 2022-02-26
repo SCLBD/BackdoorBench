@@ -22,7 +22,12 @@ from torchvision.utils import make_grid
 
 def all_to_torch(array):
     if isinstance(array, np.ndarray):
-        return torch.tensor(array)
+        if array.shape.__len__() == 2:
+            return torch.tensor(array)
+        elif array.shape.__len__() == 3:
+            return torch.tensor(array.transpose((2,0,1)))
+        elif array.shape.__len__() == 4:
+            return torch.tensor(array.transpose((0, 3, 1, 2)))
     else:
         return array.detach().clone().cpu()
 
@@ -51,22 +56,22 @@ def image_show_for_all(
 
 def test_image_show_for_all():
 
-    i1 = np.random.randn(3,3)
+    i1 = np.random.randn(32,32)
     image_show_for_all(i1)
 
-    i2 = np.random.randn(3,3,3)
+    i2 = np.random.randn(32,32,3)
     image_show_for_all(i2)
 
-    i3 = np.random.randn(3,3,3,3)
+    i3 = np.random.randn(3,32,32,3)
     image_show_for_all(i3)
 
-    t1 = torch.randn(3,3)
+    t1 = torch.from_numpy(i1)
     image_show_for_all(t1)
 
-    t2 = torch.randn(3,3,3)
+    t2 = torch.from_numpy(i2.transpose((2,0,1)))
     image_show_for_all(t2)
 
-    t3 = torch.randn(3,3,3,3)
+    t3 = torch.from_numpy(i3.transpose((0, 3,1,2)))
     image_show_for_all(t3)
 
 
