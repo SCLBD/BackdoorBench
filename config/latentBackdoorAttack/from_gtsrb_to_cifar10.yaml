@@ -58,7 +58,7 @@ attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
 client_optimizer: sgd
-dataset: GTSRB
+dataset: gtsrb
 dataset_path: ../data/GTSRB
 frequency_save: 100
 img_size: [32, 32, 3]

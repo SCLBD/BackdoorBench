@@ -10,7 +10,7 @@ class GTSRB(data.Dataset):
     def __init__(self, data_root, train, transform = None):
         super(GTSRB, self).__init__()
         if train:
-            self.data_folder = os.path.join(data_root, "Train/Images")
+            self.data_folder = os.path.join(data_root, "Train")
             self.images, self.labels = self._get_data_train_list()
             if not os.path.isdir(self.data_folder):
                 os.makedirs(self.data_folder)
@@ -26,7 +26,7 @@ class GTSRB(data.Dataset):
         images = []
         labels = []
         for c in range(0, 43):
-            prefix = self.data_folder + "/" + format(c, "05d") + "/"
+            prefix = self.data_folder + "/Images/" + format(c, "05d") + "/"
             if not os.path.isdir(prefix):
                 os.makedirs(prefix)
             gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")

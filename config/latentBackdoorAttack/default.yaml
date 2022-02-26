@@ -1,6 +1,6 @@
 pretrained_model_path: ../resource/normal/normal.pt
 final_layer_name: linear
-student_data: GTSRB
+student_data: gtsrb
 student_dataset_path: ../data/GTSRB
 student_img_size:
 - 32

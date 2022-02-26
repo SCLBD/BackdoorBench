@@ -5,6 +5,41 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 
+
+#TODO just copy from wanet, now finished
+def get_num_classes(dataset_name : str) -> int:
+    if dataset_name in ["mnist", "cifar10"]:
+        num_classes = 10
+    elif dataset_name == "gtsrb":
+        num_classes = 43
+    elif dataset_name == "celeba":
+        num_classes = 8
+    else:
+        raise Exception("Invalid Dataset")
+    return num_classes
+
+#TODO just copy from wanet, now finished
+def get_input_shape(dataset_name : str) -> tuple:
+    if dataset_name == "cifar10":
+        input_height = 32
+        input_width = 32
+        input_channel = 3
+    elif dataset_name == "gtsrb":
+        input_height = 32
+        input_width = 32
+        input_channel = 3
+    elif dataset_name == "mnist":
+        input_height = 28
+        input_width = 28
+        input_channel = 1
+    elif dataset_name == "celeba":
+        input_height = 64
+        input_width = 64
+        input_channel = 3
+    else:
+        raise Exception("Invalid Dataset")
+    return input_height, input_width, input_channel
+
 # this if from bd_zoo
 def get_transform(dataset_name, input_height, input_width,train=True):
     transforms_list = []
@@ -17,7 +52,8 @@ def get_transform(dataset_name, input_height, input_width,train=True):
 
     transforms_list.append(transforms.ToTensor())
     if dataset_name == "cifar10":
-        transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010]))
+        #from wanet
+        transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]))
     elif dataset_name == 'cifar100':
         '''get from https://gist.github.com/weiaicunzai/e623931921efefd4c331622c344d8151'''
         transforms_list.append(transforms.Normalize([0.5071, 0.4865, 0.4409],[0.2673, 0.2564, 0.2762]))
@@ -25,7 +61,7 @@ def get_transform(dataset_name, input_height, input_width,train=True):
         transforms_list.append(transforms.Normalize([0.5], [0.5]))
     elif dataset_name == 'tiny':
         transforms_list.append(transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
-    elif dataset_name == "GTSRB" or dataset_name == "celeba":
+    elif dataset_name == "gtsrb" or dataset_name == "celeba":
         pass
     elif dataset_name == 'imagenet':
         transforms_list.append(
@@ -50,6 +86,30 @@ def dataset_and_transform_generate(args):
         train_label_transfrom = None
         test_dataset_without_transform = ImageFolder('../data/test')
         test_img_transform = get_transform('mnist', *(args.img_size[:2]) , train = False)
+        test_label_transform = None
+
+    elif args.dataset == 'mnist':
+
+        from torchvision.datasets import MNIST
+
+        train_dataset_without_transform = MNIST(
+            args.dataset_path,
+            train=True,
+            transform=None,
+            download=True,
+        )
+
+        train_img_transform = get_transform('mnist', *(args.img_size[:2]), train=True)
+        train_label_transfrom = None
+
+        test_dataset_without_transform = MNIST(
+            args.dataset_path,
+            train=False,
+            transform=None,
+            download=True,
+        )
+
+        test_img_transform = get_transform('mnist', *(args.img_size[:2]), train=False)
         test_label_transform = None
 
     elif args.dataset == 'cifar10':
@@ -95,7 +155,7 @@ def dataset_and_transform_generate(args):
         test_img_transform = get_transform('cifar100', *(args.img_size[:2]) , train = False)
         test_label_transform = None
 
-    elif args.dataset == 'GTSRB':
+    elif args.dataset == 'gtsrb':
 
         from utils.dataset.GTSRB import GTSRB
 
@@ -103,12 +163,12 @@ def dataset_and_transform_generate(args):
                                                   train=True,
                                                 )
 
-        train_img_transform = get_transform('GTSRB', *(args.img_size[:2]) , train = True)
+        train_img_transform = get_transform('gtsrb', *(args.img_size[:2]) , train = True)
         train_label_transfrom = None
         test_dataset_without_transform =  GTSRB(args.dataset_path,
                                                   train=False,
                                                 )
-        test_img_transform = get_transform('GTSRB', *(args.img_size[:2]) , train = True)
+        test_img_transform = get_transform('gtsrb', *(args.img_size[:2]) , train = True)
         test_label_transform = None
 
     elif args.dataset == "celeba":

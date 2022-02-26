@@ -1,3 +1,5 @@
+import logging, yaml
+
 import kornia.augmentation as A
 import json
 import shutil
@@ -14,13 +16,16 @@ import os
 import sys
 import time
 import torch
-
 import torch.nn as nn
-
 from torchvision.models import resnet18 as ResNet18
 from models.preact_resnet import PreActResNet18
-
 import torchvision.transforms as transforms
+
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.aggregate_block.model_trainer_generate import generate_cls_model
+class Args:
+    pass
 
 class Denormalize:
     def __init__(self, opt, expected_values, variance):
@@ -179,88 +184,126 @@ class PostTensorTransform(torch.nn.Module):
             x = module(x)
         return x
 
-class GTSRB(data.Dataset):
-    def __init__(self, opt, train, transforms):
-        super(GTSRB, self).__init__()
-        if train:
-            self.data_folder = os.path.join(opt.data_root, "GTSRB/Train")
-            self.images, self.labels = self._get_data_train_list()
-        else:
-            self.data_folder = os.path.join(opt.data_root, "GTSRB/Test")
-            self.images, self.labels = self._get_data_test_list()
+# class GTSRB(data.Dataset):
+#     def __init__(self, opt, train, transforms):
+#         super(GTSRB, self).__init__()
+#         if train:
+#             self.data_folder = os.path.join(opt.data_root, "GTSRB/Train")
+#             self.images, self.labels = self._get_data_train_list()
+#         else:
+#             self.data_folder = os.path.join(opt.data_root, "GTSRB/Test")
+#             self.images, self.labels = self._get_data_test_list()
+#
+#         self.transforms = transforms
+#
+#     def _get_data_train_list(self):
+#         images = []
+#         labels = []
+#         for c in range(0, 43):
+#             prefix = self.data_folder + "/" + format(c, "05d") + "/"
+#             gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")
+#             gtReader = csv.reader(gtFile, delimiter=";")
+#             next(gtReader)
+#             for row in gtReader:
+#                 images.append(prefix + row[0])
+#                 labels.append(int(row[7]))
+#             gtFile.close()
+#         return images, labels
+#
+#     def _get_data_test_list(self):
+#         images = []
+#         labels = []
+#         prefix = os.path.join(self.data_folder, "GT-final_test.csv")
+#         gtFile = open(prefix)
+#         gtReader = csv.reader(gtFile, delimiter=";")
+#         next(gtReader)
+#         for row in gtReader:
+#             images.append(self.data_folder + "/" + row[0])
+#             labels.append(int(row[7]))
+#         return images, labels
+#
+#     def __len__(self):
+#         return len(self.images)
+#
+#     def __getitem__(self, index):
+#         image = Image.open(self.images[index])
+#         image = self.transforms(image)
+#         label = self.labels[index]
+#         return image, label
 
-        self.transforms = transforms
+# class CelebA_attr(data.Dataset):
+#     def __init__(self, opt, split, transforms):
+#         self.dataset = torchvision.datasets.CelebA(root=opt.data_root, split=split, target_type="attr", download=True)
+#         self.list_attributes = [18, 31, 21]
+#         self.transforms = transforms
+#         self.split = split
+#
+#     def _convert_attributes(self, bool_attributes):
+#         return (bool_attributes[0] << 2) + (bool_attributes[1] << 1) + (bool_attributes[2])
+#
+#     def __len__(self):
+#         return len(self.dataset)
+#
+#     def __getitem__(self, index):
+#         input, target = self.dataset[index]
+#         input = self.transforms(input)
+#         target = self._convert_attributes(target[self.list_attributes])
+#         return (input, target)
 
-    def _get_data_train_list(self):
-        images = []
-        labels = []
-        for c in range(0, 43):
-            prefix = self.data_folder + "/" + format(c, "05d") + "/"
-            gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")
-            gtReader = csv.reader(gtFile, delimiter=";")
-            next(gtReader)
-            for row in gtReader:
-                images.append(prefix + row[0])
-                labels.append(int(row[7]))
-            gtFile.close()
-        return images, labels
 
-    def _get_data_test_list(self):
-        images = []
-        labels = []
-        prefix = os.path.join(self.data_folder, "GT-final_test.csv")
-        gtFile = open(prefix)
-        gtReader = csv.reader(gtFile, delimiter=";")
-        next(gtReader)
-        for row in gtReader:
-            images.append(self.data_folder + "/" + row[0])
-            labels.append(int(row[7]))
-        return images, labels
 
-    def __len__(self):
-        return len(self.images)
 
-    def __getitem__(self, index):
-        image = Image.open(self.images[index])
-        image = self.transforms(image)
-        label = self.labels[index]
-        return image, label
-
-class CelebA_attr(data.Dataset):
-    def __init__(self, opt, split, transforms):
-        self.dataset = torchvision.datasets.CelebA(root=opt.data_root, split=split, target_type="attr", download=True)
-        self.list_attributes = [18, 31, 21]
-        self.transforms = transforms
-        self.split = split
-
-    def _convert_attributes(self, bool_attributes):
-        return (bool_attributes[0] << 2) + (bool_attributes[1] << 1) + (bool_attributes[2])
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, index):
-        input, target = self.dataset[index]
-        input = self.transforms(input)
-        target = self._convert_attributes(target[self.list_attributes])
-        return (input, target)
 
 def get_dataloader(opt, train=True, pretensor_transform=False):
-    transform = get_transform(opt, train, pretensor_transform)
-    if opt.dataset == "gtsrb":
-        dataset = GTSRB(opt, train, transform)
-    elif opt.dataset == "mnist":
-        dataset = torchvision.datasets.MNIST(opt.data_root, train, transform, download=True)
-    elif opt.dataset == "cifar10":
-        dataset = torchvision.datasets.CIFAR10(opt.data_root, train, transform, download=True)
-    elif opt.dataset == "celeba":
-        if train:
-            split = "train"
-        else:
-            split = "test"
-        dataset = CelebA_attr(opt, split, transform)
+    # transform = get_transform(opt, train, pretensor_transform)
+    # if opt.dataset == "gtsrb":
+    #     dataset = GTSRB(opt, train, transform)
+    # elif opt.dataset == "mnist":
+    #     dataset = torchvision.datasets.MNIST(opt.data_root, train, transform, download=True)
+    # elif opt.dataset == "cifar10":
+    #     dataset = torchvision.datasets.CIFAR10(opt.data_root, train, transform, download=True)
+    # elif opt.dataset == "celeba":
+    #     if train:
+    #         split = "train"
+    #     else:
+    #         split = "test"
+    #     dataset = CelebA_attr(opt, split, transform)
+    # else:
+    #     raise Exception("Invalid dataset")
+
+    args = Args()
+    args.dataset = opt.dataset
+    args.dataset_path = opt.data_root
+    args.img_size = (opt.input_height, opt.input_width, opt.input_channel)
+
+    train_dataset_without_transform, \
+    train_img_transform, \
+    train_label_transfrom, \
+    test_dataset_without_transform, \
+    test_img_transform, \
+    test_label_transform = dataset_and_transform_generate(args=opt)
+
+
+
+    if train:
+        dataset = train_dataset_without_transform
+        try:
+            train_transform = get_transform(opt, train, pretensor_transform)
+            if train_transform is not None:
+                print('WARNING : transform use original transform')
+        except:
+            train_transform = train_img_transform
+        dataset.transform = train_transform
     else:
-        raise Exception("Invalid dataset")
+        dataset = test_dataset_without_transform
+        try:
+            test_transform = get_transform(opt, train, pretensor_transform)
+            if test_transform is not None:
+                print('WARNING : transform use original transform')
+        except:
+            test_transform = test_img_transform
+        dataset.transform = test_transform
+
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=True)
     return dataloader
 
@@ -268,6 +311,12 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
 
 def get_arguments():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
+                        help='path for yaml file provide additional default attributes')
+    parser.add_argument('--model_name', type = str, help = 'Only use when model is not given in original code !!!')
+
+
 
     parser.add_argument("--data_root", type=str, default="/home/ubuntu/temps/")
     parser.add_argument("--checkpoints", type=str, default="./checkpoints")
@@ -305,13 +354,16 @@ def get_model(opt):
     netC = None
     optimizerC = None
     schedulerC = None
-
+    print('WARNING : here model is set by original code !!!')
     if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
         netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
-    if opt.dataset == "celeba":
+    elif opt.dataset == "celeba":
         netC = ResNet18().to(opt.device)
-    if opt.dataset == "mnist":
+    elif opt.dataset == "mnist":
         netC = NetC_MNIST().to(opt.device)
+    else:
+        print('use generate_cls_model() ')
+        netC = generate_cls_model(opt.model_name, opt.num_classes)
 
     # Optimizer
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
@@ -556,33 +608,43 @@ def eval(
 def main():
     opt = get_arguments().parse_args()
 
-    if opt.dataset in ["mnist", "cifar10"]:
-        opt.num_classes = 10
-    elif opt.dataset == "gtsrb":
-        opt.num_classes = 43
-    elif opt.dataset == "celeba":
-        opt.num_classes = 8
-    else:
-        raise Exception("Invalid Dataset")
+    with open(opt.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
+    defaults.update({k:v for k,v in opt.__dict__.items() if v is not None})
+    opt.__dict__ = defaults
 
-    if opt.dataset == "cifar10":
-        opt.input_height = 32
-        opt.input_width = 32
-        opt.input_channel = 3
-    elif opt.dataset == "gtsrb":
-        opt.input_height = 32
-        opt.input_width = 32
-        opt.input_channel = 3
-    elif opt.dataset == "mnist":
-        opt.input_height = 28
-        opt.input_width = 28
-        opt.input_channel = 1
-    elif opt.dataset == "celeba":
-        opt.input_height = 64
-        opt.input_width = 64
-        opt.input_channel = 3
-    else:
-        raise Exception("Invalid Dataset")
+    # if opt.dataset in ["mnist", "cifar10"]:
+    #     opt.num_classes = 10
+    # elif opt.dataset == "gtsrb":
+    #     opt.num_classes = 43
+    # elif opt.dataset == "celeba":
+    #     opt.num_classes = 8
+    # else:
+    #     raise Exception("Invalid Dataset")
+
+    opt.num_classes = get_num_classes(opt.dataset)
+
+    # if opt.dataset == "cifar10":
+    #     opt.input_height = 32
+    #     opt.input_width = 32
+    #     opt.input_channel = 3
+    # elif opt.dataset == "gtsrb":
+    #     opt.input_height = 32
+    #     opt.input_width = 32
+    #     opt.input_channel = 3
+    # elif opt.dataset == "mnist":
+    #     opt.input_height = 28
+    #     opt.input_width = 28
+    #     opt.input_channel = 1
+    # elif opt.dataset == "celeba":
+    #     opt.input_height = 64
+    #     opt.input_width = 64
+    #     opt.input_channel = 3
+    # else:
+    #     raise Exception("Invalid Dataset")
+
+    opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
+
 
     # Dataset
     train_dl = get_dataloader(opt, True)
