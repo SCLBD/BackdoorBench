@@ -62,7 +62,7 @@ def isolate_data(opt, poisoned_data, losses_idx):
     # print('full_poisoned_data_idx:', len(losses_idx))
     perm = losses_idx[0: int(len(losses_idx) * ratio)]
 
-    for idx, (img, target, isClean, gt_label) in tqdm(enumerate(example_data_loader, start=0)):
+    for idx, (img, target) in tqdm(enumerate(example_data_loader, start=0)):
         img = img.squeeze()
         target = target.squeeze()
         img = np.transpose((img * 255).cpu().numpy(), (1, 2, 0)).astype('uint8')

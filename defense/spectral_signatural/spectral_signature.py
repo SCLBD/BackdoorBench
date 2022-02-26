@@ -24,6 +24,7 @@ from pyexpat import model
 import shutil
 import sys
 import os
+import time
 sys.path.append('../')
 sys.path.append(os.getcwd())
 from timeit import default_timer as timer
@@ -43,7 +44,9 @@ from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
 from utils.nCHW_nHWC import nCHW_to_nHWC
+from utils.save_load_attack import load_attack_result
 #from utils.preact_resnet import get_activation
+from pprint import pprint, pformat
 
 def compute_corr_v1(arg,result,config):
     logFormatter = logging.Formatter(
@@ -52,10 +55,10 @@ def compute_corr_v1(arg,result,config):
     )
     logger = logging.getLogger()
     # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
-    if args.log is not None & args.log != '':
-        fileHandler = logging.FileHandler('./log' + '/' + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    if args.log is not None and args.log != '':
+        fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
-        fileHandler = logging.FileHandler('./log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+        fileHandler = logging.FileHandler(os.getcwd() + './log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
     logger.addHandler(fileHandler)
 
@@ -64,7 +67,7 @@ def compute_corr_v1(arg,result,config):
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
-    
+    logging.info(pformat(args.__dict__))
     model = generate_cls_model(arg.model,arg.num_classes)
     model.load_state_dict(result['model'])
     model.to(arg.device)
@@ -139,9 +142,10 @@ def compute_corr_v1(arg,result,config):
             inps,outs = [],[]
             def layer_hook(module, inp, out):
                 outs.append(out.data)
-            hook = model.avgpool.register_forward_hook(layer_hook)
+            hook = model.layer4.register_forward_hook(layer_hook)
             _ = model(x_batch)
             batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+            hook.remove()
 
         #batch_grads = sess.run(cur_op, feed_dict=dict_nat)
         if iex==0:
@@ -192,10 +196,43 @@ def compute_corr_v1(arg,result,config):
     dataset_left = dataset
     data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=arg.batch_size, num_workers=arg.num_workers, shuffle=True)
     
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].numpy()))
+    y = result['bd_test']['y']
+    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_bd_test,
+        poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].numpy()))
+    y = result['clean_test']['y']
+    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_clean_test,
+        poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    best_acc = 0
+    best_asr = 0
     optimizer = torch.optim.SGD(model.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
     criterion = torch.nn.CrossEntropyLoss() 
     for j in range(arg.epochs):
+        model.train()
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
             inputs, labels = inputs.to(arg.device), labels.to(arg.device)
             outputs = model(inputs)
@@ -203,7 +240,39 @@ def compute_corr_v1(arg,result,config):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        
+        with torch.no_grad():
+            model.eval()
+            asr_acc = 0
+            for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = model(inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
 
+            
+            clean_acc = 0
+            for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = model(inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+        
+        
+        if best_acc < clean_acc:
+            best_acc = clean_acc
+            best_asr = asr_acc
+            torch.save(
+            {
+                'model_name':args.model,
+                'model': model.cpu().state_dict(),
+                'asr': asr_acc,
+                'acc': clean_acc
+            },
+            os.getcwd() + f'{args.checkpoint_save}/defense_result.pt'
+            )
+            model.to(arg.device)
+        logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
     result = {}
     result["dataset"] = dataset_left
@@ -293,14 +362,22 @@ if __name__ == '__main__':
         args.input_channel = 3
     else:
         raise Exception("Invalid Dataset")
-    args.checkpoint_save = os.getcwd() + '/record/defence/ac/' + args.dataset + '.tar'
+    #args.checkpoint_save = os.getcwd() + '/record/defence/ac/' + args.dataset + '.tar'
     
     #args.log = 'saved/log/log_' + args.dataset + '.txt'
 
     ######为了测试临时写的代码
     save_path = '/record/' + args.result_file
+    if args.checkpoint_save is None:
+        args.checkpoint_save = save_path + '/record/defence/spectral/'
+        if not (os.path.exists(os.getcwd() + args.checkpoint_save)):
+            os.makedirs(os.getcwd() + args.checkpoint_save) 
+    if args.log is None:
+        args.log = save_path + '/saved/spectral/'
+        if not (os.path.exists(os.getcwd() + args.log)):
+            os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
-    result = torch.load(os.getcwd() + save_path + '/attack_result.pt')
+    result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
     if args.save_path is not None:
         print("Continue training...")
@@ -350,7 +427,8 @@ if __name__ == '__main__':
             pre_label = torch.max(outputs,dim=1)[1]
             clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
 
-
+        if not (os.path.exists(os.getcwd() + f'{save_path}/spectral/')):
+            os.makedirs(os.getcwd() + f'{save_path}/spectral/')
         torch.save(
         {
             'model_name':args.model,
@@ -358,7 +436,7 @@ if __name__ == '__main__':
             'asr': asr_acc,
             'acc': clean_acc
         },
-        f'{save_path}/defense_result.pt'
+        os.getcwd() + f'{save_path}/spectral_signature/defense_result.pt'
     )
     else:
         print("There is no target model")

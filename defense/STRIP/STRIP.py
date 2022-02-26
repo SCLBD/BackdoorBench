@@ -37,6 +37,7 @@ from utils.bd_dataset import prepro_cls_DatasetBD
 from utils.nCHW_nHWC import nCHW_to_nHWC
 
 sys.path.insert(0, "../..")
+from pprint import pprint, pformat
 
 class Normalize:
     def __init__(self, opt, expected_values, variance):

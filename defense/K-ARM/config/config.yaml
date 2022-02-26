@@ -1,8 +1,3 @@
-<<<<<<< Updated upstream
-gamma: 0.25
-global_theta: 0.95
-local_theta: 0.9
-=======
 device: 'cuda'
 checkpoint_load:
 checkpoint_save:
@@ -30,14 +25,10 @@ model: 'resnet18'
 gamma: 0.25
 global_theta: 0.95
 local_theta: 0.2
->>>>>>> Stashed changes
 
 sym_check: True
 global_det_bound: 1700
 local_det_bound: 1000
-<<<<<<< Updated upstream
-ratio_det_bound: 10
-=======
 ratio_det_bound: 10
 
 regularization: 'l1'
@@ -58,4 +49,3 @@ early_stop_threshold: 1
 early_stop_patience:  10 
 reset_cost_to_zero: True
 central_init: True
->>>>>>> Stashed changes
