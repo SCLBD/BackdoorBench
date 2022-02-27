@@ -22,5 +22,5 @@ random_rotation: 10
 random_crop: 5
 s: 0.5
 k: 4
-grid-rescale: 1
+grid_rescale: 1
 random_seed: 0
