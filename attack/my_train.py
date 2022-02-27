@@ -1,9 +1,12 @@
-import logging, yaml
+import sys, yaml, os, logging
+
+os.chdir(sys.path[0])
+sys.path.append('../')
+os.getcwd()
 
 import kornia.augmentation as A
 import json
 import shutil
-from time import time
 import argparse
 
 import numpy as np
@@ -11,11 +14,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torch.utils.data as data
 import torchvision
-import csv
 import random
-from PIL import Image
-import os
-import sys
 import time
 import torch
 import torch.nn as nn
@@ -433,9 +432,9 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
         total_inputs = torch.cat([inputs_bd, inputs_cross, inputs[(num_bd + num_cross) :]], dim=0)
         total_inputs = transforms(total_inputs)
         total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
-        start = time()
+        start = time.time()
         total_preds = netC(total_inputs)
-        total_time += time() - start
+        total_time += time.time() - start
 
         loss_ce = criterion_CE(total_preds, total_targets)
 
@@ -798,7 +797,7 @@ def main():
             targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
         if opt.attack_mode == "all2all":
             targets_bd = torch.remainder(targets[:num_bd], opt.num_classes)
-        #add index
+        #add indexy
         one_hot = np.zeros(bs)
         one_hot[:(num_bd + num_cross)] = 1
         one_hot_original_index.append(one_hot)
