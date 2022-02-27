@@ -800,14 +800,14 @@ def main():
             targets_bd = torch.remainder(targets[:num_bd], opt.num_classes)
         #add index
         one_hot = np.zeros(bs)
-        one_hot[:num_bd] = 1
+        one_hot[:(num_bd + num_cross)] = 1
         one_hot_original_index.append(one_hot)
 
         inputs_cross = F.grid_sample(inputs[num_bd : (num_bd + num_cross)], grid_temps2, align_corners=True)
 
         # no transform !
-        bd_input.append((inputs_bd))
-        bd_targets.append(targets_bd)
+        bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
+        bd_targets.append(torch.cat([targets_bd, targets[num_bd : (num_bd + num_cross)]], dim=0))
 
         # total_inputs = torch.cat([inputs_bd, inputs_cross, inputs[(num_bd + num_cross) :]], dim=0)
         # total_inputs = transforms(total_inputs)
