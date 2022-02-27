@@ -5,6 +5,8 @@ import json
 import shutil
 from time import time
 import argparse
+
+import numpy as np
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torch.utils.data as data
@@ -20,10 +22,14 @@ import torch.nn as nn
 from torchvision.models import resnet18 as ResNet18
 from models.preact_resnet import PreActResNet18
 import torchvision.transforms as transforms
+from pprint import pformat
 
+from utils.aggregate_block.fix_random import fix_random
+from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
+
 class Args:
     pass
 
@@ -315,37 +321,38 @@ def get_arguments():
     parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--model_name', type = str, help = 'Only use when model is not given in original code !!!')
+    parser.add_argument('--save_folder_name', type=str,
+                        help='(Optional) should be time str + given unique identification str')
 
-
-
-    parser.add_argument("--data_root", type=str, default="/home/ubuntu/temps/")
-    parser.add_argument("--checkpoints", type=str, default="./checkpoints")
-    parser.add_argument("--temps", type=str, default="./temps")
-    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument('--random_seed', type = int)
+    parser.add_argument("--data_root", type=str, )#default="/home/ubuntu/temps/")
+    parser.add_argument("--checkpoints", type=str, )#default="./checkpoints")
+    parser.add_argument("--temps", type=str, )#default="./temps")
+    parser.add_argument("--device", type=str, )#default="cuda")
     parser.add_argument("--continue_training", action="store_true")
 
-    parser.add_argument("--dataset", type=str, default="cifar10")
-    parser.add_argument("--attack_mode", type=str, default="all2one")
+    parser.add_argument("--dataset", type=str, )#default="cifar10")
+    parser.add_argument("--attack_mode", type=str, )#default="all2one")
 
-    parser.add_argument("--bs", type=int, default=128)
-    parser.add_argument("--lr_C", type=float, default=1e-2)
-    parser.add_argument("--schedulerC_milestones", type=list, default=[100, 200, 300, 400])
-    parser.add_argument("--schedulerC_lambda", type=float, default=0.1)
-    parser.add_argument("--n_iters", type=int, default=1000)
-    parser.add_argument("--num_workers", type=float, default=6)
+    parser.add_argument("--bs", type=int, )#default=128)
+    parser.add_argument("--lr_C", type=float, )#default=1e-2)
+    parser.add_argument("--schedulerC_milestones", type=list, )#default=[100, 200, 300, 400])
+    parser.add_argument("--schedulerC_lambda", type=float, )#default=0.1)
+    parser.add_argument("--n_iters", type=int, )#default=1000)
+    parser.add_argument("--num_workers", type=float, )#default=6)
 
-    parser.add_argument("--target_label", type=int, default=0)
-    parser.add_argument("--pc", type=float, default=0.1)
-    parser.add_argument("--cross_ratio", type=float, default=2)  # rho_a = pc, rho_n = pc * cross_ratio
+    parser.add_argument("--target_label", type=int, )#default=0)
+    parser.add_argument("--pc", type=float, )#default=0.1)
+    parser.add_argument("--cross_ratio", type=float, )#default=2)  # rho_a = pc, rho_n = pc * cross_ratio
 
-    parser.add_argument("--random_rotation", type=int, default=10)
-    parser.add_argument("--random_crop", type=int, default=5)
+    parser.add_argument("--random_rotation", type=int, )#default=10)
+    parser.add_argument("--random_crop", type=int, )#default=5)
 
-    parser.add_argument("--s", type=float, default=0.5)
-    parser.add_argument("--k", type=int, default=4)
+    parser.add_argument("--s", type=float, )#default=0.5)
+    parser.add_argument("--k", type=int, )#default=4)
     parser.add_argument(
-        "--grid-rescale", type=float, default=1
-    )  # scale grid values to avoid pixel values going out of [-1, 1]. For example, grid-rescale = 0.98
+        "--grid-rescale", type=float, )#default=1
+      # scale grid values to avoid pixel values going out of [-1, 1]. For example, grid-rescale = 0.98
 
     return parser
 
@@ -357,10 +364,13 @@ def get_model(opt):
     print('WARNING : here model is set by original code !!!')
     if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
         netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
+        opt.model_name = 'preactresnet18'
     elif opt.dataset == "celeba":
         netC = ResNet18().to(opt.device)
+        opt.model_name = 'resnet18'
     elif opt.dataset == "mnist":
         netC = NetC_MNIST().to(opt.device)
+        opt.model_name = 'netc_mnist' #TODO add to framework
     else:
         print('use generate_cls_model() ')
         netC = generate_cls_model(opt.model_name, opt.num_classes)
@@ -613,6 +623,42 @@ def main():
     defaults.update({k:v for k,v in opt.__dict__.items() if v is not None})
     opt.__dict__ = defaults
 
+    opt.terminal_info = sys.argv
+
+    if 'save_folder_name' not in opt:
+        save_path = generate_save_folder(
+            run_info='wanet',
+            given_load_file_path=None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + opt.save_folder_name
+        os.mkdir(save_path)
+
+    opt.save_path = save_path
+
+    torch.save(opt.__dict__, save_path + '/info.pickle')
+
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
+    )
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
+
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    logger.setLevel(logging.INFO)
+    logging.info(pformat(opt.__dict__))
+
+    fix_random(int(opt.random_seed))
+
     # if opt.dataset in ["mnist", "cifar10"]:
     #     opt.num_classes = 10
     # elif opt.dataset == "gtsrb":
@@ -720,6 +766,119 @@ def main():
             epoch,
             opt,
         )
+
+    #start saving process
+
+    train_dl = torch.utils.data.DataLoader(
+        train_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+
+    one_hot_original_index = []
+    bd_input = []
+    bd_targets = []
+
+    netC.eval()
+    netC.to(opt.device)
+
+    for batch_idx, (inputs, targets) in enumerate(train_dl):
+        inputs, targets = inputs.to(opt.device), targets.to(opt.device)
+        bs = inputs.shape[0]
+
+        # Create backdoor data
+        num_bd = int(bs * opt.pc)
+        num_cross = int(num_bd * opt.cross_ratio)
+        grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
+        grid_temps = torch.clamp(grid_temps, -1, 1)
+
+        ins = torch.rand(num_cross, opt.input_height, opt.input_height, 2).to(opt.device) * 2 - 1
+        grid_temps2 = grid_temps.repeat(num_cross, 1, 1, 1) + ins / opt.input_height
+        grid_temps2 = torch.clamp(grid_temps2, -1, 1)
+
+        inputs_bd = F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True)
+        if opt.attack_mode == "all2one":
+            targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
+        if opt.attack_mode == "all2all":
+            targets_bd = torch.remainder(targets[:num_bd], opt.num_classes)
+        #add index
+        one_hot = np.zeros(bs)
+        one_hot[:num_bd] = 1
+        one_hot_original_index.append(one_hot)
+
+        inputs_cross = F.grid_sample(inputs[num_bd : (num_bd + num_cross)], grid_temps2, align_corners=True)
+
+        # no transform !
+        bd_input.append((inputs_bd))
+        bd_targets.append(targets_bd)
+
+        # total_inputs = torch.cat([inputs_bd, inputs_cross, inputs[(num_bd + num_cross) :]], dim=0)
+        # total_inputs = transforms(total_inputs)
+        # total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
+
+    logging.warning('Here we drop the cross samples, since this part should never given to defender, in any sense')
+    bd_train_x = torch.cat(bd_input, dim = 0).float().cpu()
+    bd_train_y = torch.cat(bd_targets, dim = 0).long().cpu()
+    train_poison_indicator = np.concatenate(one_hot_original_index)
+
+    test_dl = torch.utils.data.DataLoader(
+        test_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+
+    test_bd_input = []
+    test_bd_targets = []
+
+    netC.eval()
+    netC.to(opt.device)
+
+    for batch_idx, (inputs, targets) in enumerate(test_dl):
+        with torch.no_grad():
+            inputs, targets = inputs.to(opt.device), targets.to(opt.device)
+            bs = inputs.shape[0]
+
+            # Evaluate Backdoor
+            grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
+            grid_temps = torch.clamp(grid_temps, -1, 1)
+
+            ins = torch.rand(bs, opt.input_height, opt.input_height, 2).to(opt.device) * 2 - 1
+            grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
+            grid_temps2 = torch.clamp(grid_temps2, -1, 1)
+
+            inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
+            if opt.attack_mode == "all2one":
+                targets_bd = torch.ones_like(targets) * opt.target_label
+            if opt.attack_mode == "all2all":
+                targets_bd = torch.remainder(targets, opt.num_classes)
+
+            # no transform !
+            test_bd_input.append((inputs_bd))
+            test_bd_targets.append(targets_bd)
+
+    bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
+    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
+
+    torch.save(
+        {
+            'model_name': opt.model_name,
+            'num_classes': opt.num_classes,
+            'model': netC.cpu().state_dict(),
+
+            'data_path': opt.data_root,
+            'img_size': (opt.input_height, opt.input_width, opt.input_channel),
+
+            'clean_data': opt.dataset,
+
+            'bd_train': ({
+                             'x': bd_train_x,
+                             'y': bd_train_y,
+                             'original_index': np.where(train_poison_indicator == 1)[
+                                 0] if train_poison_indicator is not None else None,
+                         }),
+
+            'bd_test': {
+                'x': bd_test_x,
+                'y': bd_test_y,
+            },
+        },
+
+        f'{save_path}/attack_result.pt',
+    )
 
 
 if __name__ == "__main__":

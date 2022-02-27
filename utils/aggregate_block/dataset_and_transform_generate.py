@@ -1,5 +1,5 @@
 import sys, logging
-
+from typing import Tuple
 import torch.utils.data as data
 import torch
 import torchvision
@@ -19,7 +19,7 @@ def get_num_classes(dataset_name : str) -> int:
     return num_classes
 
 #TODO just copy from wanet, now finished
-def get_input_shape(dataset_name : str) -> tuple:
+def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
     if dataset_name == "cifar10":
         input_height = 32
         input_width = 32

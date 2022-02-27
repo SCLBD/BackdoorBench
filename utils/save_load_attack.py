@@ -109,88 +109,102 @@ class Args:
 def load_attack_result(
     save_path : str,
 ):
-
     load_file = torch.load(save_path)
 
-    model = generate_cls_model(load_file['model_name'], load_file['num_classes'])
-    # model.load_state_dict(load_file['model'])
+    if all(key in load_file for key in ['model_name',
+        'num_classes',
+        'model',
+        'data_path',
+        'img_size',
+        'clean_data',
+        'bd_train',
+        'bd_test',
+        ]):
 
-    clean_setting = Args()
-    clean_setting.dataset = load_file['clean_data']
-    clean_setting.dataset_path = load_file['data_path']
-    clean_setting.img_size = load_file['img_size']
 
-    train_dataset_without_transform, \
-    train_img_transform, \
-    train_label_transfrom, \
-    test_dataset_without_transform, \
-    test_img_transform, \
-    test_label_transform = dataset_and_transform_generate(clean_setting)
 
-    clean_train_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=train_img_transform,
-        ori_label_transform_in_loading=train_label_transfrom,
-        add_details_in_preprocess=True,
-    )
+        # model = generate_cls_model(load_file['model_name'], load_file['num_classes'])
+        # model.load_state_dict(load_file['model'])
 
-    clean_train_x = torch.tensor(nHWC_to_nCHW(clean_train_ds.data)).float().cpu()
-    clean_train_y = torch.tensor(clean_train_ds.targets).long().cpu()
+        clean_setting = Args()
+        clean_setting.dataset = load_file['clean_data']
+        clean_setting.dataset_path = load_file['data_path']
+        clean_setting.img_size = load_file['img_size']
 
-    clean_test_ds = prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=test_img_transform,
-        ori_label_transform_in_loading=test_label_transform,
-        add_details_in_preprocess=True,
-    )
+        train_dataset_without_transform, \
+        train_img_transform, \
+        train_label_transfrom, \
+        test_dataset_without_transform, \
+        test_img_transform, \
+        test_label_transform = dataset_and_transform_generate(clean_setting)
 
-    clean_test_x = torch.tensor(nHWC_to_nCHW(clean_test_ds.data)).float().cpu()
-    clean_test_y = torch.tensor(clean_test_ds.targets).long().cpu()
+        clean_train_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        )
 
-    if load_file['bd_train']['x'] is not None and load_file['bd_train']['y'] is not None:
+        clean_train_x = torch.tensor(nHWC_to_nCHW(clean_train_ds.data)).float().cpu()
+        clean_train_y = torch.tensor(clean_train_ds.targets).long().cpu()
 
-        if load_file['bd_train']['original_index'] is not None:
-            bd_train_x = deepcopy(clean_train_x)
-            bd_train_x[load_file['bd_train']['original_index']] = load_file['bd_train']['x']
+        clean_test_ds = prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        )
 
-            bd_train_y = deepcopy(clean_train_y)
-            bd_train_y[load_file['bd_train']['original_index']] = load_file['bd_train']['y']
+        clean_test_x = torch.tensor(nHWC_to_nCHW(clean_test_ds.data)).float().cpu()
+        clean_test_y = torch.tensor(clean_test_ds.targets).long().cpu()
+
+        if load_file['bd_train']['x'] is not None and load_file['bd_train']['y'] is not None:
+
+            if load_file['bd_train']['original_index'] is not None:
+                bd_train_x = deepcopy(clean_train_x)
+                bd_train_x[load_file['bd_train']['original_index']] = load_file['bd_train']['x']
+
+                bd_train_y = deepcopy(clean_train_y)
+                bd_train_y[load_file['bd_train']['original_index']] = load_file['bd_train']['y']
+            else:
+                bd_train_x = load_file['bd_train']['x']
+                bd_train_y = load_file['bd_train']['y']
         else:
-            bd_train_x = load_file['bd_train']['x']
-            bd_train_y = load_file['bd_train']['y']
+            bd_train_x = None
+            bd_train_y = None
+            logging.info('bd_train is None !')
+
+        return {
+                'model_name': load_file['model_name'],
+                'model': load_file['model'],
+
+                'clean_train': {
+                    'x' : clean_train_x,
+                    'y' : clean_train_y,
+                },
+
+                'clean_test' : {
+                    'x' : clean_test_x,
+                    'y' : clean_test_y,
+                },
+
+                'bd_train': {
+                    'x': bd_train_x,
+                    'y': bd_train_y,
+                },
+
+                'bd_test': {
+                    'x': load_file['bd_test']['x'],
+                    'y': load_file['bd_test']['y'],
+                },
+            }
     else:
-        bd_train_x = None
-        bd_train_y = None
-        logging.info('bd_train is None !')
 
-    return {
-            'model_name': load_file['model_name'],
-            'model': load_file['model'],
-
-            'clean_train': {
-                'x' : clean_train_x,
-                'y' : clean_train_y,
-            },
-
-            'clean_test' : {
-                'x' : clean_test_x,
-                'y' : clean_test_y,
-            },
-
-            'bd_train': {
-                'x': bd_train_x,
-                'y': bd_train_y,
-            },
-
-            'bd_test': {
-                'x': load_file['bd_test']['x'],
-                'y': load_file['bd_test']['y'],
-            },
-        }
+        return load_file

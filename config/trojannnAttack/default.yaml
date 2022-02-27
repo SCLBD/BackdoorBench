@@ -11,7 +11,7 @@ lr: 0.01
 lr_scheduler: StepLR
 steplr_stepsize: 100
 steplr_gamma: 0.1
-model: resnet18
+model: preactresnet18
 topk_neuron: 2
 num_classes: 10
 pratio: 0.1

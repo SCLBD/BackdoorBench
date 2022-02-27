@@ -8,7 +8,7 @@ img_size: [32, 32, 3]
 batch_size: 128
 lr: 0.01
 lr_scheduler: CosineAnnealingLR
-model: resnet18
+model: preactresnet18
 num_classes: 10
 pratio: 0.1
 random_seed: 0

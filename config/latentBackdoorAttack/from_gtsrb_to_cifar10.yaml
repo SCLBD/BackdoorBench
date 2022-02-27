@@ -21,7 +21,7 @@ first_retrain_lr_scheduler: None
 
 batchsize_for_trigger_generation: 32
 mask_tensor_path: ../resource/latentBackdoor/construct_mask.pt
-target_layer_name: conv2 # this is for resnet18 model dependent
+target_layer_name: conv2 # this is for preactresnet18 model dependent
 trigger_generation_lr: 0.1
 trigger_generation_max_iter: 50
 trigger_generation_final_loss: 0.0000000001
@@ -66,7 +66,7 @@ lr: 0.01
 lr_scheduler: StepLR
 steplr_stepsize: 100000
 steplr_gamma: 0.1
-model: resnet18
+model: preactresnet18
 num_classes: 43
 pratio: 0.1
 random_seed: 0
