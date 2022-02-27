@@ -98,9 +98,7 @@ class NetC_MNIST(nn.Module):
             x = module(x)
         return x
 
-
-_, term_width = os.popen("stty size", "r").read().split()
-term_width = int(term_width)
+term_width = int(60)
 
 TOTAL_BAR_LENGTH = 65.0
 last_time = time.time()
@@ -508,6 +506,11 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
         tf_writer.add_image("Images", grid, global_step=epoch)
 
     schedulerC.step()
+    if num_cross:
+        logging.info(f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}, avg_acc_cross : {avg_acc_cross} ')
+    else:
+        logging.info(
+            f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}')
 
 
 def eval(
@@ -776,6 +779,7 @@ def main():
             epoch,
             opt,
         )
+        logging.info(f'epoch : {epoch} best_clean_acc : {best_clean_acc}, best_bd_acc : {best_bd_acc}, best_cross_acc : {best_cross_acc}')
 
     # start saving process
 
