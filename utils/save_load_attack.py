@@ -127,8 +127,14 @@ def load_attack_result(
         # model.load_state_dict(load_file['model'])
 
         clean_setting = Args()
+
         clean_setting.dataset = load_file['clean_data']
+
+        # convert the relative/abs path in attack result to abs path for defense
         clean_setting.dataset_path = load_file['data_path']
+        logging.warning("save_path MUST have 'bdzoo2' in its abspath, and data_path in attack result MUST have 'record' in its path")
+        clean_setting.dataset_path = save_path[:save_path.index('bdzoo2')] + 'bdzoo2/' + clean_setting.dataset_path[clean_setting.dataset_path.index('record'):]
+
         clean_setting.img_size = load_file['img_size']
 
         train_dataset_without_transform, \
