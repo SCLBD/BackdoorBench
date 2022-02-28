@@ -1,3 +1,17 @@
+'''
+from
+@inproceedings{
+    nguyen2021wanet,
+    title={WaNet - Imperceptible Warping-based Backdoor Attack},
+    author={Tuan Anh Nguyen and Anh Tuan Tran},
+    booktitle={International Conference on Learning Representations},
+    year={2021},
+    url={https://openreview.net/forum?id=eEn8KTtJOx}
+}
+link : https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
+'''
+
+
 import sys, yaml, os, logging
 
 os.chdir(sys.path[0])
@@ -827,7 +841,7 @@ def main():
         # total_inputs = transforms(total_inputs)
         # total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
-    logging.warning('Here we drop the cross samples, since this part should never given to defender, in any sense')
+    # logging.warning('Here we drop the cross samples, since this part should never given to defender, in any sense')
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
     train_poison_indicator = np.concatenate(one_hot_original_index)
