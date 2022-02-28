@@ -388,6 +388,9 @@ def train_step(
 
     schedulerC.step()
     schedulerG.step()
+
+    logging.info(f'End train epoch {epoch} : acc_clean : {acc_clean}, acc_bd : {acc_bd}, acc_cross : {acc_cross} ')
+
     return total_inputs_bd, total_targets_bd, one_hot_original_index
 
 
@@ -713,6 +716,8 @@ def train(opt):
             best_acc_cross,
             opt,
         )
+        logging.info(
+            f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
         if(epoch == 26): # here > 25 epoch all fine. Since epoch < 25 still have no poison samples
             bd_train_x = total_inputs_bd
             bd_train_y = total_targets_bd
@@ -867,6 +872,7 @@ def main():
     #     raise Exception("Invalid Dataset")
 
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
+    opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
 
     if 'save_folder_name' not in opt:
         save_path = generate_save_folder(

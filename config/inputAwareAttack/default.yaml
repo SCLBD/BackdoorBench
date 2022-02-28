@@ -1,4 +1,4 @@
-data_root: ../data/
+data_root: ../data/cifar10
 checkpoints: ../record/inputAwareAttack/checkpoints/
 temps: ../record/inputAwareAttack/temps
 device: cuda
