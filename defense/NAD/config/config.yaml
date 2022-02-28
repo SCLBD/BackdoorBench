@@ -22,7 +22,17 @@ trigger_type: 'squareTrigger'
 
 model: 'resnet18'
 
-nb_dims: 10
-nb_clusters: 2
-cluster_analysis: 'smaller'
+print_freq: 50
+momentum: 0.9
+weight_decay: 1.0e-4
+ratio: 0.05
+beta1: 500
+beta2: 1000
+beta3: 1000
+p: 2.0
+threshold_clean: 70.0
+threshold_bad: 90.0
+
+
+
 

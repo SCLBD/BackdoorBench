@@ -24,7 +24,7 @@ from torchaudio import transforms
 import yaml
 
 from torch.utils.data.distributed import DistributedSampler
-
+from pprint import pprint, pformat
 
 from data.utils import (
     gen_poison_idx,
@@ -35,6 +35,7 @@ from data.utils import (
     get_semi_idx,
 )
 from data.dataset import PoisonLabelDataset, SelfPoisonDataset, MixMatchDataset
+from utils.save_load_attack import load_attack_result
 from utils_db.box import get_information
 from model.model import SelfModel, LinearModel
 from model.utils import (
@@ -147,6 +148,7 @@ def DBD(args,result,config):
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
+    logging.info(pformat(args.__dict__))
     print("===Setup running===")
     # parser = argparse.ArgumentParser()
     #parser.add_argument("--config", default="./config/pretrain/example.yaml")
@@ -623,8 +625,17 @@ if __name__ == '__main__':
 
     ######为了测试临时写的代码
     save_path = '/record/' + args.result_file
+    if args.checkpoint_save is None:
+        args.checkpoint_save = save_path + '/record/defence/dbd/'
+        if not (os.path.exists(os.getcwd() + args.checkpoint_save)):
+            os.makedirs(os.getcwd() + args.checkpoint_save) 
+    if args.log is None:
+        args.log = save_path + '/saved/dbd/'
+        if not (os.path.exists(os.getcwd() + args.log)):
+            os.makedirs(os.getcwd() + args.log) 
     args.save_path = save_path
-    result = torch.load(os.getcwd() + save_path + '/attack_result.pt')
+    result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
+
     
     if args.save_path is not None:
         print("Continue training...")
