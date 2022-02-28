@@ -1,5 +1,5 @@
 import sys
-sys.path.append('.')
+sys.path.append('../../attack')
 import copy
 import os
 
