@@ -313,7 +313,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
         try:
             train_transform = get_transform(opt, train, pretensor_transform)
             if train_transform is not None:
-                print('WARNING : transform use original transform')
+                logging.info('WARNING : transform use original transform')
         except:
             train_transform = train_img_transform
         dataset.transform = train_transform
@@ -322,7 +322,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
         try:
             test_transform = get_transform(opt, train, pretensor_transform)
             if test_transform is not None:
-                print('WARNING : transform use original transform')
+                logging.info('WARNING : transform use original transform')
         except:
             test_transform = test_img_transform
         dataset.transform = test_transform
@@ -377,7 +377,7 @@ def get_model(opt):
     netC = None
     optimizerC = None
     schedulerC = None
-    print('WARNING : here model is set by original code !!!')
+    logging.info('WARNING : here model is set by original code !!!')
     if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
         netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
         opt.model_name = 'preactresnet18'
@@ -388,7 +388,7 @@ def get_model(opt):
         netC = NetC_MNIST().to(opt.device)
         opt.model_name = 'netc_mnist'  # TODO add to framework
     else:
-        print('use generate_cls_model() ')
+        logging.info('use generate_cls_model() ')
         netC = generate_cls_model(opt.model_name, opt.num_classes)
 
     # Optimizer
@@ -401,7 +401,7 @@ def get_model(opt):
 
 
 def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt):
-    print(" Train:")
+    logging.info(" Train:")
     netC.train()
     rate_bd = opt.pc
     total_loss_ce = 0
@@ -541,7 +541,7 @@ def eval(
         epoch,
         opt,
 ):
-    print(" Eval:")
+    logging.info(" Eval:")
     netC.eval()
 
     total_sample = 0
@@ -606,7 +606,7 @@ def eval(
 
     # Save checkpoint
     if acc_clean > best_clean_acc or (acc_clean > best_clean_acc - 0.1 and acc_bd > best_bd_acc):
-        print(" Saving...")
+        logging.info(" Saving...")
         best_clean_acc = acc_clean
         best_bd_acc = acc_bd
         if opt.cross_ratio:
@@ -732,7 +732,7 @@ def main():
 
     if opt.continue_training:
         if os.path.exists(opt.ckpt_path):
-            print("Continue training!!")
+            logging.info("Continue training!!")
             state_dict = torch.load(opt.ckpt_path)
             netC.load_state_dict(state_dict["netC"])
             optimizerC.load_state_dict(state_dict["optimizerC"])
@@ -745,10 +745,10 @@ def main():
             noise_grid = state_dict["noise_grid"]
             tf_writer = SummaryWriter(log_dir=opt.log_dir)
         else:
-            print("Pretrained model doesnt exist")
+            logging.info("Pretrained model doesnt exist")
             exit()
     else:
-        print("Train from scratch!!!")
+        logging.info("Train from scratch!!!")
         best_clean_acc = 0.0
         best_bd_acc = 0.0
         best_cross_acc = 0.0
@@ -777,7 +777,7 @@ def main():
         tf_writer = SummaryWriter(log_dir=opt.log_dir)
 
     for epoch in range(epoch_current, opt.n_iters):
-        print("Epoch {}:".format(epoch + 1))
+        logging.info("Epoch {}:".format(epoch + 1))
         train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
         best_clean_acc, best_bd_acc, best_cross_acc = eval(
             netC,

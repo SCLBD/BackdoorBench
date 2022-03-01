@@ -224,7 +224,7 @@ def get_dataloader(opt, train=True, c=0, k=0):
         try:
             test_transform = get_transform(opt, train, c=c, k=k)
             if test_transform is not None:
-                print('WARNING : transform use original transform')
+                logging.info('WARNING : transform use original transform')
         except:
             logging.warning(' transform use NON-original transform')
             test_transform = test_img_transform
@@ -269,7 +269,7 @@ def train_step(
 ):
     netC.train()
     netG.train()
-    print(" Training:")
+    logging.info(" Training:")
     total = 0
     total_cross = 0
     total_bd = 0
@@ -318,9 +318,9 @@ def train_step(
                 total_targets_bd = torch.cat((total_targets_bd, total_targets), 0)
                 one_hot_original_index = np.concatenate((one_hot_original_index, one_hot), 0)
 
-            print(total_inputs_bd.shape)
-            print(total_targets_bd.shape)
-            print(one_hot_original_index.shape)
+            logging.info(total_inputs_bd.shape)
+            logging.info(total_targets_bd.shape)
+            logging.info(one_hot_original_index.shape)
 
         preds = netC(total_inputs)
         loss_ce = criterion(preds, total_targets)
@@ -412,7 +412,7 @@ def eval(
 ):
     netC.eval()
     netG.eval()
-    print(" Eval:")
+    logging.info(" Eval:")
     total = 0.0
 
     total_correct_clean = 0.0
@@ -440,8 +440,8 @@ def eval(
                 else:
                     total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
                     total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
-                print(total_inputs_bd.shape)
-                print(total_targets_bd.shape)
+                logging.info(total_inputs_bd.shape)
+                logging.info(total_targets_bd.shape)
             preds_bd = netC(inputs_bd)
             correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
             total_correct_bd += correct_bd
@@ -461,12 +461,12 @@ def eval(
             )
             progress_bar(batch_idx, len(test_dl1), infor_string)
 
-    print(
+    logging.info(
         " Result: Best Clean Accuracy: {:.3f} - Best Backdoor Accuracy: {:.3f} - Best Cross Accuracy: {:.3f}| Clean Accuracy: {:.3f}".format(
             best_acc_clean, best_acc_bd, best_acc_cross, avg_acc_clean
         )
     )
-    print(" Saving!!")
+    logging.info(" Saving!!")
     best_acc_clean = avg_acc_clean
     best_acc_bd = avg_acc_bd
     best_acc_cross = avg_acc_cross
@@ -495,7 +495,7 @@ def eval(
 # -------------------------------------------------------------------------------------
 def train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, opt, tf_writer):
     netM.train()
-    print(" Training:")
+    logging.info(" Training:")
     total = 0
 
     total_loss = 0
@@ -548,7 +548,7 @@ def train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, o
 
 def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
     netM.eval()
-    print(" Eval:")
+    logging.info(" Eval:")
     total = 0.0
 
     criterion_div = nn.MSELoss(reduction="none")
@@ -607,7 +607,7 @@ def train(opt):
         netC = NetC_MNIST().to(opt.device)
         opt.model_name = 'netc_mnist'  # TODO add to framework
     else:
-        print('use generate_cls_model() ')
+        logging.info('use generate_cls_model() ')
         netC = generate_cls_model(opt.model_name, opt.num_classes)
 
     logging.warning(f'actually model use = {opt.model_name}')
@@ -634,7 +634,7 @@ def train(opt):
     # Continue training ?
     ckpt_folder = os.path.join(opt.checkpoints, opt.dataset, opt.attack_mode)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
-    if os.path.exists(ckpt_path):
+    if opt.continue_training and os.path.exists(ckpt_path):
         state_dict = torch.load(ckpt_path)
         netC.load_state_dict(state_dict["netC"])
         netG.load_state_dict(state_dict["netG"])
@@ -648,7 +648,7 @@ def train(opt):
         best_acc_bd = state_dict["best_acc_bd"]
         best_acc_cross = state_dict["best_acc_cross"]
         opt = state_dict["opt"]
-        print("Continue training")
+        logging.info("Continue training")
     else:
         # Prepare mask
         best_acc_clean = 0.0
@@ -659,7 +659,7 @@ def train(opt):
         # Reset tensorboard
         shutil.rmtree(log_dir)
         os.makedirs(log_dir)
-        print("Training from scratch")
+        logging.info("Training from scratch")
 
     # Prepare dataset
     train_dl1 = get_dataloader(opt, train=True)
@@ -669,7 +669,7 @@ def train(opt):
     if epoch == 1:
         netM.train()
         for i in range(25):
-            print(
+            logging.info(
                 "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}  - lambda_norm: {}:".format(
                     epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div, opt.lambda_norm
                 )
@@ -681,7 +681,7 @@ def train(opt):
     netM.requires_grad_(False)
 
     for i in range(opt.n_iters):
-        print(
+        logging.info(
             "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}:".format(
                 epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div
             )
@@ -789,6 +789,7 @@ def get_arguments():
     parser.add_argument('--model_name', type=str, help='Only use when model is not given in original code !!!')
     parser.add_argument('--save_folder_name', type=str,
                         help='(Optional) should be time str + given unique identification str')
+    parser.add_argument("--continue_training", action="store_true")
 
     parser.add_argument("--data_root", type=str, )#default="data/")
     parser.add_argument("--checkpoints", type=str, )#default="./record/inputAwareAttack/checkpoints/")
