@@ -132,8 +132,8 @@ def load_attack_result(
 
         # convert the relative/abs path in attack result to abs path for defense
         clean_setting.dataset_path = load_file['data_path']
-        logging.warning("save_path MUST have 'bdzoo2' in its abspath, and data_path in attack result MUST have 'record' in its path")
-        clean_setting.dataset_path = save_path[:save_path.index('bdzoo2')] + 'bdzoo2/' + clean_setting.dataset_path[clean_setting.dataset_path.index('record'):]
+        logging.warning("save_path MUST have 'record' in its abspath, and data_path in attack result MUST have 'data' in its path")
+        clean_setting.dataset_path = save_path[:save_path.index('record')] + clean_setting.dataset_path[clean_setting.dataset_path.index('data'):]
 
         clean_setting.img_size = load_file['img_size']
 
