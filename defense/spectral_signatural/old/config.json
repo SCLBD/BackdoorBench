@@ -1,0 +1,40 @@
+{
+  "model": {
+      "per_im_std": false,
+      "filters": [16, 16, 32, 64],
+      "output_dir": "output/"
+  },
+
+  "training": {
+      "tf_random_seed": 85123,
+      "np_random_seed": 19233,
+      "max_num_training_steps": 80000,
+      "num_output_steps": 100,
+      "num_summary_steps": 100,
+      "num_eval_steps": 500,
+      "num_checkpoint_steps": 500,
+      "batch_size": 128,
+      "step_size_schedule": [[0, 0.1], [30000, 0.01], [60000, 0.001]],
+      "momentum": 0.9,
+      "weight_decay": 0.0002,
+      "eval_during_training": true,
+      "num_examples": 50000
+  },
+
+  "eval": {
+      "num_eval_examples": 10000,
+      "batch_size": 1000
+  },
+
+  "data": {
+      "dataset": "CIFAR10",
+      "cifar10_path": "/scratch/datasets/cifar10",
+      "poison_method": "pixel",
+      "poison_eps": 500,
+      "clean_label": 9,
+      "target_label": 4,
+      "position": [11,16],
+      "color": [101, 0, 25],
+      "percentile": 85
+  }
+}
