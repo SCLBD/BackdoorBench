@@ -666,6 +666,9 @@ def train(opt):
     train_dl2 = get_dataloader(opt, train=True)
     test_dl1 = get_dataloader(opt, train=False)
     test_dl2 = get_dataloader(opt, train=False)
+
+    logging.info(pformat(opt.__dict__)) #set here since the opt change at beginning of this function
+
     if epoch == 1:
         netM.train()
         for i in range(25):
@@ -887,8 +890,6 @@ def main():
 
     opt.save_path = save_path
 
-    torch.save(opt.__dict__, save_path + '/info.pickle')
-
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d:%H:%M:%S',
@@ -905,11 +906,13 @@ def main():
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
-    logging.info(pformat(opt.__dict__))
+
 
     fix_random(int(opt.random_seed))
 
     train(opt)
+
+    torch.save(opt.__dict__, save_path + '/info.pickle')
 
 
 if __name__ == "__main__":

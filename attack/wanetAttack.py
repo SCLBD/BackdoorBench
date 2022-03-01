@@ -693,7 +693,7 @@ def main():
 
     opt.save_path = save_path
 
-    torch.save(opt.__dict__, save_path + '/info.pickle')
+
 
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
@@ -711,7 +711,6 @@ def main():
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
-    logging.info(pformat(opt.__dict__))
 
     fix_random(int(opt.random_seed))
 
@@ -775,6 +774,8 @@ def main():
         with open(os.path.join(opt.ckpt_folder, "opt.json"), "w+") as f:
             json.dump(opt.__dict__, f, indent=2)
         tf_writer = SummaryWriter(log_dir=opt.log_dir)
+
+    logging.info(pformat(opt.__dict__))#set here since the opt change once.
 
     for epoch in range(epoch_current, opt.n_iters):
         logging.info("Epoch {}:".format(epoch + 1))
@@ -907,6 +908,8 @@ def main():
 
         f'{save_path}/attack_result.pt',
     )
+
+    torch.save(opt.__dict__, save_path + '/info.pickle')
 
 
 if __name__ == "__main__":
