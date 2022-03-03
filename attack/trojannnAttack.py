@@ -49,7 +49,8 @@ from copy import deepcopy
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 from utils.serializable_model_helper import *
-
+from utils.layer_name_translate import translate_layer_name_for_eval_class
+layer_name_translator = translate_layer_name_for_eval_class()
 
 # different settings
 # octaves = [
@@ -99,29 +100,9 @@ from utils.serializable_model_helper import *
 #             'end_step_size':3.
 #         }
 #     ]
-class translate_layer_name_for_eval_class(object):
 
-    def __init__(self):
-        self.warn_list = []
 
-    def __call__(self, layer_name):
-        new_layer_name = translate_layer_name_for_eval(layer_name)
-        if layer_name not in self.warn_list:
-            if layer_name != new_layer_name:
-                logging.warning(
-                    f'find layer_name in named_modules() format, and transform {layer_name} to {new_layer_name}')
-                self.warn_list.append(layer_name)
-        return new_layer_name
 
-def translate_layer_name_for_eval(layer_name):
-    # do layername transform in order to pass eval
-    # eg "layer4.1.bn2"to "layer4[1].bn2 "
-
-    old_layer_name = layer_name
-    new_layer_name = re.sub(r'\.(\d)(\.|$)', r'[\1]\2', old_layer_name)
-    return new_layer_name
-
-layer_name_translator = translate_layer_name_for_eval_class()
 
 def find_most_connected_neuron_for_linear(
         net : torch.nn.Module,
@@ -643,7 +624,6 @@ def main():
             class_img_dict[class_i] = class_re_img
         else:
             raise SystemError('No valid setting or octaves given ')
-
 
 
     adv_train_ds = TensorDataset(

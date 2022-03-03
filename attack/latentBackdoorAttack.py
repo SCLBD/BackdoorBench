@@ -37,6 +37,8 @@ from utils.save_load_attack import save_attack_result
 from utils.partial_load import partial_load
 from torch.utils.data import TensorDataset
 from utils.serializable_model_helper import fix_until_module_name
+from utils.layer_name_translate import translate_layer_name_for_eval_class
+layer_name_translator = translate_layer_name_for_eval_class()
 
 # check on CUDA
 def generate_trigger_pattern_from_mask_and_data(
@@ -90,7 +92,7 @@ def generate_trigger_pattern_from_mask_and_data(
 
     for _ in range(max_iter):
 
-        net.__getattr__(layer_name).register_forward_hook(
+        eval(f"net.{layer_name_translator(layer_name)}").register_forward_hook(
                 hook_function
         )
 
@@ -385,13 +387,13 @@ def main():
 
     net = partial_load(net, torch.load(args.pretrained_model_path, map_location=device))
 
-    new_num_labels = net.__getattr__(args.final_layer_name).out_features + 1
+    new_num_labels = eval(f"net.{layer_name_translator(args.final_layer_name)}").out_features + 1
 
     #change the final layer, add one more class
     net.__setattr__(args.final_layer_name,
                     torch.nn.Linear(
-                        in_features= net.__getattr__(args.final_layer_name).in_features,
-                        out_features= net.__getattr__(args.final_layer_name).out_features + 1,
+                        in_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").in_features,
+                        out_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").out_features + 1,
                     )
                 )
 
@@ -636,7 +638,7 @@ def main():
             def hook_function(module, input, output):
                 net.feature_save = output
 
-            net.__getattr__(args.target_layer_name).register_forward_hook(
+            eval(f"net.{layer_name_translator(args.target_layer_name)}").register_forward_hook(
                 hook_function
             )
             feature_mix_with_bd = net.feature_save
@@ -681,7 +683,7 @@ def main():
 
     net.__setattr__(args.final_layer_name,
                     torch.nn.Linear(
-                        in_features= net.__getattr__(args.final_layer_name).in_features,
+                        in_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").in_features,
                         out_features= args.num_classes_for_student,
                     )
                 )
