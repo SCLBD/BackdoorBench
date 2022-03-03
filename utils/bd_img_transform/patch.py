@@ -57,9 +57,10 @@ class AddMatrixPatchTrigger(object):
     '''
     tensor version of add trigger, this should be put after
     '''
-    def __init__(self, trigger_tensor: np.ndarray, ):
+    def __init__(self, trigger_tensor: np.ndarray, resize_trigger_check = True):
         logging.warning('Use cv2 resize in case non-same trigger and img blend. so torch tensor will fail')
         self.trigger_tensor = np.clip(trigger_tensor, 0, 255)  # notice that non-trigger parts must be zero !
+        self.resize_trigger_check = resize_trigger_check
 
     def __call__(self, img, target=None, image_serial_id=None):
         return self.add_trigger(img)
@@ -69,9 +70,15 @@ class AddMatrixPatchTrigger(object):
         try:
             after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
         except:
-            logging.info('NOT SAME size for img and trigger_tensor, use cv2 resize trigger_tensor')
-            trigger_tensor = cv2.resize(self.trigger_tensor, dsize=(img.shape[:2])[::-1] if len(img.shape) <= 3 else img.shape[1:3])
-            after_blend_img = img * (trigger_tensor == 0) + trigger_tensor * (trigger_tensor > 0)
+            if self.resize_trigger_check == True:
+                print('NOT SAME size for img and trigger_tensor, use cv2 resize trigger_tensor')
+                trigger_tensor = cv2.resize(self.trigger_tensor, dsize=(img.shape[:2])[::-1] if len(img.shape) <= 3 else img.shape[1:3][::-1])
+                after_blend_img = img * (trigger_tensor == 0) + trigger_tensor * (trigger_tensor > 0)
+            else:
+                print('NOT SAME size for img and trigger_tensor, use cv2 resize img')
+                img = cv2.resize(img,
+                                            dsize=(self.trigger_tensor.shape[:2])[::-1] if len(self.trigger_tensor.shape) <= 3 else self.trigger_tensor.shape[1:3][::-1])
+                after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
 
         return after_blend_img
 
@@ -82,6 +89,14 @@ def test_AddMatrixPatchTrigger():
 
     import matplotlib.pyplot as plt
     plt.imshow(f(np.zeros((64,61,3))))
+    plt.show()
+
+    trigger = np.zeros((32, 31, 3))
+    trigger[:10, :, :] = 1
+    f = AddMatrixPatchTrigger(trigger, resize_trigger_check=False)
+
+    import matplotlib.pyplot as plt
+    plt.imshow(f(np.zeros((64, 61, 3))))
     plt.show()
 
 

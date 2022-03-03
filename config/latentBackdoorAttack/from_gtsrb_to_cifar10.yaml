@@ -41,7 +41,7 @@ inject_adam_betas:
 inject_lr_scheduler: None
 
 num_classes_for_student: 10
-last_student_freeze_layer_name: linear
+last_student_freeze_layer_name: layer4.1.bn2 #only retrain last
 student_batch_size: 32
 student_epochs: 30
 

@@ -36,6 +36,7 @@ from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.save_load_attack import save_attack_result
 from utils.partial_load import partial_load
 from torch.utils.data import TensorDataset
+from utils.serializable_model_helper import fix_until_module_name
 
 # check on CUDA
 def generate_trigger_pattern_from_mask_and_data(
@@ -586,7 +587,7 @@ def main():
 
     for dataset_once in mix_adv_before:
         dataset_once.poison_idx = np.ones(len(dataset_once))
-        dataset_once.bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0))) #TODO this class cannot handle different size
+        dataset_once.bd_image_pre_transform=AddMatrixPatchTrigger(trigger_pattern.cpu().numpy().transpose((1,2,0)), resize_trigger_check=False) #TODO this class cannot handle different size
         dataset_once.dataset = zip(dataset_once.data, dataset_once.targets)
         dataset_once.prepro_backdoor()
         #     = prepro_cls_DatasetBD(
@@ -686,18 +687,16 @@ def main():
                 )
 
     # fix layers before( including chosen layer)
-    for name, param in net.named_parameters():
-        param.requires_grad = False
-        if name.split('.')[0] == args.last_student_freeze_layer_name:
-            break
+    # for name, param in net.named_parameters():
+    #     param.requires_grad = False
+    #     if name.split('.')[0] == args.last_student_freeze_layer_name:
+    #         break
+
+    fix_until_module_name(net, args.last_student_freeze_layer_name)
 
     # here should use the adv_test for first retrain, as how paper does
 
-
-
-
-
-    test_bd_img_transform = AddMatrixPatchTrigger((trigger_pattern.cpu().numpy().transpose(1,2,0)*255).astype(np.uint8))
+    test_bd_img_transform = AddMatrixPatchTrigger((trigger_pattern.cpu().numpy().transpose(1,2,0)*255).astype(np.uint8), resize_trigger_check=False)
 
     bd_label_transform = bd_attack_label_trans_generate(args)
 

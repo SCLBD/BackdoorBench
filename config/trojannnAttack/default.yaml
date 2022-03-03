@@ -1,3 +1,4 @@
+#just a example, dataset and model and layer may not match
 attack_label_trans: all2one
 attack_target: 0
 batch_size: 128
@@ -22,7 +23,8 @@ wd: 0.0005
 pretrained_model_path: ../resource/normal/normal.pt
 mask_tensor_path: ../resource/trojannn/trojannn_square_trigger_224_224.pt
 init_img_path: ../resource/trojannn/init_img.pt
-layer_name: conv2
+layer_name: layer4.1.conv1
+next_layer_name: layer4.1.conv2
 final_layer_name: linear
 target_activation: 100
 #trigger_generation_lr_start: 1.

@@ -20,12 +20,13 @@ No clear settings for retrain phase, so I use the same setting as basic attack.
 And since multiple settings used in example code, I just select one of those.
 '''
 
-import sys, os, logging, yaml
+import sys, os, logging, yaml, re
 
 os.chdir(sys.path[0])
 sys.path.append('../')
 os.getcwd()
 
+import cv2
 from typing import List
 from skimage.restoration import denoise_tv_bregman
 import argparse
@@ -47,7 +48,7 @@ from utils.bd_img_transform.patch import AddMatrixPatchTrigger
 from copy import deepcopy
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
-import cv2
+from utils.serializable_model_helper import *
 
 
 # different settings
@@ -98,6 +99,29 @@ import cv2
 #             'end_step_size':3.
 #         }
 #     ]
+class translate_layer_name_for_eval_class(object):
+
+    def __init__(self):
+        self.warn_list = []
+
+    def __call__(self, layer_name):
+        new_layer_name = translate_layer_name_for_eval(layer_name)
+        if layer_name not in self.warn_list:
+            if layer_name != new_layer_name:
+                logging.warning(
+                    f'find layer_name in named_modules() format, and transform {layer_name} to {new_layer_name}')
+                self.warn_list.append(layer_name)
+        return new_layer_name
+
+def translate_layer_name_for_eval(layer_name):
+    # do layername transform in order to pass eval
+    # eg "layer4.1.bn2"to "layer4[1].bn2 "
+
+    old_layer_name = layer_name
+    new_layer_name = re.sub(r'\.(\d)(\.|$)', r'[\1]\2', old_layer_name)
+    return new_layer_name
+
+layer_name_translator = translate_layer_name_for_eval_class()
 
 def find_most_connected_neuron_for_linear(
         net : torch.nn.Module,
@@ -105,16 +129,16 @@ def find_most_connected_neuron_for_linear(
         topk : int,
         ) -> List[int]:
 
-    assert net.__getattr__(layer_name) is not None
-    assert  net.__getattr__(layer_name).weight.shape[1] > topk # how many cols, so topk should not > num of all neurons in this layer
+    assert eval(f"net.{layer_name_translator(layer_name)}") is not None
+    assert  eval(f"net.{layer_name_translator(layer_name)}").weight.shape[1] > topk # how many cols, so topk should not > num of all neurons in this layer
 
     net.eval()
     # TODO this part different from the original code,
     #  since the original code has slightly difference comparing to the paper
-    if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear): #weight is (n,m)
-        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum(1) # if is a matrix, then all rows is summed.
-    elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d): #weight is (c_out, c_in, h, w)
-        connect_level = torch.abs(net.__getattr__(layer_name).weight).sum([1,2,3])
+    if isinstance(eval(f"net.{layer_name_translator(layer_name)}"), torch.nn.modules.Linear): #weight is (n,m)
+        connect_level = torch.abs(eval(f"net.{layer_name_translator(layer_name)}").weight).sum(0) # if is a matrix, then all rows is summed.
+    elif isinstance(eval(f"net.{layer_name_translator(layer_name)}"), torch.nn.modules.Conv2d): #weight is (c_out, c_in, h, w)
+        connect_level = torch.abs(eval(f"net.{layer_name_translator(layer_name)}").weight).sum([0,2,3])
     return torch.topk(connect_level, k = topk)[1].tolist() # where the topk connect level neuron are
 
 
@@ -165,21 +189,21 @@ def generate_trigger_pattern_from_mask(
 
         denoise_weight =  denoise_weight_start + ((denoise_weight_end - denoise_weight_start) * iter_i) / max_iter
 
-        net.__getattr__(layer_name).register_forward_hook(
+        eval(f"net.{layer_name_translator(layer_name)}").register_forward_hook(
             hook_function
         )
 
-        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):  # weight is (c_out, c_in, h, w)
-            filter_map_location = torch.argmax(torch.abs(net.__getattr__(layer_name).weight[0, neuron_indexes, :, :]))
+        if isinstance(eval(f"net.{layer_name_translator(layer_name)}"), torch.nn.modules.Conv2d):  # weight is (c_out, c_in, h, w)
+            filter_map_location = torch.argmax(torch.abs(eval(f"net.{layer_name_translator(layer_name)}").weight[0, neuron_indexes, :, :]))
             #every time in the filter we choose the location of select num again (this part learned from the code)
 
         save_mean = trigger_pattern.mean().item()
 
         _ = net(trigger_pattern)
 
-        if isinstance(net.__getattr__(layer_name), torch.nn.modules.Linear):
+        if isinstance(eval(f"net.{layer_name_translator(layer_name)}"), torch.nn.modules.Linear):
             loss = ((net.layer_output[:, neuron_indexes] - target_activation)**2).sum()
-        elif isinstance(net.__getattr__(layer_name), torch.nn.modules.Conv2d):
+        elif isinstance(eval(f"net.{layer_name_translator(layer_name)}"), torch.nn.modules.Conv2d):
             loss = ((net.layer_output[:, neuron_indexes].view(-1)[filter_map_location] - target_activation) ** 2).sum()
 
         grad = torch.autograd.grad(loss, inputs=trigger_pattern, create_graph=False)[0]
@@ -380,6 +404,7 @@ def add_args(parser):
     parser.add_argument('--mask_tensor_path', type = str, help = 'path of mask tensor (must match the shape!)')
     parser.add_argument('--init_img_path', type = str, help = 'path of init for doing reverse engineering (must match the shape!)')
     parser.add_argument('--layer_name', type = str, help = 'the name of layer for which we try activation')
+    parser.add_argument('--next_layer_name', type=str, help='the name of layer right after layer we want to lift activation')
     parser.add_argument('--final_layer_name')
     parser.add_argument('--target_activation', type = float)
     parser.add_argument('--topk_neuron', type = int, help = 'how many neruon selected in topk')
@@ -459,8 +484,6 @@ def main():
 
     args.terminal_info = sys.argv
 
-
-
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(
             run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
@@ -509,8 +532,6 @@ def main():
         set_wandb = False
     logging.info(f'set_wandb = {set_wandb}')
 
-
-
     fix_random(int(args.random_seed))
 
     mask = cv2.resize(
@@ -528,10 +549,7 @@ def main():
     )
     net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device))
 
-    logging.warning('here I use a model dependent naming, be careful !')
-    net.conv2 = net.layer4[-1].conv2
-
-    select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.layer_name, args.topk_neuron)
+    select_neuron_index_list = find_most_connected_neuron_for_linear(net, args.next_layer_name, args.topk_neuron)
     if all(attr_name in args.__dict__ for attr_name in [
         'trigger_generation_lr_start',
         'trigger_generation_lr_end',
@@ -728,7 +746,8 @@ def main():
         args.attack
     )
 
-
+    require_grad_check = fix_until_module_name(net, args.layer_name)
+    logging.info(f"model require_grad check : {pformat(require_grad_check)}")
 
     criterion = argparser_criterion(args)
 
@@ -748,8 +767,6 @@ def main():
                 save_prefix = 'attack',
                 continue_training_path = None,
             )
-
-
 
     save_attack_result(
         model_name = args.model,
