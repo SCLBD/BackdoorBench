@@ -382,9 +382,6 @@ def main():
         num_classes=args.num_classes,
     )
 
-    logging.warning('here I use a model dependent naming, be careful !')
-    net.conv2 = net.layer4[-1].conv2
-
     net = partial_load(net, torch.load(args.pretrained_model_path, map_location=device))
 
     new_num_labels = eval(f"net.{layer_name_translator(args.final_layer_name)}").out_features + 1

@@ -21,7 +21,7 @@ first_retrain_lr_scheduler: None
 
 batchsize_for_trigger_generation: 32
 mask_tensor_path: ../resource/latentBackdoor/construct_mask.pt
-target_layer_name: conv2 # this is for preactresnet18 model dependent
+target_layer_name: layer4.0.conv2 # this is for preactresnet18 model dependent
 trigger_generation_lr: 0.1
 trigger_generation_max_iter: 50
 trigger_generation_final_loss: 0.0000000001
@@ -41,7 +41,7 @@ inject_adam_betas:
 inject_lr_scheduler: None
 
 num_classes_for_student: 10
-last_student_freeze_layer_name: layer4.1.bn2 #only retrain last
+last_student_freeze_layer_name: layer4.0.conv2
 student_batch_size: 32
 student_epochs: 30
 
