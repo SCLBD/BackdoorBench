@@ -230,7 +230,7 @@ def fp(args, result , config):
                     module.bias.data = netC.linear.bias.data
                 else:
                     continue
-            if args.model == 'vgg19_bn':
+            if args.model == 'vgg19':
                 if "features" == name:
                     module[49].weight.data = netC.features[49].weight.data[pruning_mask]
                     module[49].ind = pruning_mask
@@ -241,16 +241,16 @@ def fp(args, result , config):
                     module[0].bias.data = netC.classifier[0].bias.data
                 else:
                     continue
-            # if args.classifier == 'resnet18':
-            #     if "layer4" == name:
-            #         module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
-            #         module[1].bn2.weight.data = netC.layer4[1].bn2.weight.data[pruning_mask]
-            #         module[1].ind = pruning_mask
-            #     elif "fc" == name:
-            #         module.weight.data = netC.fc.weight.data[:, pruning_mask]
-            #         module.bias.data = netC.fc.bias.data
-            #     else:
-            #         continue
+            if args.model == 'resnet18':
+                if "layer4" == name:
+                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
+                    module[1].bn2.weight.data = netC.layer4[1].bn2.weight.data[pruning_mask]
+                    module[1].ind = pruning_mask
+                elif "fc" == name:
+                    module.weight.data = netC.fc.weight.data[:, pruning_mask]
+                    module.bias.data = netC.fc.bias.data
+                else:
+                    continue
         net_pruned.to(args.device)
         test_loss, test_acc_cl = test_epoch(args, testloader_clean, net_pruned, criterion, 0, 'clean')
         test_loss, test_acc_bd = test_epoch(args, testloader_bd, net_pruned, criterion, 0, 'bd')
