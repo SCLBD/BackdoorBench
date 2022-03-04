@@ -201,7 +201,7 @@ def fp(args, result , config):
             pruning_mask[channel] = False
         print("Pruned {} filters".format(num_pruned))
 
-        if args.model == 'resnet18':
+        if args.model == 'preactresnet18':
             net_pruned.layer4[1].conv2 = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
@@ -221,7 +221,7 @@ def fp(args, result , config):
 
         # Re-assigning weight to the pruned net
         for name, module in net_pruned._modules.items():
-            if args.model == 'resnet18':
+            if args.model == 'preactresnet18':
                 if "layer4" == name:
                     module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
                     module[1].ind = pruning_mask

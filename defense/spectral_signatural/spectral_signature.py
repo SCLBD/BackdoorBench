@@ -137,8 +137,8 @@ def compute_corr_v1(arg,result,config):
         #            model.y_input: y_batch,
         #            model.is_training: False}
         #######得在原有模型基础上加入representation！！！！
-        assert arg.model in ['resnet18']
-        if arg.model == 'resnet18':
+        assert arg.model in ['preactresnet18']
+        if arg.model == 'preactresnet18':
             inps,outs = [],[]
             def layer_hook(module, inp, out):
                 outs.append(out.data)

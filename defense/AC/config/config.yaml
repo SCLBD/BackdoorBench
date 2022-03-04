@@ -20,7 +20,7 @@ target_type: 'all2one'
 target_label: 0
 trigger_type: 'squareTrigger'
 
-model: 'resnet18'
+model: 'preactresnet18'
 
 nb_dims: 10
 nb_clusters: 2

@@ -140,7 +140,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     for idx, (inputs, labels) in enumerate(trainloader):
         inputs, labels = inputs.to(arg.device), labels.to(arg.device)
 
-        if arg.model == 'resnet18':
+        if arg.model == 'preactresnet18':
             outputs_s = snet(inputs)
             features_out_3 = list(snet.children())[:-1]  # 去掉全连接层
             modelout_3 = nn.Sequential(*features_out_3).to(arg.device)

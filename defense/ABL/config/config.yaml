@@ -20,7 +20,7 @@ target_type: 'all2one'
 target_label: 0
 trigger_type: 'squareTrigger'
 
-model: 'resnet18'
+model: 'preactresnet18'
 
 tuning_epochs: 10
 finetuning_ascent_model: True
@@ -30,7 +30,7 @@ lr_finetuning_init: 0.1
 lr_unlearning_init: 5.0e-4
 momentum: 0.9
 weight_decay: 1.0e-4
-isolation_ratio: 0.01
+isolation_ratio: 0.1
 gradient_ascent_type: 'Flooding'
 gamma: 0.5
 flooding: 0.5

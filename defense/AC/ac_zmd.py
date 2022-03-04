@@ -459,8 +459,8 @@ def ac(args,result,config):
 
 def get_activations(name,model,x_batch):
     TOO_SMALL_ACTIVATIONS = 32
-    assert name in ['resnet18']
-    if name == 'resnet18':
+    assert name in ['preactresnet18']
+    if name == 'preactresnet18':
         inps,outs = [],[]
         def layer_hook(module, inp, out):
             outs.append(out.data)

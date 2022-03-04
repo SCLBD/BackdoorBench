@@ -285,7 +285,7 @@ def compute_loss_value(opt, poisoned_data, model_ascent):
     # Show the top 10 loss values
     losses_record_arr = np.array(losses_record)
     print('Top ten loss value:', losses_record_arr[losses_idx[:10]])
-    logging.info('Top ten loss value:', losses_record_arr[losses_idx[:10]])
+    #logging.info('Top ten loss value:', losses_record_arr[losses_idx[:10]])
 
     return losses_idx
 
@@ -599,7 +599,8 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
         transforms.RandomCrop((opt.input_height, opt.input_width), padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        Cutout(1, 3)
+        #Cutout(1, 3),
+        transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
     ])
     # transforms_list = []
     # transforms_list.append(transforms.ToPILImage())
