@@ -14,8 +14,7 @@ pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
-attack: sig
+attack: SSBA_replace
 epochs: 100
-sig_alpha: 0.2
-sig_delta: 20
-sig_f: 6
+attack_train_replace_imgs_path: ../resource/ssba/train_b1.npy
+attack_test_replace_imgs_path: ../resource/ssba/test_b1.npy

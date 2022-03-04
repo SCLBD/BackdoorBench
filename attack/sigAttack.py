@@ -1,12 +1,10 @@
 '''
-@article{saha2019hidden,
-  title={Hidden Trigger Backdoor Attacks},
-  author={Saha, Aniruddha and Subramanya, Akshayvarun and Pirsiavash, Hamed},
-  journal={arXiv preprint arXiv:1910.00033},
-  year={2019}
-}
-
-rewrite from : https://github.com/UMBCvision/Hidden-Trigger-Backdoor-Attacks
+logic of load:
+1. yaml file, if yaml setting name is given then find the yaml setting
+2.
+3. argparse overwrite args from yaml file if any in args is not None
+(so ANY params in add_args should have NO default value except yaml config and yaml setting name)
+4. delete any params in args with value None
 '''
 
 import sys, yaml, os
@@ -15,27 +13,26 @@ os.chdir(sys.path[0])
 sys.path.append('../')
 os.getcwd()
 
-import argparse, torch
-from pprint import pformat
+import argparse
+from pprint import  pformat
 import numpy as np
+import torch
 from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
 import logging
+
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
 from torch.utils.data import DataLoader
-from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
 from copy import deepcopy
-from utils.bd_groupwise_transform.groupwise_feature_disguise_pgd_perturbation import groupwise_feature_disguise_pgd_perturbation
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
 
 
-
-# TODO add the default setting to yaml file.
 
 def add_args(parser):
     """
@@ -45,18 +42,9 @@ def add_args(parser):
     # Training settings
     # parser.add_argument('--mode', type=str,
     #                     help='classification/detection/segmentation')
-    parser.add_argument('--pretrained_model_path', type = str,
-                        help= 'the pretrained model path')
-    parser.add_argument('--eps1', type = float,
-                        help = 'for pgd in poison data generation')
-    parser.add_argument('--pgd_init_lr', type = float,
-                        help='for pgd in poison data generation')
-    parser.add_argument('--pgd_max_iter', type = int,
-                        help='for pgd in poison data generation')
-
-    parser.add_argument('--yaml_path', type=str, default='../config/HiddenTriggerBackdoorAttack/default.yaml',
+    parser.add_argument('--attack', type = str, )
+    parser.add_argument('--yaml_path', type=str, default='../config/basicAttack/default_sig.yaml',
                         help='path for yaml file provide additional default attributes')
-
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
     # only all2one can be use for clean-label
@@ -66,8 +54,6 @@ def add_args(parser):
     parser.add_argument('--pratio', type=float,
                         help='the poison rate '
                         )
-    parser.add_argument('--attack', type = str, help = 'the attack used in hiddentrigger')
-    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--dataset', type=str,
                         help='which dataset to use'
@@ -83,7 +69,7 @@ def add_args(parser):
     parser.add_argument('--num_classes', type=int)
     parser.add_argument('--sgd_momentum', type=float)
     parser.add_argument('--wd', type=float, help='weight decay of sgd')
-
+    parser.add_argument('--steplr_milestones', type=list)
     parser.add_argument('--client_optimizer', type=int)
     parser.add_argument('--random_seed', type=int,
                         help='random_seed')
@@ -95,7 +81,6 @@ def add_args(parser):
                         help='(Optional) should be time str + given unique identification str')
     parser.add_argument('--git_hash', type=str,
                         help='git hash number, in order to find which version of code is used')
-
     return parser
 
 def main():
@@ -111,8 +96,6 @@ def main():
     args.__dict__ = defaults
 
     args.terminal_info = sys.argv
-
-
 
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(
@@ -160,8 +143,8 @@ def main():
         set_wandb = True
     except:
         set_wandb = False
-
     logging.info(f'set_wandb = {set_wandb}')
+
 
 
     fix_random(int(args.random_seed))
@@ -178,7 +161,8 @@ def main():
 
 
 
-    benign_train_ds = prepro_cls_DatasetBD(
+    benign_train_dl = DataLoader(
+        prepro_cls_DatasetBD(
             full_dataset_without_transform=train_dataset_without_transform,
             poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
             bd_image_pre_transform=None,
@@ -186,10 +170,7 @@ def main():
             ori_image_transform_in_loading=train_img_transform,
             ori_label_transform_in_loading=train_label_transfrom,
             add_details_in_preprocess=True,
-        )
-
-    benign_train_dl = DataLoader(
-        benign_train_ds,
+        ),
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True
@@ -212,113 +193,34 @@ def main():
 
 
 
-    # put it here, since the perturbation need the pretrained model
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
-
-
-    net = generate_cls_model(
-        model_name=args.model,
-        num_classes=args.num_classes,
-    )
-
-    trainer = generate_cls_trainer(
-        model = net,
-        attack_name=args.attack,
-    )
-
-    net.load_state_dict(torch.load(args.pretrained_model_path))
-
-
-
 
     train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
 
-    # Notice that for CLEAN LABEL attack, this blocks only return the label_trans for TEST time !!!
     bd_label_transform = bd_attack_label_trans_generate(args)
 
 
 
+    train_pidx = generate_pidx_from_label_transform(
+        benign_train_dl.dataset.targets,
+        label_transform=bd_label_transform,
+        train=True,
+        pratio= args.pratio if 'pratio' in args.__dict__ else None,
+        p_num= args.p_num if 'p_num' in args.__dict__ else None,
+        clean_label = True,
+    )
+    torch.save(train_pidx,
+        args.save_path + '/train_pidex_list.pickle',
+    )
 
-    # start poison injection
-    target_train_ds = deepcopy(benign_train_ds)
-    target_train_ds.subset(np.where(benign_train_ds.original_targets == args.attack_target)[0])
-    source_train_ds = deepcopy(benign_train_ds)
-    source_train_ds.subset(np.where(benign_train_ds.original_targets != args.attack_target)[0])
-
-    train_loader_target = torch.utils.data.DataLoader(target_train_ds,
-                                                        batch_size=args.batch_size,
-                                                        shuffle=True,
-                                                        drop_last=True,
-                                                        # num_workers=8,
-                                                        # pin_memory=True
-                                                      )
-    iter_target = iter(train_loader_target)
-
-    train_loader_source = torch.utils.data.DataLoader(source_train_ds,
-                                                      batch_size=args.batch_size,
-                                                      shuffle=True,
-                                                      drop_last=True,
-                                                      # num_workers=8,
-                                                      # pin_memory=True
-                                                      )
-    iter_source = iter(train_loader_source)
-
-    pnum =  int(args.pratio * len(benign_train_ds) if 'pratio' in args.__dict__ else args.p_num)
-
-    disguised_img_all = []
-    disguise_img_index_all = []
-    poison_count = 0
-
-    # train_bd_img_transform.target_image = torch.tensor(np.transpose(train_bd_img_transform.target_image,(2,0,1)))
-
-    for _ in range(len(train_loader_target)):
-
-        # LOAD ONE BATCH OF SOURCE AND ONE BATCH OF TARGET
-        #img, label, self.original_index[item], self.poison_indicator[item], self.original_targets[item],
-        source_img, source_label, source_original_index, _ , _  = next(iter_source)
-        target_img, target_label, target_original_index, _ , _  = next(iter_target)
-
-        # add patch trigger for each photo
-        for source_img_i in range(len(source_img)):
-            source_img[source_img_i] = train_bd_img_transform(source_img[source_img_i], source_label[source_img_i], source_original_index[source_img_i])
-
-        disguised_img = groupwise_feature_disguise_pgd_perturbation(
-            patched_source_img_batch = source_img,
-            target_img_batch = target_img,
-            model = net,
-            device = device,
-            img_eps1 = args.eps1,
-            pgd_init_lr = args.pgd_init_lr,
-            pgd_max_iter = args.pgd_max_iter,
-        )
-
-        poison_count += args.batch_size
-        disguised_img_all.append(disguised_img)
-        disguise_img_index_all.append(target_label)
-
-        if  poison_count >= pnum:
-            disguised_img_all = torch.cat(disguised_img_all)
-            disguise_img_index_all = torch.cat(disguise_img_index_all)
-            break
-
-    if  poison_count < pnum:
-        sys.exit("cannot generate enough poison samples, plz check pgd setting or poison num is set being impossible")
-
-    adv_train_ds =  prepro_cls_DatasetBD(
+    adv_train_ds = prepro_cls_DatasetBD(
         deepcopy(train_dataset_without_transform),
-        poison_idx= np.zeros(len(train_dataset_without_transform)),
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+        poison_idx= train_pidx,
+        bd_image_pre_transform=train_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
     )
-
-    for iter_i in range(pnum): # only pnum of target class being changed
-        adv_train_ds.data[disguise_img_index_all[iter_i]] = disguised_img_all[iter_i].cpu().numpy().transpose((1,2,0))
-        # clean-label only, so only img change. No need to match index, since adv_train_ds still in order
-        adv_train_ds.poison_indicator[disguise_img_index_all[iter_i]] = 1
 
     adv_train_dl = DataLoader(
         dataset = adv_train_ds,
@@ -352,6 +254,20 @@ def main():
         batch_size= args.batch_size,
         shuffle= False,
         drop_last= False,
+    )
+
+
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+    net  = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
+    )
+
+    trainer = generate_cls_trainer(
+        net,
+        args.attack
     )
 
 
@@ -395,6 +311,11 @@ def main():
                 )
             )
 
+            torch.save(
+                list(benign_train_dl.dataset.original_index),
+                args.save_path + '/finetune_idx_list.pt',
+            )
+
             trainer.train_with_test_each_epoch(
                 train_data=benign_train_dl,
                 test_data=benign_test_dl,
@@ -428,6 +349,37 @@ def main():
                 continue_training_path=args.load_path,
                 only_load_model=False,
             )
+
+
+    #
+    # torch.save(
+    #         {
+    #             'model_name':args.model,
+    #             'model': trainer.model.cpu().state_dict(),
+    #             'clean_train': {
+    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
+    #                 'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
+    #             },
+    #
+    #             'clean_test' : {
+    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
+    #                 'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
+    #             },
+    #
+    #             'bd_train': {
+    #                 'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
+    #                 'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
+    #             },
+    #
+    #             'bd_test': {
+    #                 'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
+    #                 'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
+    #             },
+    #         },
+    #     f'{save_path}/attack_result.pt'
+    # )
+
+
 
     save_attack_result(
         model_name = args.model,

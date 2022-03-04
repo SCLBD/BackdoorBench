@@ -5,7 +5,7 @@ from PIL import Image
 import torch.utils.data as data
 
 class Tiny(data.Dataset):
-    def __init__(self, data_root, train):
+    def __init__(self, data_root, train, transform = None):
         super(Tiny, self).__init__()
         self.data_root = data_root
         self.id_dict = self._get_id_dictionary()
@@ -15,7 +15,7 @@ class Tiny(data.Dataset):
         else:
             self.images, self.labels = self._get_data_test_list()
             # print(f'image shape: {(self.images).shape}; lables shape: {self.labels.shape}')
-        # self.transforms = transforms
+        self.transform = transform
 
     def _get_id_dictionary(self):
         id_dict = {}
@@ -46,6 +46,7 @@ class Tiny(data.Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self.images[index]).convert("RGB")
-        # image = self.transforms(image)
+        if self.transform is not None:
+            image = self.transform(image)
         label = self.labels[index]
         return image, label

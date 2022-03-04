@@ -1,15 +1,198 @@
+'''
 
+rewrite from https://github.com/Megum1/DFST
+'''
 import sys, yaml, os
+
 os.chdir(sys.path[0])
 sys.path.append('../')
 os.getcwd()
 
 import torch.nn
 from typing import Optional, List
+from utils.pytorch_ssim import ssim
+from torch.utils.data.dataset import TensorDataset
+from utils.unet import UNet
+import argparse
+from pprint import  pformat
+import numpy as np
+import torch
+from utils.aggregate_block.save_path_generate import generate_save_folder
+import time
+import logging
+
+from utils.aggregate_block.fix_random import fix_random
+from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.bd_dataset import prepro_cls_DatasetBD
+from torch.utils.data import DataLoader
+from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
+from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
+from copy import deepcopy
+from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
+from torch.utils.data.dataset import ConcatDataset
+from utils.save_load_attack import save_attack_result
 
 '''
-rewrite from https://github.com/Megum1/DFST
+Tensorflow code
+def build_generator(input_shape):
+    """U-Net Generator"""
+
+    def conv2d(layer_input, filters):
+        """Layers used during downsampling"""
+        d = Conv2D(filters, kernel_size=12, strides=2, padding='same')(layer_input)
+        d = LeakyReLU(alpha=0.2)(d)
+        d = InstanceNormalization()(d)
+        return d
+
+    def deconv2d(layer_input, skip_input, filters):
+        """Layers used during upsampling"""
+        u = UpSampling2D(size=2)(layer_input)
+        u = Conv2D(filters, kernel_size=12, strides=1, padding='same', activation='relu')(u)
+        u = InstanceNormalization()(u)
+        u = Concatenate()([u, skip_input])
+        return u
+
+    # Image input
+    d0 = Input(shape=input_shape)
+
+    # Downsampling
+    d1 = conv2d(d0, 32)
+    d2 = conv2d(d1, 32 * 2)
+    d3 = conv2d(d2, 32 * 4)
+
+    # Upsampling
+    u1 = deconv2d(d3, d2, 32 * 2)
+    u2 = deconv2d(u1, d1, 32)
+
+    u3 = UpSampling2D(size=2)(u2)
+    output_img = Conv2D(3, kernel_size=12, strides=1, padding='same', activation='tanh')(u3)
+
+    return Model(d0, output_img)
+    
+__________________________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to                     
+==================================================================================================
+input_1 (InputLayer)            (None, 32, 32, 3)    0                                            
+__________________________________________________________________________________________________
+conv2d_1 (Conv2D)               (None, 16, 16, 32)   13856       input_1[0][0]                    
+__________________________________________________________________________________________________
+leaky_re_lu_1 (LeakyReLU)       (None, 16, 16, 32)   0           conv2d_1[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_1 (Insta (None, 16, 16, 32)   2           leaky_re_lu_1[0][0]              
+__________________________________________________________________________________________________
+conv2d_2 (Conv2D)               (None, 8, 8, 64)     294976      instance_normalization_1[0][0]   
+__________________________________________________________________________________________________
+leaky_re_lu_2 (LeakyReLU)       (None, 8, 8, 64)     0           conv2d_2[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_2 (Insta (None, 8, 8, 64)     2           leaky_re_lu_2[0][0]              
+__________________________________________________________________________________________________
+conv2d_3 (Conv2D)               (None, 4, 4, 128)    1179776     instance_normalization_2[0][0]   
+__________________________________________________________________________________________________
+leaky_re_lu_3 (LeakyReLU)       (None, 4, 4, 128)    0           conv2d_3[0][0]                   
+__________________________________________________________________________________________________
+instance_normalization_3 (Insta (None, 4, 4, 128)    2           leaky_re_lu_3[0][0]              
+__________________________________________________________________________________________________
+up_sampling2d_1 (UpSampling2D)  (None, 8, 8, 128)    0           instance_normalization_3[0][0]   
+__________________________________________________________________________________________________
+conv2d_4 (Conv2D)               (None, 8, 8, 64)     1179712     up_sampling2d_1[0][0]            
+__________________________________________________________________________________________________
+instance_normalization_4 (Insta (None, 8, 8, 64)     2           conv2d_4[0][0]                   
+__________________________________________________________________________________________________
+concatenate_1 (Concatenate)     (None, 8, 8, 128)    0           instance_normalization_4[0][0]   
+                                                                 instance_normalization_2[0][0]   
+__________________________________________________________________________________________________
+up_sampling2d_2 (UpSampling2D)  (None, 16, 16, 128)  0           concatenate_1[0][0]              
+__________________________________________________________________________________________________
+conv2d_5 (Conv2D)               (None, 16, 16, 32)   589856      up_sampling2d_2[0][0]            
+__________________________________________________________________________________________________
+instance_normalization_5 (Insta (None, 16, 16, 32)   2           conv2d_5[0][0]                   
+__________________________________________________________________________________________________
+concatenate_2 (Concatenate)     (None, 16, 16, 64)   0           instance_normalization_5[0][0]   
+                                                                 instance_normalization_1[0][0]   
+__________________________________________________________________________________________________
+up_sampling2d_3 (UpSampling2D)  (None, 32, 32, 64)   0           concatenate_2[0][0]              
+__________________________________________________________________________________________________
+conv2d_6 (Conv2D)               (None, 32, 32, 3)    27651       up_sampling2d_3[0][0]            
+==================================================================================================
+Total params: 3,285,837
+Trainable params: 3,285,837
+Non-trainable params: 0
+__________________________________________________________________________________________________
+
 '''
+from utils.conv_pad_same import Conv2d
+from torch.nn.modules import ReLU,LeakyReLU, InstanceNorm2d, Upsample, Tanh
+
+class ge_conv2d(torch.nn.Module):
+
+    def __init__(self, in_channels, out_channels, num_features):
+        super(ge_conv2d, self).__init__()
+        self.conv2d = Conv2d(in_channels=in_channels,
+                             out_channels = out_channels,
+                             kernel_size=12,
+                             stride=2,
+                             padding='same')
+        self.leakyrelu = LeakyReLU(negative_slope = 0.2)
+        self.instancenorm = InstanceNorm2d(num_features=num_features)
+
+    def forward(self,x):
+        x = self.conv2d(x)
+        x = self.leakyrelu(x)
+        x = self.instancenorm(x)
+        return x
+
+class de_conv2d(torch.nn.Module):
+
+    def __init__(self, figsize, in_channels, out_channels, num_features):
+        super(de_conv2d, self).__init__()
+        self.upsample = Upsample(size = figsize)
+        self.conv2d = Conv2d(in_channels=in_channels,
+                             out_channels = out_channels, kernel_size=12, stride=1, padding='same',)
+        self.relu = ReLU()
+        self.instancenorm = InstanceNorm2d(num_features=num_features)
+
+    def forward(self, x, skip):
+        x = self.upsample(x)
+        x = self.conv2d(x)
+        x = self.instancenorm(x)
+        x = torch.cat([x, skip],dim = 1)
+        return x
+
+class detoxicant_net(torch.nn.Module):
+
+    def __init__(self, input_shape):
+        super(detoxicant_net, self).__init__()
+        self.conv1 = ge_conv2d(3,32,32)
+        self.conv2 = ge_conv2d(32,64,64)
+        self.conv3 = ge_conv2d(64,128,128)
+        self.deconv1 = de_conv2d((int(input_shape[0]/4), int(input_shape[1]/4)), 128,64,64, )
+        self.deconv2 = de_conv2d((int(input_shape[0]/2), int(input_shape[1]/2)), 128,32,32, )
+        self.upsample = Upsample(size = (input_shape[0], input_shape[1]))
+        self.conv4 = Conv2d(in_channels=64, out_channels =3, kernel_size=12, stride=1, padding='same', )
+        self.tanh = Tanh()
+
+    def forward(self,d0):
+        # Downsampling
+        d1 = self.conv1(d0) #32
+        d2 = self.conv2(d1) #64
+        d3 = self.conv3(d2) #128
+
+        # Upsampling
+        u1 = self.deconv1(d3, d2)
+        u2 = self.deconv2(u1, d1)
+
+        u3 = self.upsample(u2)
+        output_img = self.tanh(self.conv4(u3))
+
+        return output_img
+
+def test_detox():
+    input = torch.randn((3,3,32,32))
+    net = detoxicant_net((32,32))
+    net(input)
+
+
 
 def compromised_neuron_identification(
     net : torch.nn.Module,
@@ -62,7 +245,7 @@ def compromised_neuron_identification(
     return neurons_result
 
 # if __name__ == '__main__':
-#     from torchvision.models import resnet18
+
 #     net = resnet18()
 #     pic_tensor = compromised_neuron_identification(
 #         net = net,
@@ -73,9 +256,9 @@ def compromised_neuron_identification(
 #     )
 #     print(pic_tensor)
 
-from utils.pytorch_ssim import ssim
 
-from torch.utils.data.dataset import TensorDataset
+
+
 
 
 # class same_pad_conv(torch.nn.Module):
@@ -132,7 +315,7 @@ from torch.utils.data.dataset import TensorDataset
 #         self.conv1 = torch.nn.Conv2d(c, 32, 12, stride=2, padding=0, )
 
 
-from utils.unet import UNet
+
 
 def get_reverse_engineering_net_for_one_neuron(
     net : torch.nn.Module,
@@ -274,7 +457,7 @@ def get_reverse_engineering_net_for_one_neuron(
     return poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test # could be None
 
 # if __name__ == '__main__':
-#     from torchvision.models import resnet18
+
 #     net = resnet18()
 #     unet = UNet(3, 3)
 #     dl = torch.utils.data.DataLoader(
@@ -298,22 +481,6 @@ def get_reverse_engineering_net_for_one_neuron(
 #         lr = 1e-3,
 #         weights=[-1e-2,1e-7,1e-5,100],
 #     )
-
-from utils.backdoor_generate_pindex import generate_single_target_attack_train_pidx
-
-import torch
-import numpy as np
-
-import argparse
-import logging
-import os
-import sys
-from pprint import pprint, pformat
-import random
-import numpy as np
-import torch
-import imageio
-import yaml
 
 def add_args(parser):
     """
@@ -387,335 +554,336 @@ def add_args(parser):
 
     return parser
 
-parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
-args = parser.parse_args()
+def main():
 
-with open(args.yaml_path, 'r') as f:
-    defaults = yaml.safe_load(f)
+    parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
+    args = parser.parse_args()
 
-defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+    with open(args.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
 
-args.__dict__ = defaults
+    defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
 
-args.attack = 'dfst'
+    args.__dict__ = defaults
 
-args.terminal_info = sys.argv
+    args.attack = 'dfst'
 
-from utils.aggregate_block.save_path_generate import generate_save_folder
+    args.terminal_info = sys.argv
 
-if 'save_folder_name' not in args:
-    save_path = generate_save_folder(
-        run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
-        given_load_file_path=args.load_path if 'load_path' in args else None,
-        all_record_folder_path='../record',
+    if 'save_folder_name' not in args:
+        save_path = generate_save_folder(
+            run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
+            given_load_file_path=args.load_path if 'load_path' in args else None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + args.save_folder_name
+        os.mkdir(save_path)
+
+    args.save_path = save_path
+
+    torch.save(args.__dict__, save_path + '/info.pickle')
+
+    # logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
     )
-else:
-    save_path = '../record/' + args.save_folder_name
-    os.mkdir(save_path)
+    logger = logging.getLogger()
+    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
-args.save_path = save_path
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-torch.save(args.__dict__, save_path + '/info.pickle')
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
 
-import time
-import logging
-# logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-logFormatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%d:%H:%M:%S',
-)
-logger = logging.getLogger()
-# logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
+    logger.setLevel(logging.INFO)
+    logging.info(pformat(args.__dict__))
 
-fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+    try:
+        import wandb
+        wandb.init(
+            project="bdzoo2",
+            entity="chr",
+            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
+            config=args,
+        )
+        set_wandb = True
+    except:
+        set_wandb = False
+    logging.info(f'set_wandb = {set_wandb}')
 
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
 
-logger.setLevel(logging.INFO)
-logging.info(pformat(args.__dict__))
+    fix_random(int(args.random_seed))
 
-try:
-    import wandb
-    wandb.init(
-        project="bdzoo2",
-        entity="chr",
-        name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-        config=args,
+
+    train_dataset_without_transform, \
+                train_img_transform, \
+                train_label_transfrom, \
+    test_dataset_without_transform, \
+                test_img_transform, \
+                test_label_transform = dataset_and_transform_generate(args)
+
+
+    benign_train_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True
     )
-    set_wandb = True
-except:
-    set_wandb = False
-logging.info(f'set_wandb = {set_wandb}')
 
-import torchvision.transforms as transforms
-from utils.aggregate_block.fix_random import fix_random
-fix_random(int(args.random_seed))
+    benign_test_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
 
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
-train_dataset_without_transform, \
-            train_img_transform, \
-            train_label_transfrom, \
-test_dataset_without_transform, \
-            test_img_transform, \
-            test_label_transform = dataset_and_transform_generate(args)
 
-from utils.bd_dataset import prepro_cls_DatasetBD
-from torch.utils.data import DataLoader
 
-benign_train_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+    train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
+
+    bd_label_transform = bd_attack_label_trans_generate(args)
+
+
+
+    train_pidx = generate_pidx_from_label_transform(
+        benign_train_dl.dataset.targets,
+        label_transform=bd_label_transform,
+        train=True,
+        pratio= args.pratio if 'pratio' in args.__dict__ else None,
+        p_num= args.p_num if 'p_num' in args.__dict__ else None,
+    )
+    torch.save(train_pidx,
+        args.save_path + '/train_pidex_list.pickle',
+    )
+
+    adv_train_ds = prepro_cls_DatasetBD(
+        deepcopy(train_dataset_without_transform),
+        poison_idx= train_pidx,
+        bd_image_pre_transform=train_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True
-)
+    )
 
-benign_test_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+    adv_train_dl = DataLoader(
+        dataset = adv_train_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True,
+    )
+
+    test_pidx = generate_pidx_from_label_transform(
+        benign_test_dl.dataset.targets,
+        label_transform=bd_label_transform,
+        train=False,
+    )
+
+    adv_test_dataset = prepro_cls_DatasetBD(
+        deepcopy(test_dataset_without_transform),
+        poison_idx=test_pidx,
+        bd_image_pre_transform=test_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
-
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
-from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
-
-train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
-
-bd_label_transform = bd_attack_label_trans_generate(args)
-
-from copy import deepcopy
-
-train_pidx = generate_pidx_from_label_transform(
-    benign_train_dl.dataset.targets,
-    label_transform=bd_label_transform,
-    train=True,
-    pratio= args.pratio if 'pratio' in args.__dict__ else None,
-    p_num= args.p_num if 'p_num' in args.__dict__ else None,
-)
-torch.save(train_pidx,
-    args.save_path + '/train_pidex_list.pickle',
-)
-
-adv_train_ds = prepro_cls_DatasetBD(
-    deepcopy(train_dataset_without_transform),
-    poison_idx= train_pidx,
-    bd_image_pre_transform=train_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=train_img_transform,
-    ori_label_transform_in_loading=train_label_transfrom,
-    add_details_in_preprocess=True,
-)
-
-adv_train_dl = DataLoader(
-    dataset = adv_train_ds,
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True,
-)
-
-test_pidx = generate_pidx_from_label_transform(
-    benign_test_dl.dataset.targets,
-    label_transform=bd_label_transform,
-    train=False,
-)
-
-adv_test_dataset = prepro_cls_DatasetBD(
-    deepcopy(test_dataset_without_transform),
-    poison_idx=test_pidx,
-    bd_image_pre_transform=test_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=test_img_transform,
-    ori_label_transform_in_loading=test_label_transform,
-    add_details_in_preprocess=True,
-)
-
-adv_test_dataset.subset(
-    np.where(test_pidx == 1)[0]
-)
-
-adv_test_dl = DataLoader(
-    dataset = adv_test_dataset,
-    batch_size= args.batch_size,
-    shuffle= False,
-    drop_last= False,
-)
-
-from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-
-net  = generate_cls_model(
-    model_name=args.model,
-    num_classes=args.num_classes,
-)
-
-trainer = generate_cls_trainer(
-    net,
-    args.attack
-)
-
-from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-
-criterion = argparser_criterion(args)
-
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-
-# first poison
-trainer.train_with_test_each_epoch(
-    train_data = adv_train_dl,
-    test_data = benign_test_dl,
-    adv_test_data = adv_test_dl,
-    end_epoch_num = args.epochs,
-    criterion = criterion,
-    optimizer = optimizer,
-    scheduler = scheduler,
-    device = device,
-    frequency_save = args.frequency_save,
-    save_folder_path = save_path,
-    save_prefix = 'attack',
-    continue_training_path = None,
-)
-
-
-#generate the benign and backdoored samples for compromised_neuron_identification
-select_index = np.random.choice(
-    np.arange(len(benign_train_dl.dataset)),
-    round(len(benign_train_dl.dataset) * args.select_ratio),
-    replace=False,
-)
-x_benign = deepcopy(benign_train_dl.dataset)
-x_benign.subset(select_index)
-x_benign_img = torch.cat([img[None,...] for img, _,_,_,_ in x_benign])
-
-x_backdoored = prepro_cls_DatasetBD(
-    deepcopy(train_dataset_without_transform),
-    poison_idx= np.ones_like(train_pidx),
-    bd_image_pre_transform=train_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=train_img_transform,
-    ori_label_transform_in_loading=train_label_transfrom,
-    add_details_in_preprocess=True,
-)
-x_backdoored.subset(select_index)
-x_backdoored_img = torch.cat([img[None,...] for img, _,_,_,_ in x_backdoored])
-
-unet = UNet(3,3) # 3 channel in, 3 channel out
-
-# compromised_neuron_identification part
-
-result = []
-for each_layer_name in args.layer_name_list: #TODO
-    neurons_result = compromised_neuron_identification(
-        net,
-        device = torch.device('cpu'), # since too many imgs, cannot feed to GPU as one batch
-        layer_name=each_layer_name,
-        x_benign=x_benign_img,
-        x_backdoored=x_backdoored_img,
     )
-    for key, value in neurons_result.items():
-        if key.isdigit():
-            poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test = get_reverse_engineering_net_for_one_neuron(
-                net, unet,
-                device = device,
-                layer_name = each_layer_name,
-                neuron_idx = int(key),
-                benign_dataloader_to_train = DataLoader(
-                        x_benign,
-                        batch_size=args.batch_size,
-                        shuffle=True,
-                        drop_last=True
-                    ),
-                benign_dataloader_to_generate_detoxicant_train = DataLoader(
-                        x_benign,
-                        batch_size=args.batch_size,
-                        shuffle=True,
-                        drop_last=False
-                    ),
-                benign_dataloader_to_generate_detoxicant_test=benign_test_dl,
-                epoch_num = args.reverse_engineer_epochs,
-                target_label = args.attack_target,
-                lr = args.reverse_engineer_lr,
-                weights = args.reverse_engineer_weight_list,
-            )
 
-            # here first to test wheather the detoxicant img can mislead the net,
-            # otherwise no need to add to retrain set
+    adv_test_dataset.subset(
+        np.where(test_pidx == 1)[0]
+    )
 
-            metrics = trainer.test(
-                TensorDataset(
-                    detoxicant_dataset_train.tensors[0],
-                    detoxicant_dataset_train.tensors[1] * args.attack_target,
-                ),
-                device
-            )
+    adv_test_dl = DataLoader(
+        dataset = adv_test_dataset,
+        batch_size= args.batch_size,
+        shuffle= False,
+        drop_last= False,
+    )
 
-            if metrics['test_correct'] / metrics['test_total'] >= args.noise_training_threshold :
-                result.append((each_layer_name, int(key) ,poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test))
 
-from torch.utils.data.dataset import ConcatDataset
 
-final_train_dl = DataLoader(
-                        ConcatDataset(
-                            [
-                                adv_train_ds, *[detoxicant_dataset_train for l_name, n_name, inj_net, detoxicant_dataset_train, detoxicant_dataset_test in result]
-                            ]
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+
+    net  = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
+    )
+
+    trainer = generate_cls_trainer(
+        net,
+        args.attack
+    )
+
+
+
+    criterion = argparser_criterion(args)
+
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
+
+    # first poison
+    trainer.train_with_test_each_epoch(
+        train_data = adv_train_dl,
+        test_data = benign_test_dl,
+        adv_test_data = adv_test_dl,
+        end_epoch_num = args.epochs,
+        criterion = criterion,
+        optimizer = optimizer,
+        scheduler = scheduler,
+        device = device,
+        frequency_save = args.frequency_save,
+        save_folder_path = save_path,
+        save_prefix = 'attack',
+        continue_training_path = None,
+    )
+
+
+    #generate the benign and backdoored samples for compromised_neuron_identification
+    select_index = np.random.choice(
+        np.arange(len(benign_train_dl.dataset)),
+        round(len(benign_train_dl.dataset) * args.select_ratio),
+        replace=False,
+    )
+    x_benign = deepcopy(benign_train_dl.dataset)
+    x_benign.subset(select_index)
+    x_benign_img = torch.cat([img[None,...] for img, _,_,_,_ in x_benign])
+
+    x_backdoored = prepro_cls_DatasetBD(
+        deepcopy(train_dataset_without_transform),
+        poison_idx= np.ones_like(train_pidx),
+        bd_image_pre_transform=train_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
+        ori_image_transform_in_loading=train_img_transform,
+        ori_label_transform_in_loading=train_label_transfrom,
+        add_details_in_preprocess=True,
+    )
+    x_backdoored.subset(select_index)
+    x_backdoored_img = torch.cat([img[None,...] for img, _,_,_,_ in x_backdoored])
+
+    # unet = UNet(3,3) # 3 channel in, 3 channel out
+    unet = detoxicant_net(args.img_size[:2])
+    # compromised_neuron_identification part
+
+    result = []
+    for each_layer_name in args.layer_name_list: #TODO
+        neurons_result = compromised_neuron_identification(
+            net,
+            device = torch.device('cpu'), # since too many imgs, cannot feed to GPU as one batch
+            layer_name=each_layer_name,
+            x_benign=x_benign_img,
+            x_backdoored=x_backdoored_img,
+        )
+        for key, value in neurons_result.items():
+            if str(key).isdigit():
+                poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test = get_reverse_engineering_net_for_one_neuron(
+                    net, unet,
+                    device = device,
+                    layer_name = each_layer_name,
+                    neuron_idx = int(key),
+                    benign_dataloader_to_train = DataLoader(
+                            x_benign,
+                            batch_size=args.batch_size,
+                            shuffle=True,
+                            drop_last=True
+                        ),
+                    benign_dataloader_to_generate_detoxicant_train = DataLoader(
+                            x_benign,
+                            batch_size=args.batch_size,
+                            shuffle=True,
+                            drop_last=False
+                        ),
+                    benign_dataloader_to_generate_detoxicant_test=benign_test_dl,
+                    epoch_num = args.reverse_engineer_epochs,
+                    target_label = args.attack_target,
+                    lr = args.reverse_engineer_lr,
+                    weights = args.reverse_engineer_weight_list,
+                )
+
+                # here first to test wheather the detoxicant img can mislead the net,
+                # otherwise no need to add to retrain set
+
+                metrics = trainer.test(
+                        DataLoader(TensorDataset(
+                            detoxicant_dataset_train.tensors[0],
+                            detoxicant_dataset_train.tensors[1] * args.attack_target,
                         ),
                         batch_size=args.batch_size,
-                        shuffle=True,
-                        drop_last=False
-                    )
+                        drop_last=False,
+                        shuffle=False,
+                    ),
+                    device
+                )
 
-trainer.train_with_test_each_epoch_v2(
-            train_data = final_train_dl,
-            test_dataloader_dict = {
-                'benign_test_dl': benign_test_dl,
-                **{
-                    f'layer_{l_name}_neuron_{n_name}' : detoxicant_dataset_test for l_name, n_name, inj_net, detoxicant_dataset_train, detoxicant_dataset_test in result
-                }
-            },
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'noise_retrain',
-            continue_training_path = None,
-)
+                if metrics['test_correct'] / metrics['test_total'] >= args.noise_training_threshold :
+                    result.append((each_layer_name, int(key) ,poison_injection_net, detoxicant_dataset_train, detoxicant_dataset_test))
 
-from utils.save_load_attack import save_attack_result
 
-save_attack_result(
-    model_name = args.model,
-    num_classes = args.num_classes,
-    model = trainer.model.cpu().state_dict(),
-    data_path = args.dataset_path,
-    img_size = args.img_size,
-    clean_data = args.dataset,
-    bd_train = adv_train_ds,
-    bd_test = adv_test_dataset,
-    save_path = save_path,
-)
+
+    final_train_dl = DataLoader(
+                            ConcatDataset(
+                                [
+                                    adv_train_ds, *[detoxicant_dataset_train for l_name, n_name, inj_net, detoxicant_dataset_train, detoxicant_dataset_test in result]
+                                ]
+                            ),
+                            batch_size=args.batch_size,
+                            shuffle=True,
+                            drop_last=True,
+                        )
+
+    trainer.train_with_test_each_epoch_v2(
+                train_data = final_train_dl,
+                test_dataloader_dict = {
+                    'benign_test_dl': benign_test_dl,
+                    **{
+                        f'layer_{l_name}_neuron_{n_name}' : detoxicant_dataset_test for l_name, n_name, inj_net, detoxicant_dataset_train, detoxicant_dataset_test in result
+                    },
+                    'adv_test_data' : adv_test_dl
+                },
+                end_epoch_num = args.epochs,
+                criterion = criterion,
+                optimizer = optimizer,
+                scheduler = scheduler,
+                device = device,
+                frequency_save = args.frequency_save,
+                save_folder_path = save_path,
+                save_prefix = 'noise_retrain',
+                continue_training_path = None,
+    )
+
+
+
+    save_attack_result(
+        model_name = args.model,
+        num_classes = args.num_classes,
+        model = trainer.model.cpu().state_dict(),
+        data_path = args.dataset_path,
+        img_size = args.img_size,
+        clean_data = args.dataset,
+        bd_train = adv_train_ds,
+        bd_test = adv_test_dataset,
+        save_path = save_path,
+    )
+
+if __name__ == '__main__':
+    main()

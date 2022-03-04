@@ -1,6 +1,6 @@
 default:
   attack_label_trans: all2one
   attack_target: 0
-  model: resnet18
+  model: preactresnet18
   pratio: 0.1
   random_seed: 0

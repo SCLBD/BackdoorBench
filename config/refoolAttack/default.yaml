@@ -2,7 +2,7 @@ attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
 client_optimizer: sgd
-dataset: GTSRB
+dataset: gtsrb
 dataset_path: ../data/GTSRB
 epochs: 200
 frequency_save: 100

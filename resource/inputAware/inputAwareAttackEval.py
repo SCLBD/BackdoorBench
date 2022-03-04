@@ -1,5 +1,5 @@
 import sys
-sys.path.append('.')
+sys.path.append('../../attack')
 import copy
 import os
 
@@ -11,6 +11,7 @@ from config.inputAwareAttack.config import get_arguments
 from utils.input_aware_dataloader import get_dataloader
 from utils.networks.models import Generator, NetC_MNIST
 from utils.input_aware_utils import progress_bar
+from utils.aggregate_block.fix_random import fix_random
 
 
 def create_targets_bd(targets, opt):
@@ -96,6 +97,7 @@ def eval(netC, netG, netM, test_dl1, test_dl2, opt):
 def main():
     # Prepare arguments
     opt = get_arguments().parse_args()
+    fix_random(int(opt.random_seed))
     if opt.dataset == "mnist" or opt.dataset == "cifar10":
         opt.num_classes = 10
     elif opt.dataset == "gtsrb":

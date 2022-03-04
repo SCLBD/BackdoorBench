@@ -1,7 +1,13 @@
-
+import logging
+import cv2
+import numpy as np
+import torch
 
 class AddPatchTrigger(object):
-
+    '''
+    assume init use HWC format
+    but in add_trigger, you can input tensor/array , one/batch
+    '''
     def __init__(self, trigger_loc, trigger_ptn):
         self.trigger_loc = trigger_loc
         self.trigger_ptn = trigger_ptn
@@ -10,9 +16,40 @@ class AddPatchTrigger(object):
         return self.add_trigger(img)
 
     def add_trigger(self, img):
-        for i, (m, n) in enumerate(self.trigger_loc):
-            img[m, n, :] = self.trigger_ptn[i]  # add trigger
+        if isinstance(img, np.ndarray):
+            if img.shape.__len__() == 3:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[m, n, :] = self.trigger_ptn[i]  # add trigger
+            elif img.shape.__len__() == 4:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, m, n, :] = self.trigger_ptn[i]  # add trigger
+        elif isinstance(img, torch.Tensor):
+            if img.shape.__len__() == 3:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, m, n] = self.trigger_ptn[i]
+            elif img.shape.__len__() == 4:
+                for i, (m, n) in enumerate(self.trigger_loc):
+                    img[:, :, m, n] = self.trigger_ptn[i]
         return img
+
+def test_AddPatchTrigger():
+    trigger_loc, trigger_ptn = [[29, 29],
+                        [29, 30],
+                        [29, 31],
+                        [30, 29],
+                        [30, 30],
+                        [30, 31],
+                        [31, 29],
+                        [31, 30],
+                        [31, 31]], [255, 255, 255, 255, 255, 255, 255, 255, 255]
+    f = AddPatchTrigger(trigger_loc, trigger_ptn)
+
+    from utils.visualize_image import image_show_for_all
+    image_show_for_all(f(np.zeros((32, 32, 3))))
+    image_show_for_all(f(np.zeros((3, 32, 32, 3))))
+    image_show_for_all(f(torch.zeros((3, 32, 32))))
+    image_show_for_all(f(torch.zeros((3, 3, 32, 32))))
+
 
 import numpy as np
 
@@ -20,15 +57,48 @@ class AddMatrixPatchTrigger(object):
     '''
     tensor version of add trigger, this should be put after
     '''
-    def __init__(self, trigger_tensor: np.ndarray, ):
+    def __init__(self, trigger_tensor: np.ndarray, resize_trigger_check = True):
+        logging.warning('Use cv2 resize in case non-same trigger and img blend. so torch tensor will fail')
         self.trigger_tensor = np.clip(trigger_tensor, 0, 255)  # notice that non-trigger parts must be zero !
+        self.resize_trigger_check = resize_trigger_check
 
     def __call__(self, img, target=None, image_serial_id=None):
         return self.add_trigger(img)
 
     def add_trigger(self, img):
-        return img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
-        # use only positive part of trigger tensor
+        # two case, trigger and img shape same / not same
+        try:
+            after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
+        except:
+            if self.resize_trigger_check == True:
+                print('NOT SAME size for img and trigger_tensor, use cv2 resize trigger_tensor')
+                trigger_tensor = cv2.resize(self.trigger_tensor, dsize=(img.shape[:2])[::-1] if len(img.shape) <= 3 else img.shape[1:3][::-1])
+                after_blend_img = img * (trigger_tensor == 0) + trigger_tensor * (trigger_tensor > 0)
+            else:
+                print('NOT SAME size for img and trigger_tensor, use cv2 resize img')
+                img = cv2.resize(img,
+                                            dsize=(self.trigger_tensor.shape[:2])[::-1] if len(self.trigger_tensor.shape) <= 3 else self.trigger_tensor.shape[1:3][::-1])
+                after_blend_img = img * (self.trigger_tensor == 0) + self.trigger_tensor * (self.trigger_tensor > 0)
+
+        return after_blend_img
+
+def test_AddMatrixPatchTrigger():
+    trigger = np.zeros((32,31,3))
+    trigger[:10,:,:] = 1
+    f = AddMatrixPatchTrigger(trigger)
+
+    import matplotlib.pyplot as plt
+    plt.imshow(f(np.zeros((64,61,3))))
+    plt.show()
+
+    trigger = np.zeros((32, 31, 3))
+    trigger[:10, :, :] = 1
+    f = AddMatrixPatchTrigger(trigger, resize_trigger_check=False)
+
+    import matplotlib.pyplot as plt
+    plt.imshow(f(np.zeros((64, 61, 3))))
+    plt.show()
+
 
 from random import randint
 

@@ -1,7 +1,7 @@
 pretrained_model_path: ../resource/normal/normal.pt
 final_layer_name: linear
-student_data: gtsrb
-student_dataset_path: ../data/GTSRB
+student_data: cifar10
+student_dataset_path: ../data/cifar10
 student_img_size:
 - 32
 - 32
@@ -21,7 +21,7 @@ first_retrain_lr_scheduler: None
 
 batchsize_for_trigger_generation: 32
 mask_tensor_path: ../resource/latentBackdoor/construct_mask.pt
-target_layer_name: conv1 # here should not be the case, should be some intermediate layer
+target_layer_name: layer4.0.conv2 # this is for preactresnet18 model dependent
 trigger_generation_lr: 0.1
 trigger_generation_max_iter: 50
 trigger_generation_final_loss: 0.0000000001
@@ -40,8 +40,8 @@ inject_adam_betas:
 - 0.9
 inject_lr_scheduler: None
 
-num_classes_for_student: 43
-last_student_freeze_layer_name: layer4.1.bn2 #only retrain last
+num_classes_for_student: 10
+last_student_freeze_layer_name: layer4.0.conv2
 student_batch_size: 32
 student_epochs: 30
 
@@ -58,8 +58,8 @@ attack_label_trans: all2one
 attack_target: 0
 batch_size: 32
 client_optimizer: sgd
-dataset: cifar10
-dataset_path: ../data/cifar10
+dataset: gtsrb
+dataset_path: ../data/GTSRB
 frequency_save: 100
 img_size: [32, 32, 3]
 lr: 0.01
@@ -67,7 +67,7 @@ lr_scheduler: StepLR
 steplr_stepsize: 100000
 steplr_gamma: 0.1
 model: preactresnet18
-num_classes: 10
+num_classes: 43
 pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9

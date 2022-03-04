@@ -91,8 +91,19 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                 self.data.append(img)
                 self.targets.append(label)
 
-        self.data = np.array(self.data)
+        if all(
+                [issubclass(img.dtype.type, np.integer) for img in self.data]
+        ) and min(img.shape for img in self.data) == max(img.shape for img in self.data):
+            # all dtype be int, and all shape same
+            logging.info('found all img same shape and dtype are int, so stack.')
+            self.data = np.stack(self.data)
+        else:
+            self.data = np.array(self.data)
+
+        logging.info(f'self.data after preprocess, shape: {self.data.shape}')
+
         self.targets = np.array(self.targets)
+
         if self.add_details_in_preprocess:
             self.original_index = np.array(self.original_index)
             self.poison_indicator = np.array(self.poison_indicator)
