@@ -179,7 +179,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             at_loss = at1_loss + at2_loss + at3_loss + cls_loss
 
         if arg.model == 'vgg19':
-            output_s = snet(inputs)
+            outputs_s = snet(inputs)
             features_out_3 = list(snet.children())[:-1]  # 去掉全连接层
             modelout_3 = nn.Sequential(*features_out_3).to(arg.device)
             activation3_s = modelout_3(inputs)
@@ -193,13 +193,13 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             # activation3_t = tnet.features(inputs)
             # activation3_t = activation3_t.view(activation3_t.size(0), -1)
 
-            cls_loss = criterionCls(output_s, labels)
+            cls_loss = criterionCls(outputs_s, labels)
             at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
 
             at_loss = at3_loss + cls_loss
 
         if arg.model == 'resnet18':
-            output_s = snet(inputs)
+            outputs_s = snet(inputs)
             features_out = list(snet.children())[:-1]
             modelout = nn.Sequential(*features_out).to(arg.device)
             activation3_s = modelout(inputs)
@@ -211,7 +211,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             activation3_t = modelout(inputs)
             # activation3_t = features.view(features.size(0), -1)
 
-            cls_loss = criterionCls(output_s, labels)
+            cls_loss = criterionCls(outputs_s, labels)
             at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
 
             at_loss = at3_loss + cls_loss
