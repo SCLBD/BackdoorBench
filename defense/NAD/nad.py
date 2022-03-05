@@ -198,7 +198,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
 
             at_loss = at3_loss + cls_loss
 
-        if arg.classifier == 'resnet18':
+        if arg.model == 'resnet18':
             output_s = snet(inputs)
             features_out = list(snet.children())[:-1]
             modelout = nn.Sequential(*features_out).to(arg.device)
