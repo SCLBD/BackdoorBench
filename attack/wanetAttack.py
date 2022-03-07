@@ -511,14 +511,14 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
             )
 
         # Save image for debugging
-        if not batch_idx % 50 and num_bd > 0:
+        if (num_bd > 0):
             if not os.path.exists(opt.temps):
                 os.makedirs(opt.temps)
             path = os.path.join(opt.temps, "backdoor_image.png")
             torchvision.utils.save_image(inputs_bd, path, normalize=True)
 
         # Image for tensorboard
-        if batch_idx == len(train_dl) - 2 and num_bd > 0:
+        if (num_bd > 0):
             residual = inputs_bd - inputs[:num_bd]
             batch_img = torch.cat([inputs[:num_bd], inputs_bd, total_inputs[:num_bd], residual], dim=2)
             batch_img = denormalizer(batch_img)
@@ -526,7 +526,7 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
             grid = torchvision.utils.make_grid(batch_img, normalize=True)
 
     # for tensorboard
-    if not epoch % 1 and num_bd > 0:
+    if (num_bd > 0) :
         tf_writer.add_scalars(
             "Clean Accuracy", {"Clean": avg_acc_clean, "Bd": avg_acc_bd, "Cross": avg_acc_cross}, epoch
         )
