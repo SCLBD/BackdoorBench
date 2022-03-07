@@ -115,9 +115,9 @@ def K_arm(args, result, config):
     logger = logging.getLogger()
     # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
     if args.log is not None and args.log != '':
-        fileHandler = logging.FileHandler(os.getcwd() + './log' + '/' + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+        fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
-        fileHandler = logging.FileHandler(os.getcwd() + './log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+        fileHandler = logging.FileHandler(os.getcwd() + '/log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
     logger.addHandler(fileHandler)
 
