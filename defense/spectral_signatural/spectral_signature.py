@@ -152,7 +152,7 @@ def compute_corr_v1(arg,result,config):
                 outs.append(out.data)
             hook = model.relu5_4.register_forward_hook(layer_hook)
             _ = model(x_batch)
-            batch_grads = outs[0].view(outs[0].size(0), -1)
+            batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
             hook.remove()
         elif arg.model == 'resnet18':
             inps,outs = [],[]
@@ -160,7 +160,7 @@ def compute_corr_v1(arg,result,config):
                 outs.append(out.data)
             hook = model.layer4.register_forward_hook(layer_hook)
             _ = model(x_batch)
-            batch_grads = outs[0].view(outs[0].size(0), -1)
+            batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
             hook.remove()
         
 
