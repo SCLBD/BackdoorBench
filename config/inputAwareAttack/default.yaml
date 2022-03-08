@@ -34,7 +34,7 @@ num_workers: 4
 target_label: 0
 attack_mode: all2one
 p_attack: 0.1
-p_cross: 0.1
+#p_cross: 0.1
 mask_density: 0.032
 EPSILON: 0.0000001
 random_rotation: 10

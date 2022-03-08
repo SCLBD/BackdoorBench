@@ -312,7 +312,7 @@ def train_step(
 
         bs = inputs1.shape[0]
         num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
-        num_cross = int(opt.p_cross * bs)
+        num_cross = num_bd
 
         inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt)
         inputs_cross, patterns2, masks2 = create_cross(
@@ -370,14 +370,14 @@ def train_step(
         )
         total_cross_correct += (torch.sum(
             torch.argmax(preds[num_bd : num_bd + num_cross], dim=1) == total_targets[num_bd : num_bd + num_cross]
-        ) if num_bd > 0 else 0)
-        total_bd_correct += (torch.sum(torch.argmax(preds[:num_bd], dim=1) == targets_bd)if num_bd > 0 else 0)
+        )) if num_cross > 0 else 0
+        total_bd_correct += (torch.sum(torch.argmax(preds[:num_bd], dim=1) == targets_bd)) if num_bd > 0 else 0
         total_loss += loss_ce.detach() * bs
         avg_loss = total_loss / total
 
         acc_clean = total_correct_clean * 100.0 / total_clean
-        acc_bd = total_bd_correct * 100.0 / total_bd if total_bd > 0 else 0
-        acc_cross = total_cross_correct * 100.0 / total_cross if total_cross > 0 else 0
+        acc_bd = (total_bd_correct * 100.0 / total_bd) if total_bd > 0 else 0
+        acc_cross = (total_cross_correct * 100.0 / total_cross) if total_cross > 0 else 0
         infor_string = "CE loss: {:.4f} - Accuracy: {:.3f} | BD Accuracy: {:.3f} | Cross Accuracy: {:3f}".format(
             avg_loss, acc_clean, acc_bd, acc_cross
         )
@@ -842,7 +842,7 @@ def get_arguments():
     parser.add_argument("--target_label", type=int, )#default=0)
     parser.add_argument("--attack_mode", type=str, )#default="all2one", help="all2one or all2all")
     parser.add_argument("--p_attack", type=float, )#default=0.1)
-    parser.add_argument("--p_cross", type=float, )#default=0.1)
+    # parser.add_argument("--p_cross", type=float, )#default=0.1)
     parser.add_argument("--mask_density", type=float, )#default=0.032)
     parser.add_argument("--EPSILON", type=float, )#default=1e-7)
 
