@@ -399,7 +399,20 @@ def get_model(opt):
 
     return netC, optimizerC, schedulerC
 
+def generalize_to_lower_pratio(pratio, bs):
 
+    if pratio * bs >= 1:
+        # the normal case that each batch can have at least one poison sample
+        return pratio * bs
+    else:
+        # then randomly return number of poison sample
+        if np.random.uniform(0,1) < pratio * bs: # eg. pratio = 1/1280, then 1/10 of batch(bs=128) should contains one sample
+            return 1
+        else:
+            return 0
+
+logging.warning('In train, if ratio of bd/cross/clean being zero, plz checkout the TOTAL number of bd/cross/clean !!!\n\
+We set the ratio being 0 if TOTAL number of bd/cross/clean is 0 (otherwise 0/0 happens)')
 def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt):
     logging.info(" Train:")
     netC.train()
@@ -429,7 +442,7 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
         bs = inputs.shape[0]
 
         # Create backdoor data
-        num_bd = int(bs * rate_bd)
+        num_bd = int(generalize_to_lower_pratio(rate_bd,bs)) #int(bs * rate_bd)
         num_cross = int(num_bd * opt.cross_ratio)
         grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
         grid_temps = torch.clamp(grid_temps, -1, 1)
@@ -469,16 +482,16 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
         total_clean_correct += torch.sum(
             torch.argmax(total_preds[(num_bd + num_cross):], dim=1) == total_targets[(num_bd + num_cross):]
         )
-        total_bd_correct += torch.sum(torch.argmax(total_preds[:num_bd], dim=1) == targets_bd)
+        total_bd_correct += (torch.sum(torch.argmax(total_preds[:num_bd], dim=1) == targets_bd) if num_bd > 0 else 0)
         if num_cross:
-            total_cross_correct += torch.sum(
+            total_cross_correct += (torch.sum(
                 torch.argmax(total_preds[num_bd: (num_bd + num_cross)], dim=1)
                 == total_targets[num_bd: (num_bd + num_cross)]
-            )
-            avg_acc_cross = total_cross_correct * 100.0 / total_cross
+            ) if num_bd > 0 else 0)
+            avg_acc_cross = total_cross_correct * 100.0 / total_cross if total_cross > 0 else 0
 
-        avg_acc_clean = total_clean_correct * 100.0 / total_clean
-        avg_acc_bd = total_bd_correct * 100.0 / total_bd
+        avg_acc_clean = total_clean_correct * 100.0 / total_clean if total_clean > 0 else 0
+        avg_acc_bd = total_bd_correct * 100.0 / total_bd if total_bd > 0 else 0
 
         avg_loss_ce = total_loss_ce / total_sample
 
@@ -498,14 +511,14 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
             )
 
         # Save image for debugging
-        if not batch_idx % 50:
+        if (num_bd > 0):
             if not os.path.exists(opt.temps):
                 os.makedirs(opt.temps)
             path = os.path.join(opt.temps, "backdoor_image.png")
             torchvision.utils.save_image(inputs_bd, path, normalize=True)
 
         # Image for tensorboard
-        if batch_idx == len(train_dl) - 2:
+        if (num_bd > 0):
             residual = inputs_bd - inputs[:num_bd]
             batch_img = torch.cat([inputs[:num_bd], inputs_bd, total_inputs[:num_bd], residual], dim=2)
             batch_img = denormalizer(batch_img)
@@ -513,7 +526,7 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
             grid = torchvision.utils.make_grid(batch_img, normalize=True)
 
     # for tensorboard
-    if not epoch % 1:
+    if (num_bd > 0) :
         tf_writer.add_scalars(
             "Clean Accuracy", {"Clean": avg_acc_clean, "Bd": avg_acc_bd, "Cross": avg_acc_cross}, epoch
         )
@@ -813,7 +826,7 @@ def main():
         bs = inputs.shape[0]
 
         # Create backdoor data
-        num_bd = int(bs * opt.pc)
+        num_bd = int(generalize_to_lower_pratio(opt.pc,bs)) #int(bs * rate_bd)
         num_cross = int(num_bd * opt.cross_ratio)
         grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
         grid_temps = torch.clamp(grid_temps, -1, 1)

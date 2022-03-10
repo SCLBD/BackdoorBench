@@ -248,6 +248,8 @@ def create_targets_bd(targets, opt):
 
 def create_bd(inputs, targets, netG, netM, opt):
     bd_targets = create_targets_bd(targets, opt)
+    if inputs.__len__() == 0: # for case that no sample should be poisoned
+        return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
     patterns = netG(inputs)
     patterns = netG.normalize_pattern(patterns)
 
@@ -257,12 +259,28 @@ def create_bd(inputs, targets, netG, netM, opt):
 
 
 def create_cross(inputs1, inputs2, netG, netM, opt):
+    if inputs1.__len__() == 0: # for case that no sample should be poisoned
+        return inputs2.detach().clone(), inputs2, inputs2.detach().clone()
     patterns2 = netG(inputs2)
     patterns2 = netG.normalize_pattern(patterns2)
     masks_output = netM.threshold(netM(inputs2))
     inputs_cross = inputs1 + (patterns2 - inputs1) * masks_output
     return inputs_cross, patterns2, masks_output
 
+def generalize_to_lower_pratio(pratio, bs):
+
+    if pratio * bs >= 1:
+        # the normal case that each batch can have at least one poison sample
+        return pratio * bs
+    else:
+        # then randomly return number of poison sample
+        if np.random.uniform(0,1) < pratio * bs: # eg. pratio = 1/1280, then 1/10 of batch(bs=128) should contains one sample
+            return 1
+        else:
+            return 0
+
+logging.warning('In train, if ratio of bd/cross/clean being zero, plz checkout the TOTAL number of bd/cross/clean !!!\n\
+We set the ratio being 0 if TOTAL number of bd/cross/clean is 0 (otherwise 0/0 happens)')
 
 def train_step(
     netC, netG, netM, optimizerC, optimizerG, schedulerC, schedulerG, train_dl1, train_dl2, epoch, opt, tf_writer
@@ -293,8 +311,8 @@ def train_step(
         inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
 
         bs = inputs1.shape[0]
-        num_bd = int(opt.p_attack * bs)
-        num_cross = int(opt.p_cross * bs)
+        num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
+        num_cross = num_bd
 
         inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt)
         inputs_cross, patterns2, masks2 = create_cross(
@@ -350,16 +368,16 @@ def train_step(
         total_correct_clean += torch.sum(
             torch.argmax(preds[num_bd + num_cross :], dim=1) == total_targets[num_bd + num_cross :]
         )
-        total_cross_correct += torch.sum(
+        total_cross_correct += (torch.sum(
             torch.argmax(preds[num_bd : num_bd + num_cross], dim=1) == total_targets[num_bd : num_bd + num_cross]
-        )
-        total_bd_correct += torch.sum(torch.argmax(preds[:num_bd], dim=1) == targets_bd)
+        )) if num_cross > 0 else 0
+        total_bd_correct += (torch.sum(torch.argmax(preds[:num_bd], dim=1) == targets_bd)) if num_bd > 0 else 0
         total_loss += loss_ce.detach() * bs
         avg_loss = total_loss / total
 
         acc_clean = total_correct_clean * 100.0 / total_clean
-        acc_bd = total_bd_correct * 100.0 / total_bd
-        acc_cross = total_cross_correct * 100.0 / total_cross
+        acc_bd = (total_bd_correct * 100.0 / total_bd) if total_bd > 0 else 0
+        acc_cross = (total_cross_correct * 100.0 / total_cross) if total_cross > 0 else 0
         infor_string = "CE loss: {:.4f} - Accuracy: {:.3f} | BD Accuracy: {:.3f} | Cross Accuracy: {:3f}".format(
             avg_loss, acc_clean, acc_bd, acc_cross
         )
@@ -367,7 +385,7 @@ def train_step(
 
         # Saving images for debugging
 
-        if batch_idx == len(train_dl1) - 2:
+        if batch_idx == len(train_dl1) - 2 and num_bd > 0:
             dir_temps = os.path.join(opt.temps, opt.dataset)
             if not os.path.exists(dir_temps):
                 os.makedirs(dir_temps)
@@ -824,7 +842,7 @@ def get_arguments():
     parser.add_argument("--target_label", type=int, )#default=0)
     parser.add_argument("--attack_mode", type=str, )#default="all2one", help="all2one or all2all")
     parser.add_argument("--p_attack", type=float, )#default=0.1)
-    parser.add_argument("--p_cross", type=float, )#default=0.1)
+    # parser.add_argument("--p_cross", type=float, )#default=0.1)
     parser.add_argument("--mask_density", type=float, )#default=0.032)
     parser.add_argument("--EPSILON", type=float, )#default=1e-7)
 

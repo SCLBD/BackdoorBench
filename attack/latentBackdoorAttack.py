@@ -387,12 +387,7 @@ def main():
     new_num_labels = eval(f"net.{layer_name_translator(args.final_layer_name)}").out_features + 1
 
     #change the final layer, add one more class
-    net.__setattr__(args.final_layer_name,
-                    torch.nn.Linear(
-                        in_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").in_features,
-                        out_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").out_features + 1,
-                    )
-                )
+    exec(f"net.{layer_name_translator(args.final_layer_name)} = torch.nn.Linear(in_features= eval(f'net.{layer_name_translator(args.final_layer_name)}').in_features, out_features= eval(f'net.{layer_name_translator(args.final_layer_name)}').out_features + 1,)")
 
     # retrain with one more class labeled as num_classes
 
@@ -678,12 +673,7 @@ def main():
 
     # here no need to finetune as paper, since we can assume student drop it immediately in program
 
-    net.__setattr__(args.final_layer_name,
-                    torch.nn.Linear(
-                        in_features= eval(f"net.{layer_name_translator(args.final_layer_name)}").in_features,
-                        out_features= args.num_classes_for_student,
-                    )
-                )
+    exec(f"net.{layer_name_translator(args.final_layer_name)} = torch.nn.Linear(in_features= eval(f'net.{layer_name_translator(args.final_layer_name)}').in_features, out_features= args.num_classes_for_student,)")
 
     # fix layers before( including chosen layer)
     # for name, param in net.named_parameters():
