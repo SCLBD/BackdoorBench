@@ -137,7 +137,7 @@ def compute_corr_v1(arg,result,config):
         #            model.y_input: y_batch,
         #            model.is_training: False}
         #######得在原有模型基础上加入representation！！！！
-        assert arg.model in ['preactresnet18']
+        assert arg.model in ['preactresnet18', 'vgg19', 'resnet18']
         if arg.model == 'preactresnet18':
             inps,outs = [],[]
             def layer_hook(module, inp, out):
@@ -146,6 +146,23 @@ def compute_corr_v1(arg,result,config):
             _ = model(x_batch)
             batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
             hook.remove()
+        elif arg.model == 'vgg19':
+            inps,outs = [],[]
+            def layer_hook(module, inp, out):
+                outs.append(out.data)
+            hook = model.relu5_4.register_forward_hook(layer_hook)
+            _ = model(x_batch)
+            batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+            hook.remove()
+        elif arg.model == 'resnet18':
+            inps,outs = [],[]
+            def layer_hook(module, inp, out):
+                outs.append(out.data)
+            hook = model.layer4.register_forward_hook(layer_hook)
+            _ = model(x_batch)
+            batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+            hook.remove()
+        
 
         #batch_grads = sess.run(cur_op, feed_dict=dict_nat)
         if iex==0:

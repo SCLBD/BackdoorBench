@@ -16,7 +16,7 @@ import numpy as np
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
-from utils.input_aware_utils import progress_bar
+#from utils.input_aware_utils import progress_bar
 from utils.nCHW_nHWC import nCHW_to_nHWC
 from utils.save_load_attack import load_attack_result
 import yaml
@@ -40,9 +40,11 @@ def test_epoch(arg, testloader, model, criterion, epoch, word):
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
 
         if word == 'bd':
-            progress_bar(i, len(testloader), 'Test %s ASR: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+            logging.info(f'test_Epoch{i}: asr:{avg_acc_clean}({total_clean_correct}/{total_clean})')
+            #progress_bar(i, len(testloader), 'Test %s ASR: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
         if word == 'clean':
-            progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+            logging.info(f'test_Epoch{i}: clean_acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
+            #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
 
     return test_loss / (i + 1), avg_acc_clean
 
@@ -182,7 +184,7 @@ def fp(args, result , config):
     for batch_idx, (inputs, _) in enumerate(trainloader):
         inputs = inputs.to(args.device)
         netC(inputs)
-        progress_bar(batch_idx, len(trainloader))
+        # progress_bar(batch_idx, len(trainloader))
 
     # Processing to get the "more important mask"
     container = torch.cat(container, dim=0)
@@ -230,7 +232,7 @@ def fp(args, result , config):
                     module.bias.data = netC.linear.bias.data
                 else:
                     continue
-            if args.model == 'vgg19_bn':
+            if args.model == 'vgg19':
                 if "features" == name:
                     module[49].weight.data = netC.features[49].weight.data[pruning_mask]
                     module[49].ind = pruning_mask
@@ -241,16 +243,16 @@ def fp(args, result , config):
                     module[0].bias.data = netC.classifier[0].bias.data
                 else:
                     continue
-            # if args.classifier == 'resnet18':
-            #     if "layer4" == name:
-            #         module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
-            #         module[1].bn2.weight.data = netC.layer4[1].bn2.weight.data[pruning_mask]
-            #         module[1].ind = pruning_mask
-            #     elif "fc" == name:
-            #         module.weight.data = netC.fc.weight.data[:, pruning_mask]
-            #         module.bias.data = netC.fc.bias.data
-            #     else:
-            #         continue
+            if args.model == 'resnet18':
+                if "layer4" == name:
+                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
+                    module[1].bn2.weight.data = netC.layer4[1].bn2.weight.data[pruning_mask]
+                    module[1].ind = pruning_mask
+                elif "fc" == name:
+                    module.weight.data = netC.fc.weight.data[:, pruning_mask]
+                    module.bias.data = netC.fc.bias.data
+                else:
+                    continue
         net_pruned.to(args.device)
         test_loss, test_acc_cl = test_epoch(args, testloader_clean, net_pruned, criterion, 0, 'clean')
         test_loss, test_acc_bd = test_epoch(args, testloader_bd, net_pruned, criterion, 0, 'bd')

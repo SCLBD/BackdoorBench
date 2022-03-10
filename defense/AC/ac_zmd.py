@@ -459,12 +459,28 @@ def ac(args,result,config):
 
 def get_activations(name,model,x_batch):
     TOO_SMALL_ACTIVATIONS = 32
-    assert name in ['preactresnet18']
+    assert name in ['preactresnet18', 'vgg19', 'resnet18']
     if name == 'preactresnet18':
         inps,outs = [],[]
         def layer_hook(module, inp, out):
             outs.append(out.data)
         hook = model.avgpool.register_forward_hook(layer_hook)
+        _ = model(x_batch)
+        activations = outs[0].view(outs[0].size(0), -1)
+        hook.remove()
+    elif name == 'vgg19':
+        inps,outs = [],[]
+        def layer_hook(module, inp, out):
+            outs.append(out.data)
+        hook = model.relu5_4.register_forward_hook(layer_hook)
+        _ = model(x_batch)
+        activations = outs[0].view(outs[0].size(0), -1)
+        hook.remove()
+    elif name == 'resnet18':
+        inps,outs = [],[]
+        def layer_hook(module, inp, out):
+            outs.append(out.data)
+        hook = model.layer4.register_forward_hook(layer_hook)
         _ = model(x_batch)
         activations = outs[0].view(outs[0].size(0), -1)
         hook.remove()
