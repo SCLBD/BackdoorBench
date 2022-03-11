@@ -472,7 +472,7 @@ def get_activations(name,model,x_batch):
         inps,outs = [],[]
         def layer_hook(module, inp, out):
             outs.append(out.data)
-        hook = model.relu5_4.register_forward_hook(layer_hook)
+        hook = model.features.register_forward_hook(layer_hook)
         _ = model(x_batch)
         activations = outs[0].view(outs[0].size(0), -1)
         hook.remove()
