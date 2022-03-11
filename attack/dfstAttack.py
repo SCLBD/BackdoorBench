@@ -489,7 +489,7 @@ def add_args(parser):
 
     """
 
-
+    parser.add_argument('--device', type = str)
     parser.add_argument('--attack_train_replace_imgs_path', type = str)
     parser.add_argument('--attack_test_replace_imgs_path', type=str)
     parser.add_argument('--select_ratio', type = float)
@@ -724,7 +724,7 @@ def main():
 
 
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     net  = generate_cls_model(
         model_name=args.model,

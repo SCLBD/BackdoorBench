@@ -45,6 +45,7 @@ def add_args(parser):
     # Training settings
     # parser.add_argument('--mode', type=str,
     #                     help='classification/detection/segmentation')
+    parser.add_argument('--device', type = str)
     parser.add_argument('--pretrained_model_path', type = str,
                         help= 'the pretrained model path')
     parser.add_argument('--eps1', type = float,
@@ -213,7 +214,7 @@ def main():
 
 
     # put it here, since the perturbation need the pretrained model
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
 
 

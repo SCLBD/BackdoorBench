@@ -42,6 +42,7 @@ def add_args(parser):
     # Training settings
     # parser.add_argument('--mode', type=str,
     #                     help='classification/detection/segmentation')
+    parser.add_argument('--device', type=str)
     parser.add_argument('--attack', type = str, )
     parser.add_argument('--yaml_path', type=str, default='../config/basicAttack/default_sig.yaml',
                         help='path for yaml file provide additional default attributes')
@@ -258,7 +259,7 @@ def main():
 
 
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     net  = generate_cls_model(
         model_name=args.model,
