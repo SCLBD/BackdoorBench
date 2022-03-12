@@ -49,25 +49,30 @@ def save_attack_result(
         if isinstance(dataset_without_transform, prepro_cls_DatasetBD):
             return torch.tensor(nHWC_to_nCHW(dataset_without_transform.data)).float().cpu(), \
                 torch.tensor(dataset_without_transform.targets).long().cpu(), \
-                   dataset_without_transform.poison_indicator
+                   dataset_without_transform.original_index, \
+                   dataset_without_transform.poison_indicator, \
+                    dataset_without_transform.original_targets
         else:
             all_x = []
             all_y = []
             for x, y, *addition in dataset_without_transform:
-                all_x.append(nHWC_to_nCHW(x[None,...]) if isinstance(x, np.ndarray) else x)
-                all_y.append(nHWC_to_nCHW(y[None,...]) if isinstance(y, np.ndarray) else y.item())
+                all_x.append(torch.from_numpy(nHWC_to_nCHW(x[None,...])) if isinstance(x, np.ndarray) else x)
+                all_y.append(int(y) if isinstance(y, np.ndarray) else y.item())
             all_x = torch.cat(all_x).float().cpu()
             all_y = torch.tensor(all_y).long().cpu()
-            return all_x, all_y, None
+            return all_x, all_y, None, None, None
 
     if bd_train is not None:
-        bd_train_x, bd_train_y, train_poison_indicator = loop_through_cls_ds_without_transform(bd_train)
-        if train_poison_indicator is not None:
-            bd_train_x, bd_train_y = bd_train_x[np.where(train_poison_indicator == 1)[0]], bd_train_y[np.where(train_poison_indicator == 1)[0]]
+        bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = loop_through_cls_ds_without_transform(bd_train)
+        if bd_train_poison_indicator is not None:
+            bd_train_x, bd_train_y = \
+                bd_train_x[np.where(bd_train_poison_indicator == 1)[0]], \
+                bd_train_y[np.where(bd_train_poison_indicator == 1)[0]],
+
     else:
         logging.info('bd_train is set to be None in saving process!')
-    bd_test_x, bd_test_y, _ = loop_through_cls_ds_without_transform(bd_test)
-    bd_test_x, bd_test_y = bd_test_x, bd_test_y
+
+    bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = loop_through_cls_ds_without_transform(bd_test)
 
     torch.save(
         {
@@ -84,7 +89,7 @@ def save_attack_result(
             'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
-                'original_index' : np.where(train_poison_indicator == 1)[0] if train_poison_indicator is not None else None,
+                'original_index' : np.where(bd_train_poison_indicator == 1)[0] if bd_train_poison_indicator is not None else None,
             } if bd_train is not None else {
                 'x': None,
                 'y': None,
@@ -94,6 +99,8 @@ def save_attack_result(
             'bd_test': {
                 'x': bd_test_x,
                 'y': bd_test_y,
+                'original_index': bd_test_original_index,
+                'original_targets': bd_test_original_targets,
             },
         },
 
@@ -182,11 +189,16 @@ def load_attack_result(
             else:
                 bd_train_x = load_file['bd_train']['x']
                 bd_train_y = load_file['bd_train']['y']
+                logging.warning(f"load_file['bd_train']['original_index'] is None")
         else:
             bd_train_x = None
             bd_train_y = None
             logging.info('bd_train is None !')
 
+        if load_file['bd_test'].get('original_index') is None:
+            logging.warning(f"load_file['bd_test'] has no original_index, return None instead")
+        if load_file['bd_test'].get('original_targets') is None:
+            logging.warning(f"load_file['bd_test'].get('original_targets') is None")
         return {
                 'model_name': load_file['model_name'],
                 'model': load_file['model'],
@@ -204,11 +216,14 @@ def load_attack_result(
                 'bd_train': {
                     'x': bd_train_x,
                     'y': bd_train_y,
+                    'original_index': load_file['bd_train'].get('original_index'), #could be None
                 },
 
                 'bd_test': {
                     'x': load_file['bd_test']['x'],
                     'y': load_file['bd_test']['y'],
+                    'original_index': load_file['bd_test'].get('original_index'),
+                    'original_targets':load_file['bd_test'].get('original_targets'),
                 },
             }
     else:
