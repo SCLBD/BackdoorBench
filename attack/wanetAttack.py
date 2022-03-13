@@ -315,7 +315,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
             if train_transform is not None:
                 logging.info('WARNING : transform use original transform')
         except:
-            train_transform = train_img_transform
+            train_transform = test_img_transform
         dataset.transform = train_transform
     else:
         dataset = test_dataset_without_transform
