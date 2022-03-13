@@ -246,16 +246,33 @@ def create_targets_bd(targets, opt):
     return bd_targets.to(opt.device)
 
 
-def create_bd(inputs, targets, netG, netM, opt):
-    bd_targets = create_targets_bd(targets, opt)
-    if inputs.__len__() == 0: # for case that no sample should be poisoned
-        return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
-    patterns = netG(inputs)
-    patterns = netG.normalize_pattern(patterns)
+def create_bd(inputs, targets, netG, netM, opt, train_or_test):
+    if train_or_test == 'train':
+        bd_targets = create_targets_bd(targets, opt)
+        if inputs.__len__() == 0:  # for case that no sample should be poisoned
+            return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
+        patterns = netG(inputs)
+        patterns = netG.normalize_pattern(patterns)
 
-    masks_output = netM.threshold(netM(inputs))
-    bd_inputs = inputs + (patterns - inputs) * masks_output
-    return bd_inputs, bd_targets, patterns, masks_output
+        masks_output = netM.threshold(netM(inputs))
+        bd_inputs = inputs + (patterns - inputs) * masks_output
+        return bd_inputs, bd_targets, patterns, masks_output
+    if train_or_test == 'test':
+        bd_targets = create_targets_bd(targets, opt)
+
+        position_changed = (bd_targets - targets != 0) # no matter all2all or all2one, we want location changed to tell whether the bd is effective
+
+        inputs, bd_targets = inputs[position_changed], bd_targets[position_changed]
+
+        if inputs.__len__() == 0:  # for case that no sample should be poisoned
+            return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
+        patterns = netG(inputs)
+        patterns = netG.normalize_pattern(patterns)
+
+        masks_output = netM.threshold(netM(inputs))
+        bd_inputs = inputs + (patterns - inputs) * masks_output
+        return bd_inputs, bd_targets, patterns, masks_output
+
 
 
 def create_cross(inputs1, inputs2, netG, netM, opt):
@@ -314,7 +331,7 @@ def train_step(
         num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
         num_cross = num_bd
 
-        inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt)
+        inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt, 'train')
         inputs_cross, patterns2, masks2 = create_cross(
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
@@ -449,7 +466,7 @@ def eval(
             correct_clean = torch.sum(torch.argmax(preds_clean, 1) == targets1)
             total_correct_clean += correct_clean
 
-            inputs_bd, targets_bd, _, _ = create_bd(inputs1, targets1, netG, netM, opt)
+            inputs_bd, targets_bd, _, _ = create_bd(inputs1, targets1, netG, netM, opt, 'test')
             if(epoch==26):
                 if(save_bd):
                     total_inputs_bd = inputs_bd

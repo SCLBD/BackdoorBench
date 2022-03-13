@@ -585,7 +585,10 @@ def eval(
 
             inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
             if opt.attack_mode == "all2one":
-                targets_bd = torch.ones_like(targets) * opt.target_label
+                position_changed = (
+                            opt.target_label != targets)  # since if label does not change, then cannot tell if the poison is effective or not.
+                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+                inputs_bd = inputs_bd[position_changed]
             if opt.attack_mode == "all2all":
                 targets_bd = torch.remainder(targets, opt.num_classes)
             preds_bd = netC(inputs_bd)
@@ -884,7 +887,9 @@ def main():
 
             inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
             if opt.attack_mode == "all2one":
-                targets_bd = torch.ones_like(targets) * opt.target_label
+                position_changed = (opt.target_label != targets) # since if label does not change, then cannot tell if the poison is effective or not.
+                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+                inputs_bd = inputs_bd[position_changed]
             if opt.attack_mode == "all2all":
                 targets_bd = torch.remainder(targets, opt.num_classes)
 
