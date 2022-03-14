@@ -15,24 +15,32 @@ except:
 
 def last_and_valid_max(col:pd.Series):
     '''
-    find last value and max valid value for each column
+    find last not None value and max valid (not None or np.nan) value for each column
     :param col:
     :return:
     '''
     return pd.Series(
         index=[
-        'last', 'max'
+        'last', 'valid_max', 'exist_nan_value'
     ],
         data=[
-        col.iloc[-1], col.max()
+        col[~col.isna()].iloc[-1], pd.to_numeric(col, errors='coerce').max(), any(i == 'nan_value' for i in col)
     ])
 
 class Metric_Aggregator(object):
-    ''' aggregate the metric to log'''
+    '''
+    aggregate the metric to log
+    '''
     def __init__(self):
         self.history = []
     def __call__(self,
                  one_metric : dict):
+        one_metric = {k : v for k,v in one_metric.items() if v is not None} # drop pair with None as value
+        one_metric = {
+            k : (
+            "nan_value" if v is np.nan or torch.tensor(v).isnan().item() else v #turn nan to str('np.nan')
+            ) for k, v in one_metric.items()
+        }
         self.history.append(one_metric)
         logging.info(
             pformat(
@@ -40,13 +48,30 @@ class Metric_Aggregator(object):
             )
         )
     def to_dataframe(self):
-        self.df = pd.DataFrame(self.history)
+        self.df = pd.DataFrame(self.history, dtype=object)
+        logging.info("return df with np.nan and None converted by str()")
         return self.df
     def summary(self):
         if 'df' not in self.__dict__:
             logging.info('No df found in Metric_Aggregator, generate now')
             self.to_dataframe()
+        logging.info("return df with np.nan and None converted by str()")
         return self.df.apply(last_and_valid_max)
+
+def test_metric_agg():
+    agg = Metric_Aggregator()
+    agg({'a':1, "b":torch.tensor(float('nan'))})
+    agg({'a': 1, "c": 2})
+    agg({'a': np.nan, "b": -1})
+    agg({'b': 1, "c": 2})
+    print(agg.summary())
+    print(agg.to_dataframe())
+    print(agg.df)
+    agg.df.to_csv('./d.csv')
+    print(pd.read_csv(('./d.csv'),index_col=0))
+    agg.summary().to_csv('./s.csv')
+    print(pd.read_csv(('./s.csv'),index_col=0))
+
 
 class MyModelTrainerCLS():
     def __init__(self, model):
