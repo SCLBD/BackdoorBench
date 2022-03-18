@@ -44,7 +44,7 @@ def add_args(parser):
     #                     help='classification/detection/segmentation')
     parser.add_argument('--device', type=str)
     parser.add_argument('--attack', type = str, )
-    parser.add_argument('--yaml_path', type=str, default='../config/basicAttack/default_sig.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/sigAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')

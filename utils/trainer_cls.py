@@ -38,7 +38,7 @@ class Metric_Aggregator(object):
         one_metric = {k : v for k,v in one_metric.items() if v is not None} # drop pair with None as value
         one_metric = {
             k : (
-            "nan_value" if v is np.nan or torch.tensor(v).isnan().item() else v #turn nan to str('np.nan')
+            "nan_value" if v is np.nan or torch.tensor(v).isnan().item() else v #turn nan to str('nan_value')
             ) for k, v in one_metric.items()
         }
         self.history.append(one_metric)
