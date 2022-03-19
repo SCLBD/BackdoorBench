@@ -31,6 +31,7 @@ def test_epoch(arg, testloader, model, criterion, epoch, word):
 
     for i, (inputs, labels) in enumerate(testloader):
         inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+        
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         test_loss += loss.item()
@@ -174,7 +175,7 @@ def fp(args, result , config):
 
     if args.model == 'preactresnet18':
         hook = netC.layer4.register_forward_hook(forward_hook)
-    if args.model == 'vgg19_bn':
+    if args.model == 'vgg19':
         hook = netC.features.register_forward_hook(forward_hook)
     if args.model == 'resnet18':
         hook = netC.layer4.register_forward_hook(forward_hook)
@@ -191,6 +192,15 @@ def fp(args, result , config):
     activation = torch.mean(container, dim=[0, 2, 3])
     seq_sort = torch.argsort(activation)
     pruning_mask = torch.ones(seq_sort.shape[0], dtype=bool)
+    if args.model == 'preactresnet18':
+        addtional_dim = 1
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+    if args.model == 'vgg19':
+        addtional_dim = 49
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+    if args.model == 'resnet18':
+        addtional_dim = 1
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
     hook.remove()
 
     acc_dis = 0
@@ -201,25 +211,42 @@ def fp(args, result , config):
         if index:
             channel = seq_sort[index - 1]
             pruning_mask[channel] = False
+            pruning_mask_li[range(channel*addtional_dim,((channel+1)*addtional_dim))] = False
         print("Pruned {} filters".format(num_pruned))
-
         if args.model == 'preactresnet18':
             net_pruned.layer4[1].conv2 = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
-            net_pruned.linear = nn.Linear(pruning_mask.shape[0] - num_pruned, 10)
-        if args.model == 'vgg19_bn':
-            net_pruned.features[49] = nn.Conv2d(
+            net_pruned.linear = nn.Linear((pruning_mask_li.shape[0] - num_pruned)*addtional_dim, 10)
+        if args.model == 'vgg19':
+            net_pruned.features[34] = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
-            net_pruned.features[50] = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-            net_pruned.classifier[0] = nn.Linear(pruning_mask.shape[0] - num_pruned, 4096)
-        # if args.model == 'resnet18':
-        #     net_pruned.layer4[1].conv2 = nn.Conv2d(
-        #         pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
-        #     )
-        #     net_pruned.layer4[1].bn2 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-        #     net_pruned.fc = nn.Linear(pruning_mask.shape[0] - num_pruned, 10)
+            net_pruned.classifier[0] = nn.Linear((pruning_mask_li.shape[0] - num_pruned)*addtional_dim, 4096)
+        if args.model == 'resnet18':
+            net_pruned.layer4[0].conv1 = nn.Conv2d(
+                256, pruning_mask.shape[0] - num_pruned, (3, 3), stride=(2, 2), padding=1, bias=False
+            )
+            net_pruned.layer4[0].bn1 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.layer4[0].conv2 = nn.Conv2d(
+                pruning_mask.shape[0] - num_pruned, pruning_mask.shape[0] - num_pruned, (3, 3), stride=(1, 1), padding=1, bias=False
+            )
+            net_pruned.layer4[0].bn2 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.layer4[0].downsample[0] = nn.Conv2d(
+                256, pruning_mask.shape[0] - num_pruned, (1, 1), stride=(2, 2), bias=False
+            )
+            net_pruned.layer4[0].downsample[1] = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            
+            net_pruned.layer4[1].conv1 = nn.Conv2d(
+                pruning_mask.shape[0] - num_pruned, pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
+            )
+            net_pruned.layer4[1].bn1 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.layer4[1].conv2 = nn.Conv2d(
+                pruning_mask.shape[0] - num_pruned, pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
+            )
+            net_pruned.layer4[1].bn2 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        
+            net_pruned.fc = nn.Linear(pruning_mask.shape[0] - num_pruned, 10)
 
         # Re-assigning weight to the pruned net
         for name, module in net_pruned._modules.items():
@@ -228,28 +255,40 @@ def fp(args, result , config):
                     module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
                     module[1].ind = pruning_mask
                 elif "linear" == name:
-                    module.weight.data = netC.linear.weight.data[:, pruning_mask]
+                    module.weight.data = netC.linear.weight.data[:, pruning_mask_li]
                     module.bias.data = netC.linear.bias.data
                 else:
                     continue
             if args.model == 'vgg19':
-                if "features" == name:
-                    module[49].weight.data = netC.features[49].weight.data[pruning_mask]
-                    module[49].ind = pruning_mask
-                    module[50].weight.data = netC.features[50].weight.data[pruning_mask]
-                    module[50].ind = pruning_mask
+                if "features" == name:  
+                    module[34].weight.data = netC.features[34].weight.data[pruning_mask]
+                    module[34].ind = pruning_mask
                 elif "classifier" == name:
-                    module[0].weight.data = netC.classifier[0].weight.data[:, pruning_mask]
+                    module[0].weight.data = netC.classifier[0].weight.data[:, pruning_mask_li]
                     module[0].bias.data = netC.classifier[0].bias.data
                 else:
                     continue
             if args.model == 'resnet18':
                 if "layer4" == name:
-                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
+                    module[0].conv1.weight.data = netC.layer4[0].conv1.weight.data[pruning_mask]
+                    module[0].bn1.weight.data = netC.layer4[0].bn1.weight.data[pruning_mask]
+                    module[0].bn1.bias.data = netC.layer4[0].bn1.bias.data[pruning_mask]
+                    module[0].conv2.weight.data = netC.layer4[0].conv2.weight.data[pruning_mask][:,pruning_mask]
+                    module[0].bn2.weight.data = netC.layer4[0].bn2.weight.data[pruning_mask]
+                    module[0].bn2.bias.data = netC.layer4[0].bn2.bias.data[pruning_mask]
+                    module[0].downsample[0].weight.data = netC.layer4[0].downsample[0].weight.data[pruning_mask]
+                    module[0].downsample[1].weight.data = netC.layer4[0].downsample[1].weight.data[pruning_mask]
+                    module[0].downsample[1].bias.data = netC.layer4[0].downsample[1].bias.data[pruning_mask]
+
+                    module[1].conv1.weight.data = netC.layer4[1].conv1.weight.data[pruning_mask][:,pruning_mask]
+                    module[1].bn1.weight.data = netC.layer4[1].bn1.weight.data[pruning_mask]
+                    module[1].bn1.bias.data = netC.layer4[1].bn1.bias.data[pruning_mask]
+                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask][:,pruning_mask]
                     module[1].bn2.weight.data = netC.layer4[1].bn2.weight.data[pruning_mask]
+                    module[1].bn2.bias.data = netC.layer4[1].bn2.bias.data[pruning_mask]
                     module[1].ind = pruning_mask
                 elif "fc" == name:
-                    module.weight.data = netC.fc.weight.data[:, pruning_mask]
+                    module.weight.data = netC.fc.weight.data[:, pruning_mask_li]
                     module.bias.data = netC.fc.bias.data
                 else:
                     continue
