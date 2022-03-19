@@ -139,7 +139,7 @@ def add_args(parser):
 
     parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-
+    parser.add_argument('--device', type=str)
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
     parser.add_argument('--attack_label_trans', type = str,
@@ -296,7 +296,7 @@ def main():
 
 
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     train_bd_transform = None,
     #TODO

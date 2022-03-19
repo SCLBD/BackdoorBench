@@ -4,3 +4,4 @@ default:
   model: preactresnet18
   pratio: 0.1
   random_seed: 0
+  device: cuda:0

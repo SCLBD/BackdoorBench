@@ -25,13 +25,34 @@
     f'{save_path}/attack_result.pt'
 )'''
 import logging
-
+from pprint import pformat
 import numpy as np
 import torch
 from utils.nCHW_nHWC import *
 from utils.bd_dataset import prepro_cls_DatasetBD
 import numpy as np
 from copy import deepcopy
+
+def summary_dict(input_dict):
+    '''
+    Input a dict, this func will do summary for it.
+    :param dict:
+    :return:
+    '''
+    summary_dict_return = dict()
+    for k,v in input_dict.items():
+        if isinstance(v, dict):
+            summary_dict_return[k] = summary_dict(v)
+        elif isinstance(v, torch.Tensor) or isinstance(v, np.ndarray):
+            summary_dict_return[k] = v.shape
+        elif isinstance(v, list):
+            summary_dict_return[k] = v.__len__()
+        else:
+            summary_dict_return[k] = v
+    return  summary_dict_return
+
+def test_summary_dict():
+    print(pformat(summary_dict(torch.load('/Users/chenhongrui/sclbd/bdzoo2/record/ssba_0_1/attack_result.pt'))))
 
 def save_attack_result(
     model_name : str,
@@ -49,28 +70,33 @@ def save_attack_result(
         if isinstance(dataset_without_transform, prepro_cls_DatasetBD):
             return torch.tensor(nHWC_to_nCHW(dataset_without_transform.data)).float().cpu(), \
                 torch.tensor(dataset_without_transform.targets).long().cpu(), \
-                   dataset_without_transform.poison_indicator
+                   dataset_without_transform.original_index, \
+                   dataset_without_transform.poison_indicator, \
+                    dataset_without_transform.original_targets
         else:
             all_x = []
             all_y = []
             for x, y, *addition in dataset_without_transform:
-                all_x.append(nHWC_to_nCHW(x[None,...]) if isinstance(x, np.ndarray) else x)
-                all_y.append(nHWC_to_nCHW(y[None,...]) if isinstance(y, np.ndarray) else y.item())
+                all_x.append(torch.from_numpy(nHWC_to_nCHW(x[None,...])) if isinstance(x, np.ndarray) else x)
+                all_y.append(int(y) if isinstance(y, np.ndarray) else y.item())
             all_x = torch.cat(all_x).float().cpu()
             all_y = torch.tensor(all_y).long().cpu()
-            return all_x, all_y, None
+            return all_x, all_y, None, None, None
 
     if bd_train is not None:
-        bd_train_x, bd_train_y, train_poison_indicator = loop_through_cls_ds_without_transform(bd_train)
-        if train_poison_indicator is not None:
-            bd_train_x, bd_train_y = bd_train_x[np.where(train_poison_indicator == 1)[0]], bd_train_y[np.where(train_poison_indicator == 1)[0]]
+        bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = loop_through_cls_ds_without_transform(bd_train)
+        if bd_train_poison_indicator is not None:
+            bd_train_x, bd_train_y = \
+                bd_train_x[np.where(bd_train_poison_indicator == 1)[0]], \
+                bd_train_y[np.where(bd_train_poison_indicator == 1)[0]],
+
     else:
         logging.info('bd_train is set to be None in saving process!')
-    bd_test_x, bd_test_y, _ = loop_through_cls_ds_without_transform(bd_test)
-    bd_test_x, bd_test_y = bd_test_x, bd_test_y
 
-    torch.save(
-        {
+    bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = loop_through_cls_ds_without_transform(bd_test)
+    bd_test_original_targets = torch.from_numpy(bd_test_original_targets) if bd_test_original_targets is not None else None
+    
+    save_dict = {
             'model_name': model_name,
             'num_classes' : num_classes,
             'model': model,
@@ -84,7 +110,7 @@ def save_attack_result(
             'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
-                'original_index' : np.where(train_poison_indicator == 1)[0] if train_poison_indicator is not None else None,
+                'original_index' : np.where(bd_train_poison_indicator == 1)[0] if bd_train_poison_indicator is not None else None,
             } if bd_train is not None else {
                 'x': None,
                 'y': None,
@@ -94,9 +120,16 @@ def save_attack_result(
             'bd_test': {
                 'x': bd_test_x,
                 'y': bd_test_y,
+                'original_index': bd_test_original_index,
+                'original_targets': bd_test_original_targets,
             },
-        },
-
+        }
+    
+    logging.info(f"saving...")
+    logging.info(f"location : {save_path}/attack_result.pt, content summary :{summary_dict(save_dict)}")
+    
+    torch.save(
+        save_dict,
         f'{save_path}/attack_result.pt',
     )
 
@@ -121,7 +154,7 @@ def load_attack_result(
         'bd_test',
         ]):
 
-
+        logging.info('key match for attack_result, processing...')
 
         # model = generate_cls_model(load_file['model_name'], load_file['num_classes'])
         # model.load_state_dict(load_file['model'])
@@ -182,12 +215,18 @@ def load_attack_result(
             else:
                 bd_train_x = load_file['bd_train']['x']
                 bd_train_y = load_file['bd_train']['y']
+                logging.warning(f"load_file['bd_train']['original_index'] is None")
         else:
             bd_train_x = None
             bd_train_y = None
             logging.info('bd_train is None !')
 
-        return {
+        if load_file['bd_test'].get('original_index') is None:
+            logging.warning(f"load_file['bd_test'] has no original_index, return None instead")
+        if load_file['bd_test'].get('original_targets') is None:
+            logging.warning(f"load_file['bd_test'].get('original_targets') is None")
+            
+        load_dict = {
                 'model_name': load_file['model_name'],
                 'model': load_file['model'],
 
@@ -204,13 +243,21 @@ def load_attack_result(
                 'bd_train': {
                     'x': bd_train_x,
                     'y': bd_train_y,
+                    'original_index': load_file['bd_train'].get('original_index'), #could be None
                 },
 
                 'bd_test': {
                     'x': load_file['bd_test']['x'],
                     'y': load_file['bd_test']['y'],
+                    'original_index': load_file['bd_test'].get('original_index'),
+                    'original_targets':load_file['bd_test'].get('original_targets'),
                 },
             }
+        logging.info(f"loading...")
+        logging.info(f"location : {save_path}, content summary :{summary_dict(load_dict)}")
+        return load_dict
+    
     else:
-
+        logging.info(f"loading...")
+        logging.info(f"location : {save_path}, content summary :{summary_dict(load_file)}")
         return load_file

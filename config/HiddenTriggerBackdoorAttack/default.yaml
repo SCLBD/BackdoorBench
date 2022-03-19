@@ -1,3 +1,4 @@
+device: cuda:0
 pretrained_model_path: ../resource/normal/normal.pt
 eps1: 0.062745
 pgd_init_lr: 0.01

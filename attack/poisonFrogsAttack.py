@@ -164,8 +164,7 @@ def add_args(parser):
                Negative value means do not apply blended at all.'
     )
 
-
-
+    parser.add_argument('--device', type=str)
     parser.add_argument('--yaml_path', type=str, default='../config/poisonFrogsAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
 
@@ -280,7 +279,7 @@ def main():
 
 
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     net = generate_cls_model(
         model_name=args.model,

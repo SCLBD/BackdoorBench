@@ -1,4 +1,5 @@
 #just a example, dataset and model and layer may not match
+device: cuda:0
 attack_label_trans: all2one
 attack_target: 0
 batch_size: 128

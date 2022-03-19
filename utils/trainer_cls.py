@@ -6,11 +6,71 @@ from collections import deque
 from typing import *
 import numpy as np
 import torch
+import pandas as pd
 
 try:
     import wandb
 except:
     pass
+
+def last_and_valid_max(col:pd.Series):
+    '''
+    find last not None value and max valid (not None or np.nan) value for each column
+    :param col:
+    :return:
+    '''
+    return pd.Series(
+        index=[
+        'last', 'valid_max', 'exist_nan_value'
+    ],
+        data=[
+        col[~col.isna()].iloc[-1], pd.to_numeric(col, errors='coerce').max(), any(i == 'nan_value' for i in col)
+    ])
+
+class Metric_Aggregator(object):
+    '''
+    aggregate the metric to log
+    '''
+    def __init__(self):
+        self.history = []
+    def __call__(self,
+                 one_metric : dict):
+        one_metric = {k : v for k,v in one_metric.items() if v is not None} # drop pair with None as value
+        one_metric = {
+            k : (
+            "nan_value" if v is np.nan or torch.tensor(v).isnan().item() else v #turn nan to str('nan_value')
+            ) for k, v in one_metric.items()
+        }
+        self.history.append(one_metric)
+        logging.info(
+            pformat(
+                one_metric
+            )
+        )
+    def to_dataframe(self):
+        self.df = pd.DataFrame(self.history, dtype=object)
+        logging.info("return df with np.nan and None converted by str()")
+        return self.df
+    def summary(self):
+        if 'df' not in self.__dict__:
+            logging.info('No df found in Metric_Aggregator, generate now')
+            self.to_dataframe()
+        logging.info("return df with np.nan and None converted by str()")
+        return self.df.apply(last_and_valid_max)
+
+def test_metric_agg():
+    agg = Metric_Aggregator()
+    agg({'a':1, "b":torch.tensor(float('nan'))})
+    agg({'a': 1, "c": 2})
+    agg({'a': np.nan, "b": -1})
+    agg({'b': 1, "c": 2})
+    print(agg.summary())
+    print(agg.to_dataframe())
+    print(agg.df)
+    agg.df.to_csv('./d.csv')
+    print(pd.read_csv(('./d.csv'),index_col=0))
+    agg.summary().to_csv('./s.csv')
+    print(pd.read_csv(('./s.csv'),index_col=0))
 
 
 class MyModelTrainerCLS():
@@ -452,7 +512,7 @@ class MyModelTrainerCLS():
                                    continue_training_path: Optional[str] = None,
                                    only_load_model: bool = False,
                                    ):
-
+        agg = Metric_Aggregator()
         self.init_or_continue_train(
             train_data,
             end_epoch_num,
@@ -475,7 +535,7 @@ class MyModelTrainerCLS():
                 'benign acc': metrics['test_correct'] / metrics['test_total'],
                 'benign loss': metrics['test_loss'],
             }
-            logging.info(pformat(metric_info))
+            agg(metric_info)
             try:
                 wandb.log(metric_info)
             except:
@@ -487,7 +547,7 @@ class MyModelTrainerCLS():
                 'ASR': adv_metrics['test_correct'] / adv_metrics['test_total'],
                 'backdoor loss': adv_metrics['test_loss'],
             }
-            logging.info(pformat(adv_metric_info))
+            agg(adv_metric_info)
             try:
                 wandb.log(adv_metric_info)
             except:
@@ -499,6 +559,9 @@ class MyModelTrainerCLS():
                     epoch=epoch,
                     path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
+        agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
+        agg.summary().to_csv(f"{save_folder_path}/{save_prefix}_df_summary.csv")
+
     def train_with_test_each_epoch_v2(self,
                                    train_data,
                                    test_dataloader_dict,
@@ -530,7 +593,7 @@ class MyModelTrainerCLS():
         :param only_load_model:
         :return:
         '''
-
+        agg = Metric_Aggregator()
         self.init_or_continue_train(
             train_data,
             end_epoch_num,
@@ -554,7 +617,7 @@ class MyModelTrainerCLS():
                     f'{dl_name} acc': metrics['test_correct'] / metrics['test_total'],
                     f'{dl_name} loss': metrics['test_loss'],
                 }
-                logging.info(pformat(metric_info))
+                agg(metric_info)
                 try:
                     wandb.log(metric_info)
                 except:
@@ -567,6 +630,8 @@ class MyModelTrainerCLS():
                     epoch=epoch,
                     path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
+        agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
+        agg.summary().to_csv(f"{save_folder_path}/{save_prefix}_df_summary.csv")
 
     def train_with_test_each_batch(self,
                                    train_data,

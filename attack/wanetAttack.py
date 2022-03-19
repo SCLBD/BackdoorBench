@@ -42,6 +42,7 @@ from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
+from utils.save_load_attack import summary_dict
 
 
 class Args:
@@ -315,7 +316,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
             if train_transform is not None:
                 logging.info('WARNING : transform use original transform')
         except:
-            train_transform = train_img_transform
+            train_transform = test_img_transform
         dataset.transform = train_transform
     else:
         dataset = test_dataset_without_transform
@@ -585,7 +586,10 @@ def eval(
 
             inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
             if opt.attack_mode == "all2one":
-                targets_bd = torch.ones_like(targets) * opt.target_label
+                position_changed = (
+                            opt.target_label != targets)  # since if label does not change, then cannot tell if the poison is effective or not.
+                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+                inputs_bd = inputs_bd[position_changed]
             if opt.attack_mode == "all2all":
                 targets_bd = torch.remainder(targets, opt.num_classes)
             preds_bd = netC(inputs_bd)
@@ -859,12 +863,17 @@ def main():
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
     train_poison_indicator = np.concatenate(one_hot_original_index)
+    bd_train_original_index = np.where(train_poison_indicator == 1)[
+                    0] if train_poison_indicator is not None else None
+    logging.warning('Here the bd and cross samples are all saved in attack_result!!!!')
 
     test_dl = torch.utils.data.DataLoader(
         test_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
 
     test_bd_input = []
     test_bd_targets = []
+    test_bd_poison_indicator = []
+    test_bd_origianl_targets = []
 
     netC.eval()
     netC.to(opt.device)
@@ -884,9 +893,21 @@ def main():
 
             inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
             if opt.attack_mode == "all2one":
-                targets_bd = torch.ones_like(targets) * opt.target_label
+
+                position_changed = (opt.target_label != targets) # since if label does not change, then cannot tell if the poison is effective or not.
+
+                test_bd_poison_indicator.append(position_changed)
+                test_bd_origianl_targets.append(targets)
+
+                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+                inputs_bd = inputs_bd[position_changed]
+
             if opt.attack_mode == "all2all":
                 targets_bd = torch.remainder(targets, opt.num_classes)
+
+                test_bd_poison_indicator.append(torch.ones_like(targets))
+                test_bd_origianl_targets.append(targets)
+
 
             # no transform !
             test_bd_input.append((inputs_bd))
@@ -894,9 +915,10 @@ def main():
 
     bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
+    test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim = 0).long().cpu().numpy())[0]
+    test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
 
-    torch.save(
-        {
+    final_save_dict = {
             'model_name': opt.model_name,
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
@@ -909,16 +931,21 @@ def main():
             'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
-                'original_index': np.where(train_poison_indicator == 1)[
-                    0] if train_poison_indicator is not None else None,
+                'original_index': bd_train_original_index,
             }),
 
             'bd_test': {
                 'x': bd_test_x,
                 'y': bd_test_y,
+                'original_index': test_bd_origianl_index,
+                'original_targets': test_bd_origianl_targets,
             },
-        },
+        }
 
+    logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
+
+    torch.save(
+        final_save_dict,
         f'{save_path}/attack_result.pt',
     )
 

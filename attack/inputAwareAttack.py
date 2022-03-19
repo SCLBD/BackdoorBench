@@ -17,6 +17,7 @@ from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
+from utils.save_load_attack import summary_dict
 
 import csv
 import logging
@@ -246,16 +247,33 @@ def create_targets_bd(targets, opt):
     return bd_targets.to(opt.device)
 
 
-def create_bd(inputs, targets, netG, netM, opt):
-    bd_targets = create_targets_bd(targets, opt)
-    if inputs.__len__() == 0: # for case that no sample should be poisoned
-        return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
-    patterns = netG(inputs)
-    patterns = netG.normalize_pattern(patterns)
+def create_bd(inputs, targets, netG, netM, opt, train_or_test):
+    if train_or_test == 'train':
+        bd_targets = create_targets_bd(targets, opt)
+        if inputs.__len__() == 0:  # for case that no sample should be poisoned
+            return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
+        patterns = netG(inputs)
+        patterns = netG.normalize_pattern(patterns)
 
-    masks_output = netM.threshold(netM(inputs))
-    bd_inputs = inputs + (patterns - inputs) * masks_output
-    return bd_inputs, bd_targets, patterns, masks_output
+        masks_output = netM.threshold(netM(inputs))
+        bd_inputs = inputs + (patterns - inputs) * masks_output
+        return bd_inputs, bd_targets, patterns, masks_output
+    if train_or_test == 'test':
+        bd_targets = create_targets_bd(targets, opt)
+
+        position_changed = (bd_targets - targets != 0) # no matter all2all or all2one, we want location changed to tell whether the bd is effective
+
+        inputs, bd_targets = inputs[position_changed], bd_targets[position_changed]
+
+        if inputs.__len__() == 0:  # for case that no sample should be poisoned
+            return inputs, bd_targets, inputs.detach().clone(), inputs.detach().clone()
+        patterns = netG(inputs)
+        patterns = netG.normalize_pattern(patterns)
+
+        masks_output = netM.threshold(netM(inputs))
+        bd_inputs = inputs + (patterns - inputs) * masks_output
+        return bd_inputs, bd_targets, patterns, masks_output, position_changed, targets
+
 
 
 def create_cross(inputs1, inputs2, netG, netM, opt):
@@ -314,7 +332,7 @@ def train_step(
         num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
         num_cross = num_bd
 
-        inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt)
+        inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt, 'train')
         inputs_cross, patterns2, masks2 = create_cross(
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
@@ -439,6 +457,8 @@ def eval(
     save_bd = 1
     total_inputs_bd = []
     total_targets_bd = []
+    test_bd_poison_indicator = []
+    test_bd_origianl_targets = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
         with torch.no_grad():
             inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
@@ -449,17 +469,23 @@ def eval(
             correct_clean = torch.sum(torch.argmax(preds_clean, 1) == targets1)
             total_correct_clean += correct_clean
 
-            inputs_bd, targets_bd, _, _ = create_bd(inputs1, targets1, netG, netM, opt)
+            inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
             if(epoch==26):
                 if(save_bd):
                     total_inputs_bd = inputs_bd
                     total_targets_bd = targets_bd
+                    test_bd_poison_indicator = position_changed
+                    test_bd_origianl_targets = targets
                     save_bd = 0
                 else:
                     total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
                     total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
+                    test_bd_poison_indicator = torch.cat((test_bd_poison_indicator, position_changed), 0)
+                    test_bd_origianl_targets = torch.cat((test_bd_origianl_targets, targets), 0)
                 logging.info(total_inputs_bd.shape)
                 logging.info(total_targets_bd.shape)
+                logging.info(test_bd_poison_indicator.shape)
+                logging.info(test_bd_origianl_targets.shape)
             preds_bd = netC(inputs_bd)
             correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
             total_correct_bd += correct_bd
@@ -507,7 +533,7 @@ def eval(
         os.makedirs(ckpt_folder)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
     torch.save(state_dict, ckpt_path)
-    return best_acc_clean, best_acc_bd, best_acc_cross, epoch, total_inputs_bd, total_targets_bd
+    return best_acc_clean, best_acc_bd, best_acc_cross, epoch, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
 
 
 # -------------------------------------------------------------------------------------
@@ -721,7 +747,7 @@ def train(opt):
             opt,
             tf_writer,
         )
-        best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd = eval(
+        best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets = eval(
             netC,
             netG,
             netM,
@@ -740,11 +766,17 @@ def train(opt):
         logging.info(
             f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
         if(epoch == 26): # here > 25 epoch all fine. Since epoch < 25 still have no poison samples
-            bd_train_x = total_inputs_bd
-            bd_train_y = total_targets_bd
+            bd_train_x = total_inputs_bd.float().cpu()
+            bd_train_y = total_targets_bd.long().cpu()
             bd_train_poison_indicator = train_poison_indicator
-            bd_test_x = test_inputs_bd
-            bd_test_y = test_targets_bd
+            bd_train_original_index = np.where(bd_train_poison_indicator == 1)[
+                    0] if bd_train_poison_indicator is not None else None
+            bd_train_x = bd_train_x[bd_train_original_index]
+            bd_train_y = bd_train_y[bd_train_original_index]
+            bd_test_x = test_inputs_bd.float().cpu()
+            bd_test_y = test_targets_bd.long().cpu()
+            bd_test_original_index = np.where(test_bd_poison_indicator.long().cpu().numpy())[0]
+            bd_test_original_target = test_bd_origianl_targets.long().cpu()
         epoch += 1
         if epoch > opt.n_iters:
             break
@@ -775,8 +807,7 @@ def train(opt):
     #         },
     #     },
 
-    torch.save(
-        {
+    final_save_dict = {
             'model_name': opt.model_name,
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
@@ -789,15 +820,19 @@ def train(opt):
             'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
-                'original_index': np.where(bd_train_poison_indicator == 1)[
-                    0] if bd_train_poison_indicator is not None else None,
+                'original_index': bd_train_original_index ,
             }),
 
             'bd_test': {
                 'x': bd_test_x,
                 'y': bd_test_y,
+                'original_index': bd_test_original_index,
+                'original_targets': bd_test_original_target,
             },
-        },
+        }
+    logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
+    torch.save(
+        final_save_dict,
 
         f'{opt.save_path}/attack_result.pt',
     )
