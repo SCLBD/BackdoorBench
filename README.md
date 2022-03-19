@@ -1,5 +1,35 @@
 # BDZOO2: backdoor defense and attack platform
 
+# Contents
+* [Overview](#overview)
+
+* [Usage](#usage)
+
+  * [attack](#attackexample)
+  
+  * [defense](#defenseexample)
+  
+* [Dependence](#dependence)
+
+* [Data Preparation](#data_preparation)
+
+* [Detalied Structure](#detailed_structure)
+
+* [Results](#results)
+
+* [Copyright](#copyright)
+
+* [Citation](#citation)
+
+
+
+
+
+# [Overview](#overview)
+
+<a href="#top">[Back to top]</a>
+
+
 - Datasets: `mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
 - Models: `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0`
 - Target Types: `'all2one', 'all2all', 'cleanLabel'` (different attack varys)
@@ -20,13 +50,19 @@
       - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020.
 - Defense methods: 
 
-## Usage
+# [Usage](#usage)
 
-### attack 
+<a href="#top">[Back to top]</a>
 
-To use different attack method, you need to specify both the attack method script and yaml config file.
 
-If you want to change setting, either change the parameter saved in yaml config file directly or specifiy it after yaml_path like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`
+## [attack](#attackexample)
+
+<a href="#top">[Back to top]</a>
+
+
+You should specify both the attack method script and the YAML config file to use different attack methods.
+
+If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after yaml_path like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`
 
 The detailed descriptions for each attack may be put into the `add_args` function in each script. 
 
@@ -48,8 +84,8 @@ Examples: (assume in `./attack` folder)
 
     `python basicAttack.py --yaml_path ../config/basicAttack/default_ssba.yaml`
 
-    (For this method, first you need to follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data. Then place the poisoned image array to `attack_train_replace_imgs_path` and
-`attack_test_replace_imgs_path`. Due to file size limitation we may not provide it in this repo.)
+    (For this method, first, you need to follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data. Then place the poisoned image array to `attack_train_replace_imgs_path` and
+`attack_test_replace_imgs_path`. Due to file size limitations, we may not provide it in this repo.)
 
  - WaNet
 
@@ -59,15 +95,27 @@ Examples: (assume in `./attack` folder)
 
     `python inputAwareAttack.py --yaml_path ../config/inputAwareAttack/default.yaml`    
 
-### defense
+## [defense](#defenseexample)
 
-## Dependence
+<a href="#top">[Back to top]</a>
 
 
-## Data Preparation
+# [Dependence](#dependence)
+
+<a href="#top">[Back to top]</a>
+
+
+
+# [Data Preparation](#data_preparation)
+
+<a href="#top">[Back to top]</a>
+
 Please download datasets to `./data`. For GTSRB and TinyImagenet, we provide srcipts.
 
-## Detalied Structure
+# [Detalied Structure](#detailed_structure)
+
+<a href="#top">[Back to top]</a>
+
 - attack : all attack should be put here separately
 - defense : all defense should be put here separately 
 - config : all config file in yaml (all attack and defense config should all be put here separately)
@@ -93,4 +141,17 @@ Please download datasets to `./data`. For GTSRB and TinyImagenet, we provide src
   - trainer_cls.py : some basic functions for classification case
 - resource : pre-trained model (eg. auto-encoder for attack), or other large file (other than data)
 
-## Results
+# [Results](#results)
+
+<a href="#top">[Back to top]</a>
+
+
+
+# [Copyright](#copyright)
+
+<a href="#top">[Back to top]</a>
+
+
+# [Citation](#citation)
+
+<a href="#top">[Back to top]</a>
