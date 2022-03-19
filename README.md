@@ -5,9 +5,9 @@
 
 * [Usage](#usage)
 
-  * [attack](#attackexample)
+  * [attack](#attack)
   
-  * [defense](#defenseexample)
+  * [defense](#defense)
   
 * [Dependence](#dependence)
 
@@ -55,7 +55,7 @@
 <a href="#top">[Back to top]</a>
 
 
-## [attack](#attackexample)
+## [attack](#attack)
 
 <a href="#top">[Back to top]</a>
 
@@ -95,7 +95,7 @@ Examples: (assume in `./attack` folder)
 
     `python inputAwareAttack.py --yaml_path ../config/inputAwareAttack/default.yaml`    
 
-## [defense](#defenseexample)
+## [defense](#defense)
 
 <a href="#top">[Back to top]</a>
 
