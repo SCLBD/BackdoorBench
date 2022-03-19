@@ -22,5 +22,5 @@ trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
 
-ratio: 0.1
+ratio: 0.05
 
