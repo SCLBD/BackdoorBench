@@ -300,6 +300,7 @@ def fp(args, result , config):
         if test_acc_cl - test_acc_bd > acc_dis:
             best_net = copy.deepcopy(net_pruned)
             acc_dis = test_acc_cl - test_acc_bd
+        del net_pruned
 
     result = {}
     result['model'] = best_net

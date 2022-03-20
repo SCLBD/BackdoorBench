@@ -202,7 +202,7 @@ def ft(args,result,config):
     )
     data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     trainloader = data_loader
-    model_new = fine_tuning(args, model, optimizer, scheduler, criterion, args.epoch, trainloader, testloader_cl = None, testloader_bd = None)
+    model_new = fine_tuning(args, model, optimizer, scheduler, criterion, args.epochs, trainloader, testloader_cl = None, testloader_bd = None)
     
     result = {}
     result['model'] = model_new
