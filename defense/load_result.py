@@ -80,7 +80,7 @@ if __name__ == '__main__':
     model.to('cuda')
     #data_set = get_dataset_train(args)
     tran = get_transform('cifar10', *([32,32]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(data['bd_test']['x'].numpy()))
+    x = torch.tensor(nCHW_to_nHWC(data['bd_test']['x'].detach().numpy()))
     y = torch.tensor(ori_label)
     print('y:{}'.format(y.size(0)))
     print('x:{}'.format(x.size(0)))
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     ########### CSV ###########
     df_head = ['Attack', 'Defense', 'Model', 'ACC', 'ASR', 'RC']
     df = pd.DataFrame(columns=df_head)
-    df.loc[df.shape[0]] = {'Attack':save_path.split('/')[-1], 'Defense': args.defense, 'Model':result['model_name'], 'ACC': result['acc'].data.item(), 'ASR': result['asr'].data.item(), 'RC': robust_acc}
+    df.loc[df.shape[0]] = {'Attack':save_path.split('/')[-1], 'Defense': args.defense, 'Model':result['model_name'], 'ACC': result['acc'].data.item(), 'ASR': result['asr'].data.item(), 'RC': robust_acc.cpu().numpy()}
     
     log_file='./result.csv'
     if os.path.isfile(log_file):
