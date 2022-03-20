@@ -182,6 +182,8 @@ def ft(args,result,config):
 
     # Prepare model, optimizer, scheduler
     model = generate_cls_model(args.model,args.num_classes)
+    model.load_state_dict(result['model'])
+    model.to(args.device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
     criterion = nn.CrossEntropyLoss()
@@ -202,7 +204,9 @@ def ft(args,result,config):
     )
     data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     trainloader = data_loader
-    model_new = fine_tuning(args, model, optimizer, scheduler, criterion, args.epochs, trainloader, testloader_cl = None, testloader_bd = None)
+    model_new = model
+    for i in range(args.epochs):
+        model_new = fine_tuning(args, model_new, optimizer, scheduler, criterion, i, trainloader, testloader_cl = None, testloader_bd = None)
     
     result = {}
     result['model'] = model_new
