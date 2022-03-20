@@ -217,12 +217,12 @@ def fp(args, result , config):
             net_pruned.layer4[1].conv2 = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
-            net_pruned.linear = nn.Linear((pruning_mask_li.shape[0] - num_pruned)*addtional_dim, 10)
+            net_pruned.linear = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, 10)
         if args.model == 'vgg19':
             net_pruned.features[34] = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
-            net_pruned.classifier[0] = nn.Linear((pruning_mask_li.shape[0] - num_pruned)*addtional_dim, 4096)
+            net_pruned.classifier[0] = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, 4096)
         if args.model == 'resnet18':
             net_pruned.layer4[0].conv1 = nn.Conv2d(
                 256, pruning_mask.shape[0] - num_pruned, (3, 3), stride=(2, 2), padding=1, bias=False
@@ -300,6 +300,8 @@ def fp(args, result , config):
         if test_acc_cl - test_acc_bd > acc_dis:
             best_net = copy.deepcopy(net_pruned)
             acc_dis = test_acc_cl - test_acc_bd
+        if args.device == 'cuda':
+            net_pruned.to('cpu')
         del net_pruned
 
     result = {}
