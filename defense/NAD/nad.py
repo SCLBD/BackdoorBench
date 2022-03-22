@@ -491,7 +491,7 @@ if __name__ == '__main__':
         if 'original_targets' in result['bd_test']:
             y_ori = result['bd_test']['original_targets']
             if y_ori is not None:
-                if len(ori) != x.size(0):
+                if len(y_ori) != x.size(0):
                     y_idx = result['bd_test']['original_index']
                     y = y_ori[y_idx]
                 else :
