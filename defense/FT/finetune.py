@@ -346,8 +346,13 @@ if __name__ == '__main__':
         x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
         robust_acc = -1
         if 'original_targets' in result['bd_test']:
-            y = result['bd_test']['original_targets']
-            if y is not None:
+            y_ori = result['bd_test']['original_targets']
+            if y_ori is not None:
+                if len(ori) != x.size(0):
+                    y_idx = result['bd_test']['original_index']
+                    y = y_ori[y_idx]
+                else :
+                    y = y_ori
                 data_bd_test = torch.utils.data.TensorDataset(x,y)
                 data_bd_testset = prepro_cls_DatasetBD(
                     full_dataset_without_transform=data_bd_test,
