@@ -46,7 +46,6 @@ def bd_attack_img_trans_generate(args):
 
     elif args.attack == 'sig':
         trans = sigTriggerAttack(
-            alpha=args.sig_alpha,
             delta=args.sig_delta,
             f=args.sig_f,
         )

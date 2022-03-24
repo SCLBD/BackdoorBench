@@ -92,7 +92,6 @@ def save_attack_result(
 
     else:
         logging.info('bd_train is set to be None in saving process!')
-
     bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = loop_through_cls_ds_without_transform(bd_test)
     bd_test_original_targets = torch.from_numpy(bd_test_original_targets) if bd_test_original_targets is not None else None
     
