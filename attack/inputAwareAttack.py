@@ -31,7 +31,7 @@ import torch.utils.data as data
 import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
 term_width = int(60)
@@ -641,19 +641,19 @@ def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
 def train(opt):
     # Prepare model related things
 
-    if opt.dataset == "cifar10":
-        netC = PreActResNet18().to(opt.device)
-        opt.model_name = 'preactresnet18'
-    elif opt.dataset == "gtsrb":
-        netC = PreActResNet18(num_classes=43).to(opt.device)
-        opt.model_name = 'preactresnet18'
-    elif opt.dataset == "mnist":
-        netC = NetC_MNIST().to(opt.device)
-        opt.model_name = 'netc_mnist'  # TODO add to framework
-    else:
-        logging.info('use generate_cls_model() ')
-        netC = generate_cls_model(opt.model_name, opt.num_classes)
-
+    # if opt.dataset == "cifar10":
+    #     # netC = PreActResNet18().to(opt.device)
+    #     opt.model_name = 'preactresnet18'
+    # elif opt.dataset == "gtsrb":
+    #     # netC = PreActResNet18(num_classes=43).to(opt.device)
+    #     opt.model_name = 'preactresnet18'
+    # elif opt.dataset == "mnist":
+    #     # netC = NetC_MNIST().to(opt.device)
+    #     opt.model_name = 'netc_mnist'  # TODO add to framework
+    # else:
+    logging.info('use generate_cls_model() ')
+    netC = generate_cls_model(opt.model_name, opt.num_classes)
+    netC.to(opt.device)
     logging.warning(f'actually model use = {opt.model_name}')
 
     netG = Generator(opt).to(opt.device)
