@@ -182,11 +182,13 @@ def ft(args,result,config):
 
     # Prepare model, optimizer, scheduler
     model = generate_cls_model(args.model,args.num_classes)
+    model.load_state_dict(result['model'])
+    model.to(args.device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
     criterion = nn.CrossEntropyLoss()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_train']['x'].numpy()))
+    x = torch.tensor(nCHW_to_nHWC(result['clean_train']['x'].detach().numpy()))
     y = result['clean_train']['y']
     data_all_length = y.size()[0]
     ran_idx = random.sample(range(data_all_length),int(data_all_length*args.ratio))
@@ -202,7 +204,9 @@ def ft(args,result,config):
     )
     data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     trainloader = data_loader
-    model_new = fine_tuning(args, model, optimizer, scheduler, criterion, args.epoch, trainloader, testloader_cl = None, testloader_bd = None)
+    model_new = model
+    for i in range(args.epochs):
+        model_new = fine_tuning(args, model_new, optimizer, scheduler, criterion, i, trainloader, testloader_cl = None, testloader_bd = None)
     
     result = {}
     result['model'] = model_new
@@ -295,7 +299,7 @@ if __name__ == '__main__':
         result_defense = ft(args,result,config)
 
         tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].numpy()))
+        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
         y = result['bd_test']['y']
         data_bd_test = torch.utils.data.TensorDataset(x,y)
         data_bd_testset = prepro_cls_DatasetBD(
@@ -317,7 +321,7 @@ if __name__ == '__main__':
             asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
 
         tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].numpy()))
+        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
         y = result['clean_test']['y']
         data_clean_test = torch.utils.data.TensorDataset(x,y)
         data_clean_testset = prepro_cls_DatasetBD(
@@ -338,6 +342,36 @@ if __name__ == '__main__':
             pre_label = torch.max(outputs,dim=1)[1]
             clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
 
+        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+        robust_acc = -1
+        if 'original_targets' in result['bd_test']:
+            y_ori = result['bd_test']['original_targets']
+            if y_ori is not None:
+                if len(y_ori) != x.size(0):
+                    y_idx = result['bd_test']['original_index']
+                    y = y_ori[y_idx]
+                else :
+                    y = y_ori
+                data_bd_test = torch.utils.data.TensorDataset(x,y)
+                data_bd_testset = prepro_cls_DatasetBD(
+                    full_dataset_without_transform=data_bd_test,
+                    poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+                    bd_image_pre_transform=None,
+                    bd_label_pre_transform=None,
+                    ori_image_transform_in_loading=tran,
+                    ori_label_transform_in_loading=None,
+                    add_details_in_preprocess=False,
+                )
+                data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+            
+                robust_acc = 0
+                for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+                    inputs, labels = inputs.to(args.device), labels.to(args.device)
+                    outputs = result_defense['model'](inputs)
+                    pre_label = torch.max(outputs,dim=1)[1]
+                    robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+    
         if not (os.path.exists(os.getcwd() + f'{save_path}/ft/')):
             os.makedirs(os.getcwd() + f'{save_path}/ft/')
         torch.save(
@@ -345,7 +379,8 @@ if __name__ == '__main__':
             'model_name':args.model,
             'model': result_defense['model'].cpu().state_dict(),
             'asr': asr_acc,
-            'acc': clean_acc
+            'acc': clean_acc,
+            'rc': robust_acc
         },
         os.getcwd() + f'{save_path}/ft/defense_result.pt'
         )

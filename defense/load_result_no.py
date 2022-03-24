@@ -49,34 +49,28 @@ def get_args():
     # print(arg)
     # return arg
 
-    return parser
-
-def get_args_2(parser):
-    parser.add_argument('--defense', type=str, help='defense method:[abl,ac,dbd,fp,nad,nc,spectral]')
     arg = parser.parse_args()
 
     print(arg)
     return arg
 
+
+
 if __name__ == '__main__':
-    parser = get_args()
-    args = get_args_2(parser)
+    args = get_args()
     save_path = './record/' + args.result_file
     
-    result = torch.load(save_path + '/' + args.defense + '/defense_result.pt')
-    print('asr:{} acc:{}'.format(result['asr'],result['acc']))
-
     #####rc#######仅适用于cifar10
     print(save_path + '/attack_result.pt')
     data = load_attack_result(save_path + '/attack_result.pt')
     ori_label_un = data['clean_test']['y']
     ori_label = [i for i in ori_label_un if i != 0]
     try:
-        model = generate_cls_model(result['model_name'],10)
-        model.load_state_dict(result['model'])
+        model = generate_cls_model(data['model_name'],10)
+        model.load_state_dict(data['model'])
     except RuntimeError:
         model = generate_cls_model('preactresnet18',10)
-        model.load_state_dict(result['model'])
+        model.load_state_dict(data['model'])
     model.to('cuda')
     #data_set = get_dataset_train(args)
     tran = get_transform('cifar10', *([32,32]) , train = False)
@@ -102,24 +96,5 @@ if __name__ == '__main__':
         pre_label = torch.max(outputs,dim=1)[1]
         robust_acc += torch.sum(pre_label == labels)/len(data_set_o)
 
-    ########### CSV ###########
-    # df_head = ['Attack', 'Defense', 'Model', 'ACC', 'ASR']
-    # df = pd.DataFrame(columns=df_head)
-    # df.loc[df.shape[0]] = {'Attack':save_path.split('/')[-1], 'Defense': args.defense, 'Model':result['model_name'], 'ACC': result['acc'].data.item(), 'ASR': result['asr'].data.item()}
-    
-    # log_file='./result.csv'
-    # if os.path.isfile(log_file):
-    #     df.to_csv(log_file, mode='a', index=False, header=False)
-    # else:
-    #     df.to_csv(log_file, index=False)
-    ########### CSV ###########
-    df_head = ['Attack', 'Defense', 'Model', 'ACC', 'ASR', 'RC']
-    df = pd.DataFrame(columns=df_head)
-    df.loc[df.shape[0]] = {'Attack':save_path.split('/')[-1], 'Defense': args.defense, 'Model':result['model_name'], 'ACC': result['acc'].data.item(), 'ASR': result['asr'].data.item(), 'RC': robust_acc.cpu().numpy()}
-    
-    log_file='./result.csv'
-    if os.path.isfile(log_file):
-        df.to_csv(log_file, mode='a', index=False, header=False)
-    else:
-        df.to_csv(log_file, index=False)
+    print('rc:{}'.format(robust_acc))
     
