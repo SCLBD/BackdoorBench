@@ -6,7 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 
 
-#TODO just copy from wanet, now finished
+
 def get_num_classes(dataset_name : str) -> int:
     if dataset_name in ["mnist", "cifar10"]:
         num_classes = 10
@@ -18,7 +18,7 @@ def get_num_classes(dataset_name : str) -> int:
         raise Exception("Invalid Dataset")
     return num_classes
 
-#TODO just copy from wanet, now finished
+
 def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
     if dataset_name == "cifar10":
         input_height = 32
