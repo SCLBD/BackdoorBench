@@ -18,6 +18,9 @@ from utils.aggregate_block.dataset_and_transform_generate import get_num_classes
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.save_load_attack import summary_dict
+from utils.trainer_cls import Metric_Aggregator
+
+agg = Metric_Aggregator()
 
 import csv
 import logging
@@ -425,7 +428,14 @@ def train_step(
     schedulerC.step()
     schedulerG.step()
 
-    logging.info(f'End train epoch {epoch} : acc_clean : {acc_clean}, acc_bd : {acc_bd}, acc_cross : {acc_cross} ')
+    #agg
+    # logging.info(f'End train epoch {epoch} : acc_clean : {acc_clean}, acc_bd : {acc_bd}, acc_cross : {acc_cross} ')
+    agg({
+        'train_epoch_num':float(epoch),
+        'train_acc_clean':float(acc_clean),
+        'train_acc_bd':float(acc_bd),
+        'train_acc_cross':float(acc_cross),
+    })
 
     return #total_inputs_bd, total_targets_bd, one_hot_original_index
 
@@ -441,9 +451,6 @@ def eval(
     test_dl1,
     test_dl2,
     epoch,
-    best_acc_clean,
-    best_acc_bd,
-    best_acc_cross,
     opt,
 ):
     netC.eval()
@@ -505,15 +512,8 @@ def eval(
             )
             progress_bar(batch_idx, len(test_dl1), infor_string)
 
-    logging.info(
-        " Result: Best Clean Accuracy: {:.3f} - Best Backdoor Accuracy: {:.3f} - Best Cross Accuracy: {:.3f}| Clean Accuracy: {:.3f}".format(
-            best_acc_clean, best_acc_bd, best_acc_cross, avg_acc_clean
-        )
-    )
     logging.info(" Saving!!")
-    best_acc_clean = avg_acc_clean
-    best_acc_bd = avg_acc_bd
-    best_acc_cross = avg_acc_cross
+
     state_dict = {
         "netC": netC.state_dict(),
         "netG": netG.state_dict(),
@@ -522,9 +522,9 @@ def eval(
         "optimizerG": optimizerG.state_dict(),
         "schedulerC": schedulerC.state_dict(),
         "schedulerG": schedulerG.state_dict(),
-        "best_acc_clean": best_acc_clean,
-        "best_acc_bd": best_acc_bd,
-        "best_acc_cross": best_acc_cross,
+        "test_avg_acc_clean": avg_acc_clean,
+        "test_avg_acc_bd": avg_acc_bd,
+        "test_avg_acc_cross": avg_acc_cross,
         "epoch": epoch,
         "opt": opt,
     }
@@ -533,7 +533,7 @@ def eval(
         os.makedirs(ckpt_folder)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
     torch.save(state_dict, ckpt_path)
-    return best_acc_clean, best_acc_bd, best_acc_cross, epoch#, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
+    return avg_acc_clean,avg_acc_bd,avg_acc_cross, epoch#, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
 
 
 # -------------------------------------------------------------------------------------
@@ -688,16 +688,12 @@ def train(opt):
         optimizerG.load_state_dict(state_dict["optimizerG"])
         schedulerC.load_state_dict(state_dict["schedulerC"])
         schedulerG.load_state_dict(state_dict["schedulerG"])
-        best_acc_clean = state_dict["best_acc_clean"]
-        best_acc_bd = state_dict["best_acc_bd"]
-        best_acc_cross = state_dict["best_acc_cross"]
+
         opt = state_dict["opt"]
         logging.info("Continue training")
     else:
         # Prepare mask
-        best_acc_clean = 0.0
-        best_acc_bd = 0.0
-        best_acc_cross = 0.0
+
         epoch = 1
 
         # Reset tensorboard
@@ -749,7 +745,7 @@ def train(opt):
             tf_writer,
         )
         #best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets = eval(
-        best_acc_clean, best_acc_bd, best_acc_cross, epoch=eval(
+        test_avg_acc_clean, test_avg_acc_bd, test_avg_acc_cross, epoch=eval(
             netC,
             netG,
             netM,
@@ -760,13 +756,17 @@ def train(opt):
             test_dl1,
             test_dl2,
             epoch,
-            best_acc_clean,
-            best_acc_bd,
-            best_acc_cross,
             opt,
         )
-        logging.info(
-            f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
+        #agg
+        # logging.info(
+        #     f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
+        agg({
+            "test_avg_acc_clean":float(test_avg_acc_clean),
+            "test_avg_acc_bd":float(test_avg_acc_bd),
+            "test_avg_acc_cross":float(test_avg_acc_cross),
+            "test_epoch_num":float(epoch),
+        })
         # if(epoch == 26): # here > 25 epoch all fine. Since epoch < 25 still have no poison samples
         #     bd_train_x = total_inputs_bd.float().cpu()
         #     bd_train_y = total_targets_bd.long().cpu()
@@ -782,9 +782,6 @@ def train(opt):
         epoch += 1
         if epoch > opt.n_iters:
             break
-
-
-
 
     # bd_train_retrieve
     train_dl1 = torch.utils.data.DataLoader(
@@ -1051,6 +1048,9 @@ def main():
     train(opt)
 
     torch.save(opt.__dict__, save_path + '/info.pickle')
+
+    agg.to_dataframe().to_csv(f"{save_path}/attack_df.csv")
+    agg.summary().to_csv(f"{save_path}/attack_df_summary.csv")
 
 
 if __name__ == "__main__":
