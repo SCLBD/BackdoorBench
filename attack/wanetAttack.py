@@ -796,6 +796,7 @@ def main():
 
     logging.info(pformat(opt.__dict__))#set here since the opt change once.
 
+
     for epoch in range(epoch_current, opt.n_iters):
         logging.info("Epoch {}:".format(epoch + 1))
         train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
@@ -919,6 +920,7 @@ def main():
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
     test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim = 0).long().cpu().numpy())[0]
     test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
+    test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
     final_save_dict = {
             'model_name': opt.model_name,
