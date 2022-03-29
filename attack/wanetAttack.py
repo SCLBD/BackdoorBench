@@ -377,20 +377,7 @@ def get_arguments():
 
 
 def get_model(opt):
-    netC = None
-    optimizerC = None
-    schedulerC = None
-    logging.info('WARNING : here model is set by original code !!!')
-    # if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
-    #     netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "celeba":
-    #     netC = ResNet18().to(opt.device)
-    #     opt.model_name = 'resnet18'
-    # elif opt.dataset == "mnist":
-    #     netC = NetC_MNIST().to(opt.device)
-    #     opt.model_name = 'netc_mnist'  # TODO add to framework
-    # else:
+
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model_name, opt.num_classes)
     netC.to(opt.device)

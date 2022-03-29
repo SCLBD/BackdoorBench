@@ -641,16 +641,6 @@ def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
 def train(opt):
     # Prepare model related things
 
-    # if opt.dataset == "cifar10":
-    #     # netC = PreActResNet18().to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "gtsrb":
-    #     # netC = PreActResNet18(num_classes=43).to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "mnist":
-    #     # netC = NetC_MNIST().to(opt.device)
-    #     opt.model_name = 'netc_mnist'  # TODO add to framework
-    # else:
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model_name, opt.num_classes)
     netC.to(opt.device)

@@ -115,13 +115,29 @@ def generate_pidx_from_label_transform(
             clean_label = clean_label,
             train = train,
         )
-    #TODO only write AllToOne attack all other case need.
+
     elif isinstance(label_transform, AllToAll_shiftLabelAttack):
-        pass
-    elif isinstance(label_transform, OneToAll_randomLabelAttack):
-        pass
-    elif isinstance(label_transform, OneToOne_attack):
-        pass
+
+        if train:
+            pass
+        else:
+            p_num = None
+            pratio = 1
+
+        if p_num is not None:
+            select_position = np.random.choice(len(original_labels), size = p_num, replace=False)
+        elif pratio is not None:
+            select_position = np.random.choice(len(original_labels), size=round(len(original_labels) * pratio), replace=False)
+        else:
+            raise SystemExit('p_num or pratio must be given')
+        logging.info(f'poison num:{len(select_position)},real pratio:{len(select_position) / len(original_labels)}')
+        return np.zeros(len(original_labels))[select_position]
+
+    # elif isinstance(label_transform, OneToAll_randomLabelAttack):
+    #     pass
+    # elif isinstance(label_transform, OneToOne_attack):
+    #     pass
+
     else:
         logging.info('Not valid label_transform')
 
