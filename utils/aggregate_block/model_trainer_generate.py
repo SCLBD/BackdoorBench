@@ -6,7 +6,7 @@ import torchvision.models as models
 from torchvision.models.resnet import resnet18, resnet34
 from typing import Optional
 
-from utils.trainer_cls import MyModelTrainerCLS
+from utils.trainer_cls import ModelTrainerCLS
 
 #trainer is cls
 def generate_cls_model(
@@ -59,7 +59,7 @@ def generate_cls_trainer(
         trainer = wanetTrainerCLS(model)
     else:
         # normal case
-        trainer = MyModelTrainerCLS(
+        trainer = ModelTrainerCLS(
             model=model,
         )
 

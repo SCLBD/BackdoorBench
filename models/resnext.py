@@ -93,11 +93,4 @@ def ResNeXt29_32x4d():
     return ResNeXt(num_blocks=[3, 3, 3], cardinality=32, bottleneck_width=4)
 
 
-def test_resnext():
-    net = ResNeXt29_2x64d()
-    x = torch.randn(1, 3, 32, 32)
-    y = net(x)
-    print(y.size())
 
-
-# test_resnext()

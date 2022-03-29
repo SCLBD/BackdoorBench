@@ -27,10 +27,10 @@ import numpy as np
 import torch
 
 
-from utils.trainer_cls import MyModelTrainerCLS
+from utils.trainer_cls import ModelTrainerCLS
 
 
-class wanetTrainerCLS(MyModelTrainerCLS):
+class wanetTrainerCLS(ModelTrainerCLS):
     '''
 
     '''

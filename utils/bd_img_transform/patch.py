@@ -63,24 +63,6 @@ class AddMatrixPatchTrigger(object):
 
         return after_blend_img
 
-def test_AddMatrixPatchTrigger():
-    trigger = np.zeros((32,31,3))
-    trigger[:10,:,:] = 1
-    f = AddMatrixPatchTrigger(trigger)
-
-    import matplotlib.pyplot as plt
-    plt.imshow(f(np.zeros((64,61,3))))
-    plt.show()
-
-    trigger = np.zeros((32, 31, 3))
-    trigger[:10, :, :] = 1
-    f = AddMatrixPatchTrigger(trigger, resize_trigger_check=False)
-
-    import matplotlib.pyplot as plt
-    plt.imshow(f(np.zeros((64, 61, 3))))
-    plt.show()
-
-
 from random import randint
 
 class AddRandomColorTrigger_RandomLocEverytime(object):

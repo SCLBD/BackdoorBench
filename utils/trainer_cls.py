@@ -54,7 +54,7 @@ class Metric_Aggregator(object):
         logging.info("return df with np.nan and None converted by str()")
         return self.df.apply(last_and_valid_max)
 
-class MyModelTrainerCLS():
+class ModelTrainerCLS():
     def __init__(self, model):
         self.model = model
 
@@ -68,7 +68,7 @@ class MyModelTrainerCLS():
                                continue_training_path: Optional[str] = None,
                                only_load_model: bool = False,
                                ) -> None:
-        # 这里traindata只是为了CyclicLR所以才设置的
+
         model = self.model
 
         model.to(device)
