@@ -171,12 +171,3 @@ def generate_pidx_from_label_transform(
     #     raise SystemExit('No poison sample generated !')
     # return pidx
 
-if __name__ == '__main__':
-    from bd_label_transform.backdoor_label_transform import OneToOne_attack
-    label = np.array([1,2,3,2,2])
-    label_transform = OneToOne_attack(1,3)
-    print(generate_single_target_attack_train_pidx(label, 1, 1, 1, train = True),)
-    print(generate_single_target_attack_train_pidx(label, 1, 1, 1, train = True), )
-    print(generate_multi_target_attack_train_pidx(label, [1,5,6], 1, 1))
-    print(generate_pidx_from_label_transform(label, AllToOne_attack(2), True, 0.5, None, ))
-    print(generate_pidx_from_label_transform(label, AllToOne_attack(2), False, 0.5, None, ))
