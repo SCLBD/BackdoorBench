@@ -8,10 +8,6 @@ import numpy as np
 import torch
 import pandas as pd
 
-try:
-    import wandb
-except:
-    pass
 
 def last_and_valid_max(col:pd.Series):
     '''
@@ -345,10 +341,6 @@ class MyModelTrainerCLS():
                 'benign loss': metrics['test_loss'],
             }
             agg(metric_info)
-            try:
-                wandb.log(metric_info)
-            except:
-                pass
 
             adv_metrics = self.test(adv_test_data, device)
             adv_metric_info = {
@@ -357,10 +349,6 @@ class MyModelTrainerCLS():
                 'backdoor loss': adv_metrics['test_loss'],
             }
             agg(adv_metric_info)
-            try:
-                wandb.log(adv_metric_info)
-            except:
-                pass
 
             if frequency_save != 0 and epoch % frequency_save == frequency_save - 1:
                 logging.info(f'saved. epoch:{epoch}')
@@ -427,10 +415,6 @@ class MyModelTrainerCLS():
                     f'{dl_name} loss': metrics['test_loss'],
                 }
                 agg(metric_info)
-                try:
-                    wandb.log(metric_info)
-                except:
-                    pass
 
 
             if frequency_save != 0 and epoch % frequency_save == frequency_save - 1:

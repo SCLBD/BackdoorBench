@@ -26,10 +26,6 @@ from typing import *
 import numpy as np
 import torch
 
-try:
-    import wandb
-except:
-    pass
 
 from utils.trainer_cls import MyModelTrainerCLS
 
@@ -116,10 +112,7 @@ class wanetTrainerCLS(MyModelTrainerCLS):
                 'benign loss': metrics['test_loss'],
             }
             logging.info(pformat(metric_info))
-            try:
-                wandb.log(metric_info)
-            except:
-                pass
+
 
             adv_metrics = self.test(adv_test_data, device)
             adv_metric_info = {
@@ -128,10 +121,7 @@ class wanetTrainerCLS(MyModelTrainerCLS):
                 'backdoor loss': adv_metrics['test_loss'],
             }
             logging.info(pformat(adv_metric_info))
-            try:
-                wandb.log(adv_metric_info)
-            except:
-                pass
+
 
             if frequency_save != 0 and epoch % frequency_save == frequency_save - 1:
                 logging.info(f'saved. epoch:{epoch}')

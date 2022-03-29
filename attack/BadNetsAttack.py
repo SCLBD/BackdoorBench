@@ -133,21 +133,6 @@ def main():
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    try:
-        import wandb
-        wandb.init(
-            project="bdzoo2",
-            entity="chr",
-            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-            config=args,
-        )
-        set_wandb = True
-    except:
-        set_wandb = False
-    logging.info(f'set_wandb = {set_wandb}')
-
-
-
     fix_random(int(args.random_seed))
 
 

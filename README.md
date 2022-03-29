@@ -31,10 +31,13 @@
 
 This benchmark is aiming to compare the results from different attack and defense methods, and provide a easy implememntation for ones who want to replicate classic backdoor methods.
 
-### Datasets: `mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
+### Datasets: 
+`mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
 (MNIST, CIFAR10, CIFAR100 using the pytorch official implementation, download when it is first executed. The download script for GTSRB, TinyImageNet is in `./sh`. For CelebA and ImageNet, you need to download by yourself and change the dataset path argument. )
-### Models: `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0`
-### Target Types: `'all2one', 'all2all', 'cleanLabel'` (different attack varys)
+### Models: 
+`resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0`
+
+[//]: # (### Target Types: `'all2one', 'all2all', 'cleanLabel'` &#40;different attack varys&#41;)
 ### Attacks:
 |                                                                                                                                                                                                                                                                     | Venue             | citation                                                     |
 |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ----------------- | ------------------------------------------------------------ |
