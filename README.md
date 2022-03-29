@@ -49,6 +49,18 @@
     - InputAware
       - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020.
 - Defense methods: 
+    - Fine-pruning
+      - Liu, Kang, et al. “Fine-pruning: Defending against backdooring attacks on deep neural networks.” ArXiv:1805.12185 [Cs], Mar. 2018. arXiv.org, https://arxiv.org/abs/1805.12185.
+    - ABL
+      - Li, Yige, et al. Anti-Backdoor Learning: Training Clean Models on Poisoned Data. NeurIPS. 2021.  https://arxiv.org/abs/2110.11571v2
+    - NAD
+      - Li, Yige, et al. Neural attention distillation: Erasing backdoor triggers from deep neural networks. NeurIPS. 2021
+  101–105. IEEE (2019)
+    - AC
+      - Chen, Bryant, et al. “Detecting backdoor attacks on deep neural networks by activation clustering” arXiv:1811.03728 [Cs], 2018. arXiv.org, http://arxiv.org/abs/1811.03728.
+    - Spectral signature
+      - Tran, Brandon, et al. “Spectral Signatures in Backdoor Attacks” NeurIPS. 2018. arXiv.org, https://arxiv.org/abs/1811.00636.
+
 
 # [Usage](#usage)
 
@@ -98,6 +110,34 @@ Examples: (assume in `./attack` folder)
 ## [defense](#defense)
 
 <a href="#top">[Back to top]</a>
+
+You should specify both the defense method script and the attack result to use different attack methods. The yaml config is in defense method. 
+
+If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after yaml_path like `python -u ./defense/AC/ac_zmd.py --result_file badnet_0_1`
+
+Examples: (assume in project `bdzoo\` folder)
+
+ - AC
+
+    `python -u ./defense/AC/ac_zmd.py --result_file badnet_0_1`
+
+ - ABL
+
+    `python -u ./defense/ABL/ABL.py --result_file badnet_0_1`
+ 
+ - NAD
+
+    `python -u ./defense/NAD/nad.py --result_file badnet_0_1`
+
+ - Fine-pruning
+
+    `python -u ./defense/FP/fineprune.py --result_file badnet_0_1`
+
+ - Spectral signature
+
+    `python -u ./defense/spectral_signatural/spectral_signature.py --result_file blended_0_1`    
+ 
+
 
 
 # [Dependence](#dependence)
