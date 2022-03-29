@@ -32,25 +32,6 @@ class AddPatchTrigger(object):
                     img[:, :, m, n] = self.trigger_ptn[i]
         return img
 
-def test_AddPatchTrigger():
-    trigger_loc, trigger_ptn = [[29, 29],
-                        [29, 30],
-                        [29, 31],
-                        [30, 29],
-                        [30, 30],
-                        [30, 31],
-                        [31, 29],
-                        [31, 30],
-                        [31, 31]], [255, 255, 255, 255, 255, 255, 255, 255, 255]
-    f = AddPatchTrigger(trigger_loc, trigger_ptn)
-
-    from utils.visualize_image import image_show_for_all
-    image_show_for_all(f(np.zeros((32, 32, 3))))
-    image_show_for_all(f(np.zeros((3, 32, 32, 3))))
-    image_show_for_all(f(torch.zeros((3, 32, 32))))
-    image_show_for_all(f(torch.zeros((3, 3, 32, 32))))
-
-
 import numpy as np
 
 class AddMatrixPatchTrigger(object):

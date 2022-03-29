@@ -25,15 +25,6 @@ def argparser_criterion(args):
                         )
         )
     return criterion
-    # else:
-    #     flooding_scalar = torch.tensor(float(args.flooding_scalar)).float().to(device)
-    #     def flooding(output, target):
-    #         loss_ascent = (criterion(output, target) - flooding_scalar).abs() + flooding_scalar
-    #         return loss_ascent
-    #     return flooding
-
-
-
 
 def argparser_opt_scheduler(model, args):
 
