@@ -1,29 +1,4 @@
-'''torch.save(
-        {
-            'model_name':args.model,
-            'model': trainer.model.cpu().state_dict(),
-            'clean_train': {
-                'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
-                'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
-            },
 
-            'clean_test' : {
-                'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
-                'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
-            },
-
-            'bd_train': {
-                'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
-                'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
-            },
-
-            'bd_test': {
-                'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
-                'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
-            },
-        },
-    f'{save_path}/attack_result.pt'
-)'''
 import logging
 from pprint import pformat
 import numpy as np
@@ -50,9 +25,6 @@ def summary_dict(input_dict):
         else:
             summary_dict_return[k] = v
     return  summary_dict_return
-
-def test_summary_dict():
-    print(pformat(summary_dict(torch.load('/Users/chenhongrui/sclbd/bdzoo2/record/ssba_0_1/attack_result.pt'))))
 
 def save_attack_result(
     model_name : str,

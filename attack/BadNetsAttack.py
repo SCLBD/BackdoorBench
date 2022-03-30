@@ -44,7 +44,7 @@ def add_args(parser):
     #                     help='classification/detection/segmentation')
     parser.add_argument('--device', type = str)
     parser.add_argument('--attack', type = str, )
-    parser.add_argument('--yaml_path', type=str, default='../config/basicAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/BadNetsAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
@@ -132,21 +132,6 @@ def main():
 
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
-
-    try:
-        import wandb
-        wandb.init(
-            project="bdzoo2",
-            entity="chr",
-            name=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + os.path.basename(save_path),
-            config=args,
-        )
-        set_wandb = True
-    except:
-        set_wandb = False
-    logging.info(f'set_wandb = {set_wandb}')
-
-
 
     fix_random(int(args.random_seed))
 
@@ -331,55 +316,6 @@ def main():
                 continue_training_path=args.load_path,
                 only_load_model=True,
             )
-
-        elif 'recover' in args.__dict__ and args.recover == True :
-
-            trainer.train_with_test_each_epoch(
-                train_data=adv_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
-                end_epoch_num=args.epochs,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                device=device,
-                frequency_save=args.frequency_save,
-                save_folder_path=save_path,
-                save_prefix='attack',
-                continue_training_path=args.load_path,
-                only_load_model=False,
-            )
-
-
-    #
-    # torch.save(
-    #         {
-    #             'model_name':args.model,
-    #             'model': trainer.model.cpu().state_dict(),
-    #             'clean_train': {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
-    #             },
-    #
-    #             'clean_test' : {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
-    #             },
-    #
-    #             'bd_train': {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
-    #                 'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
-    #             },
-    #
-    #             'bd_test': {
-    #                 'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
-    #             },
-    #         },
-    #     f'{save_path}/attack_result.pt'
-    # )
-
-
 
     save_attack_result(
         model_name = args.model,

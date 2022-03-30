@@ -10,14 +10,16 @@ import shutil
 import argparse
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.networks.models import Generator, NetC_MNIST
-from models import PreActResNet18
+
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.save_load_attack import summary_dict
+from utils.trainer_cls import Metric_Aggregator
+
+agg = Metric_Aggregator()
 
 import csv
 import logging
@@ -33,6 +35,204 @@ import torchvision.transforms as transforms
 from PIL import Image
 # from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+
+import torch
+import torch.nn.functional as F
+import torchvision
+from torch import nn
+from torchvision import transforms
+
+import torch
+from torch import nn
+
+
+class Conv2dBlock(nn.Module):
+    def __init__(self, in_c, out_c, ker_size=(3, 3), stride=1, padding=1, batch_norm=True, relu=True):
+        super(Conv2dBlock, self).__init__()
+        self.conv2d = nn.Conv2d(in_c, out_c, ker_size, stride, padding)
+        if batch_norm:
+            self.batch_norm = nn.BatchNorm2d(out_c, eps=1e-5, momentum=0.05, affine=True)
+        if relu:
+            self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        for module in self.children():
+            x = module(x)
+        return x
+
+
+class DownSampleBlock(nn.Module):
+    def __init__(self, ker_size=(2, 2), stride=2, dilation=(1, 1), ceil_mode=False, p=0.0):
+        super(DownSampleBlock, self).__init__()
+        self.maxpooling = nn.MaxPool2d(kernel_size=ker_size, stride=stride, dilation=dilation, ceil_mode=ceil_mode)
+        if p:
+            self.dropout = nn.Dropout(p)
+
+    def forward(self, x):
+        for module in self.children():
+            x = module(x)
+        return x
+
+
+class UpSampleBlock(nn.Module):
+    def __init__(self, scale_factor=(2, 2), mode="bilinear", p=0.0):
+        super(UpSampleBlock, self).__init__()
+        self.upsample = nn.Upsample(scale_factor=scale_factor, mode=mode)
+        if p:
+            self.dropout = nn.Dropout(p)
+
+    def forward(self, x):
+        for module in self.children():
+            x = module(x)
+        return x
+
+
+
+class Normalize:
+    def __init__(self, opt, expected_values, variance):
+        self.n_channels = opt.input_channel
+        self.expected_values = expected_values
+        self.variance = variance
+        assert self.n_channels == len(self.expected_values)
+
+    def __call__(self, x):
+        x_clone = x.clone()
+        for channel in range(self.n_channels):
+            x_clone[:, channel] = (x[:, channel] - self.expected_values[channel]) / self.variance[channel]
+        return x_clone
+
+
+class Denormalize:
+    def __init__(self, opt, expected_values, variance):
+        self.n_channels = opt.input_channel
+        self.expected_values = expected_values
+        self.variance = variance
+        assert self.n_channels == len(self.expected_values)
+
+    def __call__(self, x):
+        x_clone = x.clone()
+        for channel in range(self.n_channels):
+            x_clone[:, channel] = x[:, channel] * self.variance[channel] + self.expected_values[channel]
+        return x_clone
+
+
+# ---------------------------- Generators ----------------------------#
+
+
+class Generator(nn.Sequential):
+    def __init__(self, opt, out_channels=None):
+        super(Generator, self).__init__()
+        if opt.dataset == "mnist":
+            channel_init = 16
+            steps = 2
+        else:
+            channel_init = 32
+            steps = 3
+
+        channel_current = opt.input_channel
+        channel_next = channel_init
+        for step in range(steps):
+            self.add_module("convblock_down_{}".format(2 * step), Conv2dBlock(channel_current, channel_next))
+            self.add_module("convblock_down_{}".format(2 * step + 1), Conv2dBlock(channel_next, channel_next))
+            self.add_module("downsample_{}".format(step), DownSampleBlock())
+            if step < steps - 1:
+                channel_current = channel_next
+                channel_next *= 2
+
+        self.add_module("convblock_middle", Conv2dBlock(channel_next, channel_next))
+
+        channel_current = channel_next
+        channel_next = channel_current // 2
+        for step in range(steps):
+            self.add_module("upsample_{}".format(step), UpSampleBlock())
+            self.add_module("convblock_up_{}".format(2 * step), Conv2dBlock(channel_current, channel_current))
+            if step == steps - 1:
+                self.add_module(
+                    "convblock_up_{}".format(2 * step + 1), Conv2dBlock(channel_current, channel_next, relu=False)
+                )
+            else:
+                self.add_module("convblock_up_{}".format(2 * step + 1), Conv2dBlock(channel_current, channel_next))
+            channel_current = channel_next
+            channel_next = channel_next // 2
+            if step == steps - 2:
+                if out_channels is None:
+                    channel_next = opt.input_channel
+                else:
+                    channel_next = out_channels
+
+        self._EPSILON = 1e-7
+        self._normalizer = self._get_normalize(opt)
+        self._denormalizer = self._get_denormalize(opt)
+
+    def _get_denormalize(self, opt):
+        if opt.dataset == "cifar10":
+            denormalizer = Denormalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
+        elif opt.dataset == "mnist":
+            denormalizer = Denormalize(opt, [0.5], [0.5])
+        elif opt.dataset == "gtsrb":
+            denormalizer = None
+        else:
+            raise Exception("Invalid dataset")
+        return denormalizer
+
+    def _get_normalize(self, opt):
+        if opt.dataset == "cifar10":
+            normalizer = Normalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
+        elif opt.dataset == "mnist":
+            normalizer = Normalize(opt, [0.5], [0.5])
+        elif opt.dataset == "gtsrb":
+            normalizer = None
+        else:
+            raise Exception("Invalid dataset")
+        return normalizer
+
+    def forward(self, x):
+        for module in self.children():
+            x = module(x)
+        x = nn.Tanh()(x) / (2 + self._EPSILON) + 0.5
+        return x
+
+    def normalize_pattern(self, x):
+        if self._normalizer:
+            x = self._normalizer(x)
+        return x
+
+    def denormalize_pattern(self, x):
+        if self._denormalizer:
+            x = self._denormalizer(x)
+        return x
+
+    def threshold(self, x):
+        return nn.Tanh()(x * 20 - 10) / (2 + self._EPSILON) + 0.5
+
+
+# ---------------------------- Classifiers ----------------------------#
+
+
+class NetC_MNIST(nn.Module):
+    def __init__(self):
+        super(NetC_MNIST, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, (5, 5), 1, 0)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.dropout3 = nn.Dropout(0.1)
+
+        self.maxpool4 = nn.MaxPool2d((2, 2))
+        self.conv5 = nn.Conv2d(32, 64, (5, 5), 1, 0)
+        self.relu6 = nn.ReLU(inplace=True)
+        self.dropout7 = nn.Dropout(0.1)
+
+        self.maxpool5 = nn.MaxPool2d((2, 2))
+        self.flatten = nn.Flatten()
+        self.linear6 = nn.Linear(64 * 4 * 4, 512)
+        self.relu7 = nn.ReLU(inplace=True)
+        self.dropout8 = nn.Dropout(0.1)
+        self.linear9 = nn.Linear(512, 10)
+
+    def forward(self, x):
+        for module in self.children():
+            x = module(x)
+        return x
+
 
 term_width = int(60)
 
@@ -318,10 +518,10 @@ def train_step(
     total_loss = 0
     criterion = nn.CrossEntropyLoss()
     criterion_div = nn.MSELoss(reduction="none")
-    save_bd = 1
-    one_hot_original_index = []
-    total_inputs_bd = []
-    total_targets_bd = []
+    # save_bd = 1
+    # one_hot_original_index = []
+    # total_inputs_bd = []
+    # total_targets_bd = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dl1)), train_dl1, train_dl2):
         optimizerC.zero_grad()
 
@@ -339,24 +539,24 @@ def train_step(
 
         total_inputs = torch.cat((inputs_bd, inputs_cross, inputs1[num_bd + num_cross :]), 0)
         total_targets = torch.cat((targets_bd, targets1[num_bd:]), 0)
-        if(epoch==26):
-
-            one_hot = np.zeros(bs)
-            one_hot[:(num_bd + num_cross)] = 1
-
-            if(save_bd):
-                total_inputs_bd = total_inputs
-                total_targets_bd = total_targets
-                one_hot_original_index = one_hot
-                save_bd = 0
-            else:
-                total_inputs_bd = torch.cat((total_inputs_bd, total_inputs), 0)
-                total_targets_bd = torch.cat((total_targets_bd, total_targets), 0)
-                one_hot_original_index = np.concatenate((one_hot_original_index, one_hot), 0)
-
-            logging.info(total_inputs_bd.shape)
-            logging.info(total_targets_bd.shape)
-            logging.info(one_hot_original_index.shape)
+        # if(epoch==26):
+        # 
+        #     one_hot = np.zeros(bs)
+        #     one_hot[:(num_bd + num_cross)] = 1
+        # 
+        #     if(save_bd):
+        #         total_inputs_bd = total_inputs
+        #         total_targets_bd = total_targets
+        #         one_hot_original_index = one_hot
+        #         save_bd = 0
+        #     else:
+        #         total_inputs_bd = torch.cat((total_inputs_bd, total_inputs), 0)
+        #         total_targets_bd = torch.cat((total_targets_bd, total_targets), 0)
+        #         one_hot_original_index = np.concatenate((one_hot_original_index, one_hot), 0)
+        # 
+        #     logging.info(total_inputs_bd.shape)
+        #     logging.info(total_targets_bd.shape)
+        #     logging.info(one_hot_original_index.shape)
 
         preds = netC(total_inputs)
         loss_ce = criterion(preds, total_targets)
@@ -425,9 +625,16 @@ def train_step(
     schedulerC.step()
     schedulerG.step()
 
-    logging.info(f'End train epoch {epoch} : acc_clean : {acc_clean}, acc_bd : {acc_bd}, acc_cross : {acc_cross} ')
+    #agg
+    # logging.info(f'End train epoch {epoch} : acc_clean : {acc_clean}, acc_bd : {acc_bd}, acc_cross : {acc_cross} ')
+    agg({
+        'train_epoch_num':float(epoch),
+        'train_acc_clean':float(acc_clean),
+        'train_acc_bd':float(acc_bd),
+        'train_acc_cross':float(acc_cross),
+    })
 
-    return total_inputs_bd, total_targets_bd, one_hot_original_index
+    return #total_inputs_bd, total_targets_bd, one_hot_original_index
 
 
 def eval(
@@ -441,9 +648,6 @@ def eval(
     test_dl1,
     test_dl2,
     epoch,
-    best_acc_clean,
-    best_acc_bd,
-    best_acc_cross,
     opt,
 ):
     netC.eval()
@@ -454,11 +658,11 @@ def eval(
     total_correct_clean = 0.0
     total_correct_bd = 0.0
     total_correct_cross = 0.0
-    save_bd = 1
-    total_inputs_bd = []
-    total_targets_bd = []
-    test_bd_poison_indicator = []
-    test_bd_origianl_targets = []
+    # save_bd = 1
+    # total_inputs_bd = []
+    # total_targets_bd = []
+    # test_bd_poison_indicator = []
+    # test_bd_origianl_targets = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
         with torch.no_grad():
             inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
@@ -470,22 +674,22 @@ def eval(
             total_correct_clean += correct_clean
 
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
-            if(epoch==26):
-                if(save_bd):
-                    total_inputs_bd = inputs_bd
-                    total_targets_bd = targets_bd
-                    test_bd_poison_indicator = position_changed
-                    test_bd_origianl_targets = targets
-                    save_bd = 0
-                else:
-                    total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
-                    total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
-                    test_bd_poison_indicator = torch.cat((test_bd_poison_indicator, position_changed), 0)
-                    test_bd_origianl_targets = torch.cat((test_bd_origianl_targets, targets), 0)
-                logging.info(total_inputs_bd.shape)
-                logging.info(total_targets_bd.shape)
-                logging.info(test_bd_poison_indicator.shape)
-                logging.info(test_bd_origianl_targets.shape)
+            # if(epoch==26):
+            #     if(save_bd):
+            #         total_inputs_bd = inputs_bd
+            #         total_targets_bd = targets_bd
+            #         test_bd_poison_indicator = position_changed
+            #         test_bd_origianl_targets = targets
+            #         save_bd = 0
+            #     else:
+            #         total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
+            #         total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
+            #         test_bd_poison_indicator = torch.cat((test_bd_poison_indicator, position_changed), 0)
+            #         test_bd_origianl_targets = torch.cat((test_bd_origianl_targets, targets), 0)
+            #     logging.info(total_inputs_bd.shape)
+            #     logging.info(total_targets_bd.shape)
+            #     logging.info(test_bd_poison_indicator.shape)
+            #     logging.info(test_bd_origianl_targets.shape)
             preds_bd = netC(inputs_bd)
             correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
             total_correct_bd += correct_bd
@@ -505,15 +709,8 @@ def eval(
             )
             progress_bar(batch_idx, len(test_dl1), infor_string)
 
-    logging.info(
-        " Result: Best Clean Accuracy: {:.3f} - Best Backdoor Accuracy: {:.3f} - Best Cross Accuracy: {:.3f}| Clean Accuracy: {:.3f}".format(
-            best_acc_clean, best_acc_bd, best_acc_cross, avg_acc_clean
-        )
-    )
     logging.info(" Saving!!")
-    best_acc_clean = avg_acc_clean
-    best_acc_bd = avg_acc_bd
-    best_acc_cross = avg_acc_cross
+
     state_dict = {
         "netC": netC.state_dict(),
         "netG": netG.state_dict(),
@@ -522,9 +719,9 @@ def eval(
         "optimizerG": optimizerG.state_dict(),
         "schedulerC": schedulerC.state_dict(),
         "schedulerG": schedulerG.state_dict(),
-        "best_acc_clean": best_acc_clean,
-        "best_acc_bd": best_acc_bd,
-        "best_acc_cross": best_acc_cross,
+        "test_avg_acc_clean": avg_acc_clean,
+        "test_avg_acc_bd": avg_acc_bd,
+        "test_avg_acc_cross": avg_acc_cross,
         "epoch": epoch,
         "opt": opt,
     }
@@ -533,7 +730,7 @@ def eval(
         os.makedirs(ckpt_folder)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
     torch.save(state_dict, ckpt_path)
-    return best_acc_clean, best_acc_bd, best_acc_cross, epoch, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
+    return avg_acc_clean,avg_acc_bd,avg_acc_cross, epoch#, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
 
 
 # -------------------------------------------------------------------------------------
@@ -641,16 +838,6 @@ def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
 def train(opt):
     # Prepare model related things
 
-    # if opt.dataset == "cifar10":
-    #     # netC = PreActResNet18().to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "gtsrb":
-    #     # netC = PreActResNet18(num_classes=43).to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "mnist":
-    #     # netC = NetC_MNIST().to(opt.device)
-    #     opt.model_name = 'netc_mnist'  # TODO add to framework
-    # else:
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model_name, opt.num_classes)
     netC.to(opt.device)
@@ -688,16 +875,12 @@ def train(opt):
         optimizerG.load_state_dict(state_dict["optimizerG"])
         schedulerC.load_state_dict(state_dict["schedulerC"])
         schedulerG.load_state_dict(state_dict["schedulerG"])
-        best_acc_clean = state_dict["best_acc_clean"]
-        best_acc_bd = state_dict["best_acc_bd"]
-        best_acc_cross = state_dict["best_acc_cross"]
+
         opt = state_dict["opt"]
         logging.info("Continue training")
     else:
         # Prepare mask
-        best_acc_clean = 0.0
-        best_acc_bd = 0.0
-        best_acc_cross = 0.0
+
         epoch = 1
 
         # Reset tensorboard
@@ -733,7 +916,8 @@ def train(opt):
                 epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div
             )
         )
-        total_inputs_bd, total_targets_bd, train_poison_indicator = train_step(
+        # total_inputs_bd, total_targets_bd, train_poison_indicator = train_step(
+        train_step(
             netC,
             netG,
             netM,
@@ -747,7 +931,8 @@ def train(opt):
             opt,
             tf_writer,
         )
-        best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets = eval(
+        #best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets = eval(
+        test_avg_acc_clean, test_avg_acc_bd, test_avg_acc_cross, epoch=eval(
             netC,
             netG,
             netM,
@@ -758,54 +943,97 @@ def train(opt):
             test_dl1,
             test_dl2,
             epoch,
-            best_acc_clean,
-            best_acc_bd,
-            best_acc_cross,
             opt,
         )
-        logging.info(
-            f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
-        if(epoch == 26): # here > 25 epoch all fine. Since epoch < 25 still have no poison samples
-            bd_train_x = total_inputs_bd.float().cpu()
-            bd_train_y = total_targets_bd.long().cpu()
-            bd_train_poison_indicator = train_poison_indicator
-            bd_train_original_index = np.where(bd_train_poison_indicator == 1)[
-                    0] if bd_train_poison_indicator is not None else None
-            bd_train_x = bd_train_x[bd_train_original_index]
-            bd_train_y = bd_train_y[bd_train_original_index]
-            bd_test_x = test_inputs_bd.float().cpu()
-            bd_test_y = test_targets_bd.long().cpu()
-            bd_test_original_index = np.where(test_bd_poison_indicator.long().cpu().numpy())[0]
-            bd_test_original_target = test_bd_origianl_targets.long().cpu()
+        agg({
+            "test_avg_acc_clean":float(test_avg_acc_clean),
+            "test_avg_acc_bd":float(test_avg_acc_bd),
+            "test_avg_acc_cross":float(test_avg_acc_cross),
+            "test_epoch_num":float(epoch),
+        })
+
         epoch += 1
         if epoch > opt.n_iters:
             break
 
-    # torch.save(
-    #     {
-    #         'model_name': opt.model_name,
-    #         'model': netC.cpu().state_dict(),
-    #
-    #         # 'clean_train': {
-    #         #     'x' : torch.tensor(train_dl1.dataset.data).float().cpu(),
-    #         #     'y' : torch.tensor(train_dl1.dataset.targets).float().cpu(),
-    #         # },
-    #         #
-    #         # 'clean_test' : {
-    #         #     'x' : torch.tensor(test_dl1.dataset.data).float().cpu(),
-    #         #     'y' : torch.tensor(test_dl1.dataset.targets).float().cpu(),
-    #         # },
-    #
-    #         'bd_train': {
-    #             'x' : torch.tensor(bd_train_x).float().cpu(),
-    #             'y' : torch.tensor(bd_train_y).float().cpu(),
-    #         },
-    #
-    #         'bd_test': {
-    #             'x': torch.tensor(test_inputs_bd).float().cpu(),
-    #             'y' : torch.tensor(test_targets_bd).float().cpu(),
-    #         },
-    #     },
+    # bd_train_retrieve
+    train_dl1 = torch.utils.data.DataLoader(
+        train_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
+    train_dl2 = torch.utils.data.DataLoader(
+        train_dl2.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=True) # true since only the first one decide the order.
+    one_hot_original_index = []
+    bd_input = []
+    bd_targets = []
+    netC.eval()
+    netC.to(opt.device)
+    netG.eval()
+    netG.to(opt.device)
+    netM.eval()
+    netM.to(opt.device)
+    for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dl1)), train_dl1, train_dl2):
+        optimizerC.zero_grad()
+
+        inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
+        inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
+
+        bs = inputs1.shape[0]
+        num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
+        num_cross = num_bd
+
+        inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt, 'train')
+        inputs_cross, patterns2, masks2 = create_cross(
+            inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
+        )
+
+        one_hot = np.zeros(bs)
+        one_hot[:(num_bd + num_cross)] = 1
+        one_hot_original_index.append(one_hot)
+        bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
+        bd_targets.append(torch.cat([targets_bd, targets1[num_bd: (num_bd + num_cross)]], dim=0))
+
+    bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
+    bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
+    train_poison_indicator = np.concatenate(one_hot_original_index)
+    bd_train_original_index = np.where(train_poison_indicator == 1)[
+        0] if train_poison_indicator is not None else None
+    logging.warning('Here the bd and cross samples are all saved in attack_result!!!!')
+
+    test_dl1 = torch.utils.data.DataLoader(
+        test_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
+    test_dl2 = torch.utils.data.DataLoader(
+        test_dl2.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=True)
+
+    test_bd_input = []
+    test_bd_targets = []
+    test_bd_poison_indicator = []
+    test_bd_origianl_targets = []
+    netC.eval()
+    netC.to(opt.device)
+    netG.eval()
+    netG.to(opt.device)
+    netM.eval()
+    netM.to(opt.device)
+    for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
+        with torch.no_grad():
+            inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
+            inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
+            bs = inputs1.shape[0]
+
+            inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
+
+            inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
+
+            test_bd_input.append(inputs_bd)
+            test_bd_targets.append(targets_bd)
+
+            test_bd_poison_indicator.append(position_changed)
+            test_bd_origianl_targets.append(targets)
+
+    bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
+    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
+    test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim=0).long().cpu().numpy())[0]
+    test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
+    test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
     final_save_dict = {
             'model_name': opt.model_name,
@@ -826,10 +1054,11 @@ def train(opt):
             'bd_test': {
                 'x': bd_test_x,
                 'y': bd_test_y,
-                'original_index': bd_test_original_index,
-                'original_targets': bd_test_original_target,
+                'original_index': test_bd_origianl_index,
+                'original_targets': test_bd_origianl_targets,
             },
         }
+
     logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
     torch.save(
         final_save_dict,
@@ -901,32 +1130,7 @@ def main():
 
     opt.terminal_info = sys.argv
 
-
-
-    # if opt.dataset == "mnist" or opt.dataset == "cifar10":
-    #     opt.num_classes = 10
-    # elif opt.dataset == "gtsrb":
-    #     opt.num_classes = 43
-    # elif opt.dataset == "celeba":
-    #     opt.num_classes = 8
-    # else:
-    #     raise Exception("Invalid Dataset")
     opt.num_classes = get_num_classes(opt.dataset)
-
-    # if opt.dataset == "cifar10":
-    #     opt.input_height = 32
-    #     opt.input_width = 32
-    #     opt.input_channel = 3
-    # elif opt.dataset == "gtsrb":
-    #     opt.input_height = 32
-    #     opt.input_width = 32
-    #     opt.input_channel = 3
-    # elif opt.dataset == "mnist":
-    #     opt.input_height = 28
-    #     opt.input_width = 28
-    #     opt.input_channel = 1
-    # else:
-    #     raise Exception("Invalid Dataset")
 
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
@@ -966,6 +1170,9 @@ def main():
     train(opt)
 
     torch.save(opt.__dict__, save_path + '/info.pickle')
+
+    agg.to_dataframe().to_csv(f"{save_path}/attack_df.csv")
+    agg.summary().to_csv(f"{save_path}/attack_df_summary.csv")
 
 
 if __name__ == "__main__":

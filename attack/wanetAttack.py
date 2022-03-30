@@ -43,7 +43,9 @@ from utils.aggregate_block.dataset_and_transform_generate import get_num_classes
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.save_load_attack import summary_dict
+from utils.trainer_cls import Metric_Aggregator
 
+agg = Metric_Aggregator()
 
 class Args:
     pass
@@ -375,20 +377,7 @@ def get_arguments():
 
 
 def get_model(opt):
-    netC = None
-    optimizerC = None
-    schedulerC = None
-    logging.info('WARNING : here model is set by original code !!!')
-    # if opt.dataset == "cifar10" or opt.dataset == "gtsrb":
-    #     netC = PreActResNet18(num_classes=opt.num_classes).to(opt.device)
-    #     opt.model_name = 'preactresnet18'
-    # elif opt.dataset == "celeba":
-    #     netC = ResNet18().to(opt.device)
-    #     opt.model_name = 'resnet18'
-    # elif opt.dataset == "mnist":
-    #     netC = NetC_MNIST().to(opt.device)
-    #     opt.model_name = 'netc_mnist'  # TODO add to framework
-    # else:
+
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model_name, opt.num_classes)
     netC.to(opt.device)
@@ -537,10 +526,26 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
 
     schedulerC.step()
     if num_cross:
-        logging.info(f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}, avg_acc_cross : {avg_acc_cross} ')
+        # logging.info(f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}, avg_acc_cross : {avg_acc_cross} ')
+        logging.info(f'End train epoch {epoch}')
+        agg(
+            {
+                'train_avg_acc_clean': float(avg_acc_clean) ,
+                'train_avg_acc_bd': float(avg_acc_bd) ,
+                'avg_acc_cross': float(avg_acc_cross) ,
+            }
+        )
     else:
-        logging.info(
-            f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}')
+        # logging.info(
+        #     f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}')
+        logging.info(f'End train epoch {epoch}')
+        agg(
+            {
+                'train_avg_acc_clean': float(avg_acc_clean) ,
+                'train_avg_acc_bd': float(avg_acc_bd) ,
+                # 'avg_acc_cross': avg_acc_cross,
+            }
+        )
 
 
 def eval(
@@ -652,7 +657,10 @@ def eval(
             }
             json.dump(results_dict, f, indent=2)
 
-    return best_clean_acc, best_bd_acc, best_cross_acc
+    if opt.cross_ratio:
+        return best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, acc_cross
+    else:
+        return best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, 0
 
 
 def main():
@@ -796,10 +804,12 @@ def main():
 
     logging.info(pformat(opt.__dict__))#set here since the opt change once.
 
+    logging.warning(f"acc_cross and best_cross_acc may be 0 if no cross sample are used !!!!")
+
     for epoch in range(epoch_current, opt.n_iters):
         logging.info("Epoch {}:".format(epoch + 1))
         train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
-        best_clean_acc, best_bd_acc, best_cross_acc = eval(
+        best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, acc_cross = eval(
             netC,
             optimizerC,
             schedulerC,
@@ -813,7 +823,16 @@ def main():
             epoch,
             opt,
         )
-        logging.info(f'epoch : {epoch} best_clean_acc : {best_clean_acc}, best_bd_acc : {best_bd_acc}, best_cross_acc : {best_cross_acc}')
+        # logging.info(f'epoch : {epoch} best_clean_acc : {best_clean_acc}, best_bd_acc : {best_bd_acc}, best_cross_acc : {best_cross_acc}')
+        agg({
+            'test_epoch_num':float(epoch),
+            'best_clean_acc': float(best_clean_acc),
+            'best_bd_acc': float(best_bd_acc),
+            'best_cross_acc': float(best_cross_acc),
+            'acc_clean': float(acc_clean),
+            'acc_bd': float(acc_bd),
+            'acc_cross': float(acc_cross),
+        })
 
     # start saving process
 
@@ -919,6 +938,7 @@ def main():
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
     test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim = 0).long().cpu().numpy())[0]
     test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
+    test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
     final_save_dict = {
             'model_name': opt.model_name,
@@ -952,6 +972,9 @@ def main():
     )
 
     torch.save(opt.__dict__, save_path + '/info.pickle')
+
+    agg.to_dataframe().to_csv(f"{save_path}/attack_df.csv")
+    agg.summary().to_csv(f"{save_path}/attack_df_summary.csv")
 
 if __name__ == "__main__":
     main()

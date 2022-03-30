@@ -110,16 +110,3 @@ def generate_save_folder(
     os.mkdir(save_path)
 
     return save_path
-
-if __name__ == '__main__':
-    print(generate_save_folder(
-        run_info = 'yes',
-        # given_load_file_path='dir/sub_dir/other_sub_dir/file_name.txt',
-        all_record_folder_path=''
-
-    ))
-    print(generate_save_folder(
-        run_info='yes',
-        given_load_file_path='/Users/chenhongrui/Downloads/logs',
-        all_record_folder_path=''
-    ))
