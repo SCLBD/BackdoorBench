@@ -196,6 +196,7 @@ def main():
         train=True,
         pratio= args.pratio if 'pratio' in args.__dict__ else None,
         p_num= args.p_num if 'p_num' in args.__dict__ else None,
+        clean_label=True,
     )
     torch.save(train_pidx,
         args.save_path + '/train_pidex_list.pickle',

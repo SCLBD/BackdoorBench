@@ -5,9 +5,7 @@ import time,random, string,  os, sys
 from datetime import datetime
 from typing import *
 
-# 2 case :
-# given load_path
-# just run, don't want to manually give a name, no descent works
+
 
 def generate_save_folder(
         run_info : Optional[str] = '',
@@ -16,7 +14,9 @@ def generate_save_folder(
         all_record_folder_path : str = '../record',
 ) -> str:
 
-
+    # This function helps to generate save path for experiment.
+    # if you do not want to set the name, this function will set it for experiment.
+    # Note that by using the randomly generate str, replication of experiment may not overwrite the folder of each other
 
     def inside_generate(
             all_record_folder_path: str,

@@ -1,8 +1,15 @@
-import sys, logging
+'''
+This code is based on https://github.com/bboylyg/NAD
+
+The original license:
+License CC BY-NC
+
+The update include:
+    1. decompose the function structure and add more normalization options
+    2. add more dataset options, and compose them into dataset_and_transform_generate
+'''
+
 from typing import Tuple
-import torch.utils.data as data
-import torch
-import torchvision
 import torchvision.transforms as transforms
 
 
@@ -64,7 +71,6 @@ def get_dataset_normalization(dataset_name):
         raise Exception("Invalid Dataset")
     return dataset_normalization
 
-# this if from bd_zoo
 def get_transform(dataset_name, input_height, input_width,train=True):
     transforms_list = []
     transforms_list.append(transforms.Resize((input_height, input_width)))
@@ -79,6 +85,11 @@ def get_transform(dataset_name, input_height, input_width,train=True):
     return transforms.Compose(transforms_list)
 
 def dataset_and_transform_generate(args):
+    '''
+
+    :param args:
+    :return: clean dataset in both train and test phase, and corresponding transforms
+    '''
 
     if args.dataset.startswith('test'): # for test only
 

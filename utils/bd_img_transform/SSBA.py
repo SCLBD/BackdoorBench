@@ -1,3 +1,6 @@
+# This script is for SSBA,
+# but the main part please refer to https://github.com/tancik/StegaStamp and follow the original paper of SSBA.
+# This script only use to replace the img after backdoor modification.
 
 from typing import Sequence
 import logging

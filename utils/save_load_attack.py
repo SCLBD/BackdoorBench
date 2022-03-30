@@ -1,4 +1,11 @@
+'''
+This script aims to save and load the attack result as a bridge between attack and defense files.
 
+Model, clean data, backdoor data and all infomation needed to reconstruct will be saved.
+
+Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
+
+'''
 import logging
 from pprint import pformat
 import numpy as np
@@ -37,6 +44,19 @@ def save_attack_result(
     bd_test : torch.utils.data.Dataset, # dataset without transform
     save_path : str,
 ):
+    '''
+
+    :param model_name : str,
+    :param num_classes : int,
+    :param model : dict, # the state_dict
+    :param data_path : str,
+    :param img_size : list, like [32,32,3]
+    :param clean_data : str, clean dataset name
+    :param bd_train : torch.utils.data.Dataset, # dataset without transform !!
+    :param bd_test : torch.utils.data.Dataset, # dataset without transform
+    :param save_path : str,
+    :return:
+    '''
 
     def loop_through_cls_ds_without_transform(dataset_without_transform):
         if isinstance(dataset_without_transform, prepro_cls_DatasetBD):
@@ -113,6 +133,11 @@ class Args:
 def load_attack_result(
     save_path : str,
 ):
+    '''
+    save_path MUST have 'record' in its abspath, and data_path in attack result MUST have 'data' in its path!!!
+    :param save_path:
+    :return:
+    '''
     load_file = torch.load(save_path)
 
     if all(key in load_file for key in ['model_name',

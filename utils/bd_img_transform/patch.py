@@ -1,5 +1,5 @@
-import logging
-import cv2
+# the callable object for BadNets attack
+
 import numpy as np
 import torch
 

@@ -1,3 +1,5 @@
+# This script include all-to-one and all-to-all attack
+
 import sys, logging
 sys.path.append('../')
 import random

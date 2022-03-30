@@ -5,12 +5,17 @@ import numpy as np
 import torchvision.transforms as transforms
 
 from utils.bd_img_transform.blended import blendedImageAttack
-from utils.bd_img_transform.patch import *
+from utils.bd_img_transform.patch import AddPatchTrigger
 from utils.bd_img_transform.sig import sigTriggerAttack
 from utils.bd_img_transform.SSBA import SSBA_attack_replace_version
 from utils.bd_label_transform.backdoor_label_transform import *
 
 def bd_attack_img_trans_generate(args):
+    '''
+
+    :param args: args that contains parameters of backdoor attack
+    :return: transform on img for backdoor attack in both train and test phase
+    '''
 
     if args.attack == 'fix_patch':
 
@@ -66,15 +71,12 @@ def bd_attack_img_trans_generate(args):
 def bd_attack_label_trans_generate(args):
     '''
 
-    Notice that for CLEAN LABEL attack, this blocks only return the label_trans for TEST time !!!
-
-    a = AllToOne_attack(target_label=4)
-    b = AllToAll_shiftLabelAttack(2, 10)
+    from args generate backdoor label transformation
 
     '''
     if args.attack_label_trans == 'all2one':
-        target_label = int(args.attack_target)  # random.choice([i for i in range(10) if i != source_label])
-        bd_label_transform = AllToOne_attack(target_label)  # OneToOne_attack(source_label, target_label)
+        target_label = int(args.attack_target)
+        bd_label_transform = AllToOne_attack(target_label)
     elif args.attack_label_trans == 'all2all':
         bd_label_transform = AllToAll_shiftLabelAttack(
             int(args.attack_label_shift_amount), int(args.num_classses)
