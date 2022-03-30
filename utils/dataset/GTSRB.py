@@ -35,7 +35,7 @@ class GTSRB(data.Dataset):
         images = []
         labels = []
         for c in range(0, 43):
-            prefix = self.data_folder + "/Images/" + format(c, "05d") + "/"
+            prefix = self.data_folder + "/" + format(c, "05d") + "/"
             if not os.path.isdir(prefix):
                 os.makedirs(prefix)
             gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")
@@ -55,7 +55,7 @@ class GTSRB(data.Dataset):
         gtReader = csv.reader(gtFile, delimiter=";")
         next(gtReader)
         for row in gtReader:
-            images.append(self.data_folder + '/Images' + "/" + row[0])
+            images.append(self.data_folder + '' + "/" + row[0])
             labels.append(int(row[7]))
         return images, labels
 

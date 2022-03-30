@@ -199,15 +199,17 @@ def dataset_and_transform_generate(args):
 
     elif args.dataset == "tiny":
 
-        from utils.dataset.Tiny import Tiny
+        from utils.dataset.Tiny import TinyImageNet
 
-        train_dataset_without_transform = Tiny(args.dataset_path,
-                                                  train=True,
+        train_dataset_without_transform = TinyImageNet(args.dataset_path,
+                                                  split = 'train',
+                                                       download = True,
                                                 )
         train_img_transform = get_transform('tiny', *(args.img_size[:2]) , train = True)
         train_label_transfrom = None
-        test_dataset_without_transform = Tiny(args.dataset_path,
-                                                  train=False,
+        test_dataset_without_transform = TinyImageNet(args.dataset_path,
+                                                  split = 'val',
+                                                      download=True,
                                                 )
         test_img_transform = get_transform('tiny', *(args.img_size[:2]) , train = False)
         test_label_transform = None
