@@ -227,13 +227,7 @@ class ModelTrainerCLS():
                 metrics['test_correct'] += correct.item()
                 metrics['test_loss'] += loss.item() * target.size(0)
                 metrics['test_total'] += target.size(0)
-                # metrics['detail_list'] += list(zip(
-                #     additional_info[0].cpu().numpy(),
-                #     pred.detach().cpu().numpy(),
-                #     predicted.detach().cpu().numpy(),
-                #     target.detach().cpu().numpy(),
-                # ))
-                # logging.info(f"testing, batch_idx:{batch_idx}, acc:{metrics['test_correct']}/{metrics['test_total']}")
+
 
         return metrics
 
@@ -249,17 +243,14 @@ class ModelTrainerCLS():
         loss = self.criterion(log_probs, labels.long())
         loss.backward()
 
-        # Uncommet this following line to avoid nan loss
-        # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
-        # logging.info(list(zip(additional_info[0].cpu().numpy(), log_probs.detach().cpu().numpy(), labels.detach().cpu().numpy(), )))
 
         self.optimizer.step()
 
         batch_loss = (loss.item())
 
         return batch_loss
-        # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
+
 
     def train_one_epoch(self, train_data, device):
 

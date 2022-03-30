@@ -318,55 +318,6 @@ def main():
                 only_load_model=True,
             )
 
-        elif 'recover' in args.__dict__ and args.recover == True :
-
-            trainer.train_with_test_each_epoch(
-                train_data=adv_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
-                end_epoch_num=args.epochs,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                device=device,
-                frequency_save=args.frequency_save,
-                save_folder_path=save_path,
-                save_prefix='attack',
-                continue_training_path=args.load_path,
-                only_load_model=False,
-            )
-
-
-    #
-    # torch.save(
-    #         {
-    #             'model_name':args.model,
-    #             'model': trainer.model.cpu().state_dict(),
-    #             'clean_train': {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_train_dl.dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(benign_train_dl.dataset.targets).long().cpu(),
-    #             },
-    #
-    #             'clean_test' : {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(benign_test_dl.dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(benign_test_dl.dataset.targets).long().cpu(),
-    #             },
-    #
-    #             'bd_train': {
-    #                 'x' : torch.tensor(nHWC_to_nCHW(adv_train_ds.data)).float().cpu(),
-    #                 'y' : torch.tensor(adv_train_ds.targets).long().cpu(),
-    #             },
-    #
-    #             'bd_test': {
-    #                 'x': torch.tensor(nHWC_to_nCHW(adv_test_dataset.data)).float().cpu(),
-    #                 'y' : torch.tensor(adv_test_dataset.targets).long().cpu(),
-    #             },
-    #         },
-    #     f'{save_path}/attack_result.pt'
-    # )
-
-
-
     save_attack_result(
         model_name = args.model,
         num_classes = args.num_classes,

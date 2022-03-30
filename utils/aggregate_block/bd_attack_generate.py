@@ -70,8 +70,7 @@ def bd_attack_label_trans_generate(args):
 
     a = AllToOne_attack(target_label=4)
     b = AllToAll_shiftLabelAttack(2, 10)
-    c = OneToAll_randomLabelAttack(3, [4,5,6])
-    d = OneToOne_attack(3,4)
+
     '''
     if args.attack_label_trans == 'all2one':
         target_label = int(args.attack_target)  # random.choice([i for i in range(10) if i != source_label])
@@ -80,15 +79,6 @@ def bd_attack_label_trans_generate(args):
         bd_label_transform = AllToAll_shiftLabelAttack(
             int(args.attack_label_shift_amount), int(args.num_classses)
         )
-    # elif args.attack_label_trans == 'one2all':
-    #     bd_label_transform = OneToAll_randomLabelAttack(
-    #         int(args.attack_source_label),
-    #         list(args.attack_target),
-    #     )
-    # elif args.attack_label_trans == 'one2one':
-    #     bd_label_transform = OneToOne_attack(
-    #         int(args.attack_source_label),
-    #         int(args.attack_target)
-    #     )
+
     return bd_label_transform
 

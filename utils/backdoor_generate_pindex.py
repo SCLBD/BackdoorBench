@@ -133,41 +133,9 @@ def generate_pidx_from_label_transform(
         logging.info(f'poison num:{len(select_position)},real pratio:{len(select_position) / len(original_labels)}')
         return np.zeros(len(original_labels))[select_position]
 
-    # elif isinstance(label_transform, OneToAll_randomLabelAttack):
-    #     pass
-    # elif isinstance(label_transform, OneToOne_attack):
-    #     pass
 
     else:
         logging.info('Not valid label_transform')
 
 
-
-    # logging.info(f'Reminder: generate_pidx_from_label_transform only support attack that one sample has one fix target label')
-    # logging.info('Reminder: plz note that if p_num or pratio exceed the number of possible candidate samples\n then only maximum number of samples will be applied')
-    # logging.info('Reminder: priority p_num > pratio, and choosing fix number of sample is prefered if possible ')
-    # pidx = np.zeros_like(original_labels)
-    # original_labels = np.array(original_labels)
-    # labels_after_transform = np.array( [label_transform(label) for label in original_labels] )
-    # label_change_idx = np.where(original_labels!=labels_after_transform)[0]
-    # if not is_train:
-    #     logging.info('pratio does not apply during test phase')
-    #     pidx[list(label_change_idx)] = 1
-    # else:
-    #     if p_num is not None or round(pratio * len(original_labels)):
-    #         if p_num is not None:
-    #             non_zero_array = np.random.choice(label_change_idx, p_num, replace = False)
-    #             pidx[list(non_zero_array)] = 1
-    #         else:
-    #             non_zero_array = np.random.choice(label_change_idx,
-    #                                     round(pratio * len(original_labels)), replace = False)
-    #             pidx[list(non_zero_array)] = 1
-    #     # else:
-    #     #     for idx in label_change_idx:
-    #     #         if random.random() < pratio:
-    #     #             pidx[idx] = 1
-    # logging.info(f'poison num:{sum(pidx)},real pratio:{sum(pidx) / len(pidx)}')
-    # if sum(pidx) == 0:
-    #     raise SystemExit('No poison sample generated !')
-    # return pidx
 

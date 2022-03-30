@@ -945,27 +945,13 @@ def train(opt):
             epoch,
             opt,
         )
-        #agg
-        # logging.info(
-        #     f'epoch : {epoch} best_clean_acc : {best_acc_clean}, best_bd_acc : {best_acc_bd}, best_cross_acc : {best_acc_cross}')
         agg({
             "test_avg_acc_clean":float(test_avg_acc_clean),
             "test_avg_acc_bd":float(test_avg_acc_bd),
             "test_avg_acc_cross":float(test_avg_acc_cross),
             "test_epoch_num":float(epoch),
         })
-        # if(epoch == 26): # here > 25 epoch all fine. Since epoch < 25 still have no poison samples
-        #     bd_train_x = total_inputs_bd.float().cpu()
-        #     bd_train_y = total_targets_bd.long().cpu()
-        #     bd_train_poison_indicator = train_poison_indicator
-        #     bd_train_original_index = np.where(bd_train_poison_indicator == 1)[
-        #             0] if bd_train_poison_indicator is not None else None
-        #     bd_train_x = bd_train_x[bd_train_original_index]
-        #     bd_train_y = bd_train_y[bd_train_original_index]
-        #     bd_test_x = test_inputs_bd.float().cpu()
-        #     bd_test_y = test_targets_bd.long().cpu()
-        #     bd_test_original_index = np.where(test_bd_poison_indicator.long().cpu().numpy())[0]
-        #     bd_test_original_target = test_bd_origianl_targets.long().cpu()
+
         epoch += 1
         if epoch > opt.n_iters:
             break
@@ -998,9 +984,6 @@ def train(opt):
         inputs_cross, patterns2, masks2 = create_cross(
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
-
-        # total_inputs = torch.cat((inputs_bd, inputs_cross, inputs1[num_bd + num_cross :]), 0)
-        # total_targets = torch.cat((targets_bd, targets1[num_bd:]), 0)
 
         one_hot = np.zeros(bs)
         one_hot[:(num_bd + num_cross)] = 1
@@ -1036,30 +1019,7 @@ def train(opt):
             inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
             bs = inputs1.shape[0]
 
-            # preds_clean = netC(inputs1)
-            # correct_clean = torch.sum(torch.argmax(preds_clean, 1) == targets1)
-            # total_correct_clean += correct_clean
-
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
-            # if(epoch==26):
-            #     if(save_bd):
-            #         total_inputs_bd = inputs_bd
-            #         total_targets_bd = targets_bd
-            #         test_bd_poison_indicator = position_changed
-            #         test_bd_origianl_targets = targets
-            #         save_bd = 0
-            #     else:
-            #         total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
-            #         total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
-            #         test_bd_poison_indicator = torch.cat((test_bd_poison_indicator, position_changed), 0)
-            #         test_bd_origianl_targets = torch.cat((test_bd_origianl_targets, targets), 0)
-            #     logging.info(total_inputs_bd.shape)
-            #     logging.info(total_targets_bd.shape)
-            #     logging.info(test_bd_poison_indicator.shape)
-            #     logging.info(test_bd_origianl_targets.shape)
-            # preds_bd = netC(inputs_bd)
-            # correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
-            # total_correct_bd += correct_bd
 
             inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
 
@@ -1170,32 +1130,7 @@ def main():
 
     opt.terminal_info = sys.argv
 
-
-
-    # if opt.dataset == "mnist" or opt.dataset == "cifar10":
-    #     opt.num_classes = 10
-    # elif opt.dataset == "gtsrb":
-    #     opt.num_classes = 43
-    # elif opt.dataset == "celeba":
-    #     opt.num_classes = 8
-    # else:
-    #     raise Exception("Invalid Dataset")
     opt.num_classes = get_num_classes(opt.dataset)
-
-    # if opt.dataset == "cifar10":
-    #     opt.input_height = 32
-    #     opt.input_width = 32
-    #     opt.input_channel = 3
-    # elif opt.dataset == "gtsrb":
-    #     opt.input_height = 32
-    #     opt.input_width = 32
-    #     opt.input_channel = 3
-    # elif opt.dataset == "mnist":
-    #     opt.input_height = 28
-    #     opt.input_width = 28
-    #     opt.input_channel = 1
-    # else:
-    #     raise Exception("Invalid Dataset")
 
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)

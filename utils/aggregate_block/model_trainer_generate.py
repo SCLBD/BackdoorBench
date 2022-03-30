@@ -54,13 +54,9 @@ def generate_cls_trainer(
         model,
         attack_name : Optional[str] = None,
 ):
-    if attack_name == 'wanet':
-        from utils.bd_trainer.wanet_trainer import wanetTrainerCLS
-        trainer = wanetTrainerCLS(model)
-    else:
-        # normal case
-        trainer = ModelTrainerCLS(
-            model=model,
-        )
+
+    trainer = ModelTrainerCLS(
+        model=model,
+    )
 
     return trainer
