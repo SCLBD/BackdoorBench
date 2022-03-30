@@ -11,7 +11,6 @@ import argparse
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models import PreActResNet18
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
