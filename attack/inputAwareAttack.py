@@ -1,4 +1,26 @@
-import logging
+'''
+This file is modified based on the following source:
+
+link : https://github.com/VinAIResearch/input-aware-backdoor-attack-release
+The original license is placed at the end of this file.
+
+The update include:
+    1. data preprocess and dataset setting
+    2. model setting
+    3. args and config
+    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
+    5. calculate part of ASR
+    6. save process
+
+basic sturcture for main:
+    1. config args, save_path, fix random seed
+    2. set the clean train data and clean test data
+    3. set the device, model, criterion, optimizer, training schedule.
+    4. clean train 25 epochs
+    5. training with backdoor modification simultaneously
+    6. save attack result
+'''
+
 import sys, yaml, os, time
 
 os.chdir(sys.path[0])
@@ -8,8 +30,6 @@ os.getcwd()
 from pprint import pformat
 import shutil
 import argparse
-import torch.nn as nn
-import torch.nn.functional as F
 
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
@@ -25,21 +45,14 @@ import csv
 import logging
 import os
 
-import config
 import cv2
 import numpy as np
-import torch
 import torch.utils.data as data
-import torchvision
-import torchvision.transforms as transforms
 from PIL import Image
-# from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 
-import torch
 import torch.nn.functional as F
 import torchvision
-from torch import nn
 from torchvision import transforms
 
 import torch
@@ -1177,3 +1190,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+'''
+original license:
+
+MIT License
+
+Copyright (c) 2021 VinAI Research
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
