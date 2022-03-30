@@ -46,6 +46,11 @@ def save_attack_result(
 ):
     '''
 
+    main idea is to loop through the backdoor train and test dataset, and match with the clean dataset
+    by remove replicated parts, this function can save the space.
+
+    WARNING: keep all dataset with shuffle = False, same order of data samples is the basic of this function !!!!
+
     :param model_name : str,
     :param num_classes : int,
     :param model : dict, # the state_dict
@@ -55,7 +60,6 @@ def save_attack_result(
     :param bd_train : torch.utils.data.Dataset, # dataset without transform !!
     :param bd_test : torch.utils.data.Dataset, # dataset without transform
     :param save_path : str,
-    :return:
     '''
 
     def loop_through_cls_ds_without_transform(dataset_without_transform):
@@ -134,9 +138,11 @@ def load_attack_result(
     save_path : str,
 ):
     '''
+    This function first replicate the basic steps of generate models and clean train and test datasets
+    then use the index given in files to replace the samples should be poisoned to re-create the backdoor train and test dataset
+
     save_path MUST have 'record' in its abspath, and data_path in attack result MUST have 'data' in its path!!!
-    :param save_path:
-    :return:
+    save_path : the path of "attack_result.pt"
     '''
     load_file = torch.load(save_path)
 

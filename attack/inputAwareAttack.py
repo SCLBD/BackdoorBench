@@ -14,8 +14,8 @@ The update include:
 
 basic sturcture for main:
     1. config args, save_path, fix random seed
-    2. set the clean train data and clean test data
-    3. set the device, model, criterion, optimizer, training schedule.
+    2. set the device, model, criterion, optimizer, training schedule.
+    3. set the clean train data and clean test data
     4. clean train 25 epochs
     5. training with backdoor modification simultaneously
     6. save attack result
@@ -849,8 +849,7 @@ def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
 
 
 def train(opt):
-    # Prepare model related things
-
+    ### 3. set the device, model, criterion, optimizer, training schedule.
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model_name, opt.num_classes)
     netC.to(opt.device)
@@ -901,14 +900,14 @@ def train(opt):
         os.makedirs(log_dir)
         logging.info("Training from scratch")
 
-    # Prepare dataset
+    ### 3. set the clean train data and clean test data
     train_dl1 = get_dataloader(opt, train=True)
     train_dl2 = get_dataloader(opt, train=True)
     test_dl1 = get_dataloader(opt, train=False)
     test_dl2 = get_dataloader(opt, train=False)
 
     logging.info(pformat(opt.__dict__)) #set here since the opt change at beginning of this function
-
+    ### 4. clean train 25 epochs
     if epoch == 1:
         netM.train()
         for i in range(25):
@@ -923,6 +922,7 @@ def train(opt):
     netM.eval()
     netM.requires_grad_(False)
 
+    ### 5. training with backdoor modification simultaneously
     for i in range(opt.n_iters):
         logging.info(
             "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}:".format(
@@ -969,7 +969,7 @@ def train(opt):
         if epoch > opt.n_iters:
             break
 
-    # bd_train_retrieve
+    ###6. save attack result
     train_dl1 = torch.utils.data.DataLoader(
         train_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
     train_dl2 = torch.utils.data.DataLoader(
@@ -1132,6 +1132,7 @@ def get_arguments():
 
 
 def main():
+    ### 1. config args, save_path, fix random seed
     opt = get_arguments().parse_args()
 
     with open(opt.yaml_path, 'r') as f:

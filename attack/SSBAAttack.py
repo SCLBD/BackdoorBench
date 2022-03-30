@@ -12,6 +12,7 @@ basic structure:
 4. set the backdoor attack data and backdoor test data
 5. set the device, model, criterion, optimizer, training schedule.
 6. attack or use the model to do finetune with 5% clean data
+7. save the attack result for defense
 '''
 
 import sys, yaml, os
@@ -93,7 +94,8 @@ def add_args(parser):
 
 
 def main():
-    ### process args
+
+    ### 1. config args, save_path, fix random seed
     parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
     args = parser.parse_args()
 
@@ -142,7 +144,8 @@ def main():
     ### set the random seed
     fix_random(int(args.random_seed))
 
-    ### get the clean data and original transform of clean data
+
+    ### 2. set the clean train data and clean test data
     train_dataset_without_transform, \
     train_img_transform, \
     train_label_transfrom, \
@@ -182,12 +185,15 @@ def main():
         drop_last=False,
     )
 
-    ### get the backdoor trasform on the raw img
+
+
+    ### 3. set the attack img transform and label transform
     train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
     ### get the backdoor transform on label
     bd_label_transform = bd_attack_label_trans_generate(args)
 
-    ### decide which img to poison
+
+    ### 4. set the backdoor attack data and backdoor test data
     train_pidx = generate_pidx_from_label_transform(
         benign_train_dl.dataset.targets,
         label_transform=bd_label_transform,
@@ -247,7 +253,8 @@ def main():
         drop_last=False,
     )
 
-    ### set the device, model, criterion, optimizer, training schedule.
+
+    ### 5. set the device, model, criterion, optimizer, training schedule.
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     net = generate_cls_model(
@@ -264,7 +271,9 @@ def main():
 
     optimizer, scheduler = argparser_opt_scheduler(net, args)
 
-    ### decide attack or finetune
+
+
+    ### 6. attack or use the model to do finetune with 5% clean data
     if 'load_path' not in args.__dict__:
 
         trainer.train_with_test_each_epoch(
@@ -317,7 +326,8 @@ def main():
                 only_load_model=True,
             )
 
-    ### save model, data, and other information that defense process may need
+
+    ### 7. save model, data, and other information that defense process may need
     save_attack_result(
         model_name=args.model,
         num_classes=args.num_classes,

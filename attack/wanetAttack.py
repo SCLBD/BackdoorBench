@@ -671,6 +671,8 @@ def eval(
 
 
 def main():
+
+    ###1. config args, save_path, fix random seed
     opt = get_arguments().parse_args()
 
     with open(opt.yaml_path, 'r') as f:
@@ -718,11 +720,11 @@ def main():
 
     fix_random(int(opt.random_seed))
 
-    # Dataset
+    ### 2. set the clean train data and clean test data
     train_dl = get_dataloader(opt, True)
     test_dl = get_dataloader(opt, False)
 
-    # prepare model
+    ### 3. set the device, model, criterion, optimizer, training schedule.
     netC, optimizerC, schedulerC = get_model(opt)
 
     # Load pretrained model
@@ -757,7 +759,7 @@ def main():
         best_cross_acc = 0.0
         epoch_current = 0
 
-        # Prepare grid
+        ### 4. set the backdoor warping
         ins = torch.rand(1, 2, opt.k, opt.k) * 2 - 1  # generate (1,2,4,4) shape [-1,1] gaussian
         ins = ins / torch.mean(
             torch.abs(ins))  # scale up, increase var, so that mean of positive part and negative be +1 and -1
@@ -783,6 +785,7 @@ def main():
 
     logging.warning(f"acc_cross and best_cross_acc may be 0 if no cross sample are used !!!!")
 
+    ### 5. training with backdoor modification simultaneously
     for epoch in range(epoch_current, opt.n_iters):
         logging.info("Epoch {}:".format(epoch + 1))
         train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
@@ -811,7 +814,7 @@ def main():
             'acc_cross': float(acc_cross),
         })
 
-    # start saving process
+    ### 6. save attack result
 
     train_dl = torch.utils.data.DataLoader(
         train_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
