@@ -44,8 +44,7 @@ def add_args(parser):
     return a parser added with args required by fit
     """
     # Training settings
-    # parser.add_argument('--mode', type=str,
-    #                     help='classification/detection/segmentation')
+
     parser.add_argument('--device', type = str)
     parser.add_argument('--attack', type = str, )
     parser.add_argument('--yaml_path', type=str, default='../config/BadNetsAttack/default.yaml',

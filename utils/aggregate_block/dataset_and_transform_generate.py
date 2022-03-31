@@ -7,6 +7,8 @@ License CC BY-NC
 The update include:
     1. decompose the function structure and add more normalization options
     2. add more dataset options, and compose them into dataset_and_transform_generate
+
+# idea : use args to choose which dataset and corresponding transform you want
 '''
 
 from typing import Tuple
@@ -15,6 +17,7 @@ import torchvision.transforms as transforms
 
 
 def get_num_classes(dataset_name : str) -> int:
+    # idea : given name, return the number of class in the dataset
     if dataset_name in ["mnist", "cifar10"]:
         num_classes = 10
     elif dataset_name == "gtsrb":
@@ -27,6 +30,7 @@ def get_num_classes(dataset_name : str) -> int:
 
 
 def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
+    # idea : given name, return the image size of images in the dataset
     if dataset_name == "cifar10":
         input_height = 32
         input_width = 32
@@ -48,6 +52,7 @@ def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
     return input_height, input_width, input_channel
 
 def get_dataset_normalization(dataset_name):
+    # idea : given name, return the default normalization of images in the dataset
     if dataset_name == "cifar10":
         #from wanet
         dataset_normalization = (transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]))
@@ -72,6 +77,7 @@ def get_dataset_normalization(dataset_name):
     return dataset_normalization
 
 def get_transform(dataset_name, input_height, input_width,train=True):
+    # idea : given name, return the final implememnt transforms for the dataset
     transforms_list = []
     transforms_list.append(transforms.Resize((input_height, input_width)))
     if train:
@@ -86,7 +92,7 @@ def get_transform(dataset_name, input_height, input_width,train=True):
 
 def dataset_and_transform_generate(args):
     '''
-
+    # idea : given args, return selected dataset, transforms for both train and test part of data.
     :param args:
     :return: clean dataset in both train and test phase, and corresponding transforms
     '''

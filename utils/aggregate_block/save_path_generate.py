@@ -1,3 +1,5 @@
+# idea: generate the save folder name with some random generate string, in order to avoid potential name comflicts in repeat experiments
+
 import sys, logging
 sys.path.append('../../')
 
@@ -14,7 +16,7 @@ def generate_save_folder(
         all_record_folder_path : str = '../record',
 ) -> str:
 
-    # This function helps to generate save path for experiment.
+    # idea:  This function helps to generate save path for experiment.
     # if you do not want to set the name, this function will set it for experiment.
     # Note that by using the randomly generate str, replication of experiment may not overwrite the folder of each other
 

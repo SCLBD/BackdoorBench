@@ -1,5 +1,5 @@
 # the callable object for BadNets attack
-
+# idea : set the parameter in initialization, then when the object is called, it will use the add_trigger method to add trigger
 import numpy as np
 import torch
 

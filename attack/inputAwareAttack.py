@@ -406,16 +406,6 @@ def get_dataloader(opt, train=True, c=0, k=0):
     args.dataset_path = opt.data_root
     args.img_size = (opt.input_height, opt.input_width, opt.input_channel)
 
-    # transform = get_transform(opt, train, c=c, k=k)
-    # if opt.dataset == "gtsrb":
-    #     dataset = GTSRB(opt, train, transform)
-    # elif opt.dataset == "mnist":
-    #     dataset = torchvision.datasets.MNIST(opt.data_root, train, transform, download=True)
-    # elif opt.dataset == "cifar10":
-    #     dataset = torchvision.datasets.CIFAR10(opt.data_root, train, transform, download=True)
-    # else:
-    #     raise Exception("Invalid dataset")
-
     train_dataset_without_transform, \
     train_img_transform, \
     train_label_transfrom, \
@@ -531,10 +521,6 @@ def train_step(
     total_loss = 0
     criterion = nn.CrossEntropyLoss()
     criterion_div = nn.MSELoss(reduction="none")
-    # save_bd = 1
-    # one_hot_original_index = []
-    # total_inputs_bd = []
-    # total_targets_bd = []
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dl1)), train_dl1, train_dl2):
         optimizerC.zero_grad()
 
@@ -552,24 +538,6 @@ def train_step(
 
         total_inputs = torch.cat((inputs_bd, inputs_cross, inputs1[num_bd + num_cross :]), 0)
         total_targets = torch.cat((targets_bd, targets1[num_bd:]), 0)
-        # if(epoch==26):
-        # 
-        #     one_hot = np.zeros(bs)
-        #     one_hot[:(num_bd + num_cross)] = 1
-        # 
-        #     if(save_bd):
-        #         total_inputs_bd = total_inputs
-        #         total_targets_bd = total_targets
-        #         one_hot_original_index = one_hot
-        #         save_bd = 0
-        #     else:
-        #         total_inputs_bd = torch.cat((total_inputs_bd, total_inputs), 0)
-        #         total_targets_bd = torch.cat((total_targets_bd, total_targets), 0)
-        #         one_hot_original_index = np.concatenate((one_hot_original_index, one_hot), 0)
-        # 
-        #     logging.info(total_inputs_bd.shape)
-        #     logging.info(total_targets_bd.shape)
-        #     logging.info(one_hot_original_index.shape)
 
         preds = netC(total_inputs)
         loss_ce = criterion(preds, total_targets)
@@ -647,7 +615,7 @@ def train_step(
         'train_acc_cross':float(acc_cross),
     })
 
-    return #total_inputs_bd, total_targets_bd, one_hot_original_index
+    return
 
 
 def eval(
@@ -671,11 +639,7 @@ def eval(
     total_correct_clean = 0.0
     total_correct_bd = 0.0
     total_correct_cross = 0.0
-    # save_bd = 1
-    # total_inputs_bd = []
-    # total_targets_bd = []
-    # test_bd_poison_indicator = []
-    # test_bd_origianl_targets = []
+
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
         with torch.no_grad():
             inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
@@ -687,22 +651,7 @@ def eval(
             total_correct_clean += correct_clean
 
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
-            # if(epoch==26):
-            #     if(save_bd):
-            #         total_inputs_bd = inputs_bd
-            #         total_targets_bd = targets_bd
-            #         test_bd_poison_indicator = position_changed
-            #         test_bd_origianl_targets = targets
-            #         save_bd = 0
-            #     else:
-            #         total_inputs_bd = torch.cat((total_inputs_bd, inputs_bd), 0)
-            #         total_targets_bd = torch.cat((total_targets_bd, targets_bd), 0)
-            #         test_bd_poison_indicator = torch.cat((test_bd_poison_indicator, position_changed), 0)
-            #         test_bd_origianl_targets = torch.cat((test_bd_origianl_targets, targets), 0)
-            #     logging.info(total_inputs_bd.shape)
-            #     logging.info(total_targets_bd.shape)
-            #     logging.info(test_bd_poison_indicator.shape)
-            #     logging.info(test_bd_origianl_targets.shape)
+
             preds_bd = netC(inputs_bd)
             correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
             total_correct_bd += correct_bd
@@ -743,7 +692,7 @@ def eval(
         os.makedirs(ckpt_folder)
     ckpt_path = os.path.join(ckpt_folder, "{}_{}_ckpt.pth.tar".format(opt.attack_mode, opt.dataset))
     torch.save(state_dict, ckpt_path)
-    return avg_acc_clean,avg_acc_bd,avg_acc_cross, epoch#, total_inputs_bd, total_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets
+    return avg_acc_clean,avg_acc_bd,avg_acc_cross, epoch
 
 
 # -------------------------------------------------------------------------------------
@@ -929,7 +878,7 @@ def train(opt):
                 epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div
             )
         )
-        # total_inputs_bd, total_targets_bd, train_poison_indicator = train_step(
+
         train_step(
             netC,
             netG,
@@ -944,7 +893,7 @@ def train(opt):
             opt,
             tf_writer,
         )
-        #best_acc_clean, best_acc_bd, best_acc_cross, epoch, test_inputs_bd, test_targets_bd, test_bd_poison_indicator, test_bd_origianl_targets = eval(
+
         test_avg_acc_clean, test_avg_acc_bd, test_avg_acc_cross, epoch=eval(
             netC,
             netG,

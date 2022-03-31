@@ -1,3 +1,5 @@
+# idea: select model you use in training and the trainer (the warper for training process)
+
 import sys, logging
 sys.path.append('../../')
 
@@ -14,7 +16,7 @@ def generate_cls_model(
     num_classes: int = 10,
 ):
     '''
-    aggregation block for selection of classifcation models
+    # idea: aggregation block for selection of classifcation models
     :param model_name:
     :param num_classes:
     :return:
@@ -61,8 +63,8 @@ def generate_cls_trainer(
         attack_name : Optional[str] = None,
 ):
     '''
-    The warpper of model, which use to receive training settings.
-    You can add more options for more complicated backdoor attacks.
+    # idea: The warpper of model, which use to receive training settings.
+        You can add more options for more complicated backdoor attacks.
 
     :param model:
     :param attack_name:

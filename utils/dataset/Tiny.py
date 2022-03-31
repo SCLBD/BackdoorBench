@@ -2,6 +2,8 @@
 Simple Tiny ImageNet dataset utility class for pytorch.
 This code is copied from https://gist.github.com/lromor/bcfc69dcf31b2f3244358aea10b7a11b
 
+# idea: This script is implementation of TinyImageNet, the download is automatically started at the first execution.
+
 original license:
 
 # Copyright (C) 2022 Leonardo Romor

@@ -6,7 +6,13 @@ The original license is placed at the end of this file.
 The update include:
     1. change the param from opt to data_root
     2. add if statement to check if the transform is None
+
+# idea: This script is for CelebA implementation
+
+Note that if you get error due to download part, you may need to download CelebA manually,
+    since the official implementation use googledrive which limit daily access amount.
 """
+
 import torchvision
 
 import torch.utils.data as data

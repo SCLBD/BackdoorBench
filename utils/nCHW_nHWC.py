@@ -1,5 +1,7 @@
 '''
 This script aims to do transformation between nCHW and nHWC
+please note that these two function both need to have 3 or 4 dimension,
+    PIL or list DOES NOT SUPPORT !
 '''
 def nCHW_to_nHWC(images):
     if images.shape.__len__() == 3:

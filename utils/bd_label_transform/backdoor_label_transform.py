@@ -6,7 +6,7 @@ import random
 
 class AllToOne_attack(object):
     '''
-    any label -> fix_target
+    idea : any label -> fix_target
     '''
     @classmethod
     def add_argument(self, parser):
@@ -22,7 +22,7 @@ class AllToOne_attack(object):
 
 class AllToAll_shiftLabelAttack(object):
     '''
-    any label -> (label + fix_shift_amount)%num_classses
+    idea : any label -> (label + fix_shift_amount) % num_classses
     '''
     @classmethod
     def add_argument(self, parser):

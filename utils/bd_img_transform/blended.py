@@ -1,5 +1,5 @@
 # the callable object for Blended attack
-
+# idea : set the parameter in initialization, then when the object is called, it will use the add_trigger method to add trigger
 class blendedImageAttack(object):
 
     @classmethod

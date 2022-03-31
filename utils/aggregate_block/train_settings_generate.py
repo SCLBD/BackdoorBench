@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 class flooding(torch.nn.Module):
+    # idea: module that can add flooding formula to the loss function
     '''The additional flooding trick on loss'''
     def __init__(self, inner_criterion, flooding_scalar = 0.5):
         super(flooding, self).__init__()
@@ -16,10 +17,10 @@ class flooding(torch.nn.Module):
 
 def argparser_criterion(args):
     '''
-    flooding_scalar
+    # idea: generate the criterion, default is CrossEntropyLoss
     '''
     criterion = nn.CrossEntropyLoss()
-    if ('flooding_scalar' in args.__dict__):
+    if ('flooding_scalar' in args.__dict__): # use the flooding formulation warpper
         criterion = flooding(
             criterion,
             flooding_scalar=float(
@@ -29,6 +30,7 @@ def argparser_criterion(args):
     return criterion
 
 def argparser_opt_scheduler(model, args):
+    # idea: given model and args, return the optimizer and scheduler you choose to use
 
     if args.client_optimizer == "sgd":
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),

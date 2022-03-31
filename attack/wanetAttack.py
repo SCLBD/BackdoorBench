@@ -107,10 +107,10 @@ class MNISTBlock(nn.Module):
 class NetC_MNIST(nn.Module):
     def __init__(self):
         super(NetC_MNIST, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, (3, 3), 2, 1)  # 14
+        self.conv1 = nn.Conv2d(1, 32, (3, 3), 2, 1)
         self.relu1 = nn.ReLU(inplace=True)
-        self.layer2 = MNISTBlock(32, 64, 2)  # 7
-        self.layer3 = MNISTBlock(64, 64, 2)  # 4
+        self.layer2 = MNISTBlock(32, 64, 2)
+        self.layer3 = MNISTBlock(64, 64, 2)
         self.flatten = nn.Flatten()
         self.linear6 = nn.Linear(64 * 4 * 4, 512)
         self.relu7 = nn.ReLU(inplace=True)
@@ -132,7 +132,7 @@ begin_time = last_time
 def progress_bar(current, total, msg=None):
     global last_time, begin_time
     if current == 0:
-        begin_time = time.time()  # Reset for new bar.
+        begin_time = time.time()
 
     cur_len = int(TOTAL_BAR_LENGTH * current / total)
     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
@@ -159,7 +159,6 @@ def progress_bar(current, total, msg=None):
     for i in range(term_width - int(TOTAL_BAR_LENGTH) - len(msg) - 3):
         sys.stdout.write(" ")
 
-    # Go back to the center of the bar.
     for i in range(term_width - int(TOTAL_BAR_LENGTH / 2) + 2):
         sys.stdout.write("\b")
     sys.stdout.write(" %d/%d " % (current + 1, total))
@@ -199,7 +198,7 @@ class ProbTransform(torch.nn.Module):
         self.f = f
         self.p = p
 
-    def forward(self, x):  # , **kwargs):
+    def forward(self, x):
         if random.random() < self.p:
             return self.f(x)
         else:
@@ -221,90 +220,7 @@ class PostTensorTransform(torch.nn.Module):
             x = module(x)
         return x
 
-
-# class GTSRB(data.Dataset):
-#     def __init__(self, opt, train, transforms):
-#         super(GTSRB, self).__init__()
-#         if train:
-#             self.data_folder = os.path.join(opt.data_root, "GTSRB/Train")
-#             self.images, self.labels = self._get_data_train_list()
-#         else:
-#             self.data_folder = os.path.join(opt.data_root, "GTSRB/Test")
-#             self.images, self.labels = self._get_data_test_list()
-#
-#         self.transforms = transforms
-#
-#     def _get_data_train_list(self):
-#         images = []
-#         labels = []
-#         for c in range(0, 43):
-#             prefix = self.data_folder + "/" + format(c, "05d") + "/"
-#             gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")
-#             gtReader = csv.reader(gtFile, delimiter=";")
-#             next(gtReader)
-#             for row in gtReader:
-#                 images.append(prefix + row[0])
-#                 labels.append(int(row[7]))
-#             gtFile.close()
-#         return images, labels
-#
-#     def _get_data_test_list(self):
-#         images = []
-#         labels = []
-#         prefix = os.path.join(self.data_folder, "GT-final_test.csv")
-#         gtFile = open(prefix)
-#         gtReader = csv.reader(gtFile, delimiter=";")
-#         next(gtReader)
-#         for row in gtReader:
-#             images.append(self.data_folder + "/" + row[0])
-#             labels.append(int(row[7]))
-#         return images, labels
-#
-#     def __len__(self):
-#         return len(self.images)
-#
-#     def __getitem__(self, index):
-#         image = Image.open(self.images[index])
-#         image = self.transforms(image)
-#         label = self.labels[index]
-#         return image, label
-
-# class CelebA_attr(data.Dataset):
-#     def __init__(self, opt, split, transforms):
-#         self.dataset = torchvision.datasets.CelebA(root=opt.data_root, split=split, target_type="attr", download=True)
-#         self.list_attributes = [18, 31, 21]
-#         self.transforms = transforms
-#         self.split = split
-#
-#     def _convert_attributes(self, bool_attributes):
-#         return (bool_attributes[0] << 2) + (bool_attributes[1] << 1) + (bool_attributes[2])
-#
-#     def __len__(self):
-#         return len(self.dataset)
-#
-#     def __getitem__(self, index):
-#         input, target = self.dataset[index]
-#         input = self.transforms(input)
-#         target = self._convert_attributes(target[self.list_attributes])
-#         return (input, target)
-
-
 def get_dataloader(opt, train=True, pretensor_transform=False):
-    # transform = get_transform(opt, train, pretensor_transform)
-    # if opt.dataset == "gtsrb":
-    #     dataset = GTSRB(opt, train, transform)
-    # elif opt.dataset == "mnist":
-    #     dataset = torchvision.datasets.MNIST(opt.data_root, train, transform, download=True)
-    # elif opt.dataset == "cifar10":
-    #     dataset = torchvision.datasets.CIFAR10(opt.data_root, train, transform, download=True)
-    # elif opt.dataset == "celeba":
-    #     if train:
-    #         split = "train"
-    #     else:
-    #         split = "test"
-    #     dataset = CelebA_attr(opt, split, transform)
-    # else:
-    #     raise Exception("Invalid dataset")
 
     args = Args()
     args.dataset = opt.dataset
@@ -706,7 +622,6 @@ def main():
         datefmt='%Y-%m-%d:%H:%M:%S',
     )
     logger = logging.getLogger()
-    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
     fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
@@ -803,7 +718,7 @@ def main():
             epoch,
             opt,
         )
-        # logging.info(f'epoch : {epoch} best_clean_acc : {best_clean_acc}, best_bd_acc : {best_bd_acc}, best_cross_acc : {best_cross_acc}')
+
         agg({
             'test_epoch_num':float(epoch),
             'best_clean_acc': float(best_clean_acc),
@@ -856,11 +771,6 @@ def main():
         bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
         bd_targets.append(torch.cat([targets_bd, targets[num_bd: (num_bd + num_cross)]], dim=0))
 
-        # total_inputs = torch.cat([inputs_bd, inputs_cross, inputs[(num_bd + num_cross) :]], dim=0)
-        # total_inputs = transforms(total_inputs)
-        # total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
-
-    # logging.warning('Here we drop the cross samples, since this part should never given to defender, in any sense')
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
     train_poison_indicator = np.concatenate(one_hot_original_index)

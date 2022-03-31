@@ -1,3 +1,5 @@
+# idea: fix the randomness.
+
 import sys, logging
 sys.path.append('../../')
 

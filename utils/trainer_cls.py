@@ -1,5 +1,4 @@
-# This script is for trainer.
-
+# This script is for trainer. This is a warpper for training process.
 
 import sys, logging
 sys.path.append('../')

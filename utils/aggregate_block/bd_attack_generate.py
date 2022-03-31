@@ -1,3 +1,5 @@
+# idea : the backdoor img and label transformation are aggregated here, which make selection with args easier.
+
 import sys, logging
 sys.path.append('../../')
 import  imageio
@@ -12,7 +14,7 @@ from utils.bd_label_transform.backdoor_label_transform import *
 
 def bd_attack_img_trans_generate(args):
     '''
-
+    # idea : use args to choose which backdoor img transform you want
     :param args: args that contains parameters of backdoor attack
     :return: transform on img for backdoor attack in both train and test phase
     '''
@@ -56,8 +58,6 @@ def bd_attack_img_trans_generate(args):
         test_bd_transform = trans
 
     elif args.attack == 'SSBA_replace':
-        # replace just remind you that this function can only use the SSBA attack img to do replace, NOT do transform
-        from PIL import Image
         train_bd_transform = SSBA_attack_replace_version(
             replace_images=np.load(args.attack_train_replace_imgs_path) # '../data/cifar10_SSBA/train.npy'
         )
@@ -70,7 +70,7 @@ def bd_attack_img_trans_generate(args):
 
 def bd_attack_label_trans_generate(args):
     '''
-
+    # idea : use args to choose which backdoor label transform you want
     from args generate backdoor label transformation
 
     '''

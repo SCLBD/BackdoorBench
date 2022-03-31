@@ -2,6 +2,9 @@
 This file is modified based on the following source:
 link : https://github.com/VinAIResearch/Warping-based_Backdoor_Attack-release
 The original license is placed at the end of this file.
+
+This file provide implementation of pre-activation ResNet.
+Please note that this is different from default ResNet in pytorch, even thought the structure of file is quite similar.
 """
 import torch
 import torch.nn as nn

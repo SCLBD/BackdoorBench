@@ -7,6 +7,8 @@ The update include:
     1. change the param from opt to data_root
     2. add if statement to check if the transform is None
     3. change the path str
+
+# idea: This script is implementation of GTSRB, download script is under ./sh
 """
 import  os
 

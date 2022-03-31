@@ -9,6 +9,8 @@ License CC BY-NC
 The update include:
     1. change to callable object
     2. change the way of trigger generation, use the original formulation.
+
+# idea : set the parameter in initialization, then when the object is called, it will use the add_trigger method to add trigger
 '''
 
 from typing import Union

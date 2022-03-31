@@ -1,3 +1,6 @@
+# idea: this file is for the poison sample index selection,
+#   generate_single_target_attack_train_pidx is for all-to-one attack label transform
+#   generate_pidx_from_label_transform aggregate both all-to-one and all-to-all case.
 
 import sys, logging
 sys.path.append('../')
@@ -15,6 +18,7 @@ def generate_single_target_attack_train_pidx(
         train : bool = True,
 ) -> np.ndarray:
     '''
+    # idea: given the following information, which samples will be used to poison will be determined automatically.
 
     :param targets: y array of clean dataset that tend to do poison
     :param tlabel: target label in backdoor attack
@@ -70,6 +74,9 @@ def generate_pidx_from_label_transform(
         clean_label: bool = False,
 ) -> Optional[np.ndarray]:
     '''
+
+    # idea: aggregate all-to-one case and all-to-all cases, case being used will be determined by given label transformation automatically.
+
     !only support label_transform with deterministic output value (one sample one fix target label)!
 
     :param targets: y array of clean dataset that tend to do poison
