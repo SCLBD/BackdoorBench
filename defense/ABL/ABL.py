@@ -1,32 +1,25 @@
+'''
+This file is modified based on the following source:
+link : https://github.com/bboylyg/ABL.
+The defense method is called abl.
 
+The update include:
+    1. data preprocess and dataset setting
+    2. model setting
+    3. args and config
+    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
+    5. save process
+    6. new standard: robust accuracy
+basic sturcture for defense method:
+    1. basic setting: args
+    2. attack result(model, train data, test data)
+    3. abl defense:
+        a. pre-train model
+        b. isolate the special data(loss is low) as backdoor data
+        c. unlearn the backdoor data and learn the remaining data
+    4. test the result and get ASR, ACC, RC 
+'''
 
-
-
-
-# MIT License
-#
-# Copyright (C) The Adversarial Robustness Toolbox (ART) Authors 2018
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-# persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
-# Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-"""
-This module implements methods performing poisoning detection based on activations clustering.
-| Paper link: https://arxiv.org/abs/1811.03728
-| Please keep in mind the limitations of defences. For more information on the limitations of this
-    defence, see https://arxiv.org/abs/1905.13409 . For details on how to evaluate classifier security
-    in general, see https://arxiv.org/abs/1902.06705
-"""
 import logging
 from pprint import pformat
 import time
@@ -60,8 +53,9 @@ from pprint import pprint, pformat
 
 
 def get_args():
+    #set the basic parameter
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument('--device', type=str, help='cuda, cpu')
     parser.add_argument('--checkpoint_load', type=str)
     parser.add_argument('--checkpoint_save', type=str)
@@ -85,11 +79,10 @@ def get_args():
     parser.add_argument('--target_label', type=int)
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
-    ####添加额外
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    #####abl
+    #set the parameter for the abl defense
     parser.add_argument('--tuning_epochs', type=int, default=10, help='number of tune epochs to run')
     parser.add_argument('--finetuning_ascent_model', type=str, default=True, help='whether finetuning model')
     parser.add_argument('--finetuning_epochs', type=int, default=60, help='number of finetuning epochs to run')
@@ -164,7 +157,6 @@ class Dataset_npy(torch.utils.data.Dataset):
 
         if self.transform:
             image = self.transform(image)
-        # print(type(image), image.shape)
         return image, label
 
     def __len__(self):
@@ -219,36 +211,7 @@ def train(args, result):
 
         train_step(args, poisoned_data_loader, model_ascent, optimizer, criterion, epoch + 1)
 
-        # evaluate on testing set
-        # print('testing the ascended model......')
-        # acc_clean, acc_bad = test(opt, test_clean_loader, test_bad_loader, model_ascent, criterion, epoch + 1)
-
-        # if opt.save:
-        #     # remember best precision and save checkpoint
-        #     # is_best = acc_clean[0] > opt.threshold_clean
-        #     # opt.threshold_clean = min(acc_clean[0], opt.threshold_clean)
-        #     #
-        #     # best_clean_acc = acc_clean[0]
-        #     # best_bad_acc = acc_bad[0]
-        #     #
-        #     # save_checkpoint({
-        #     #     'epoch': epoch,
-        #     #     'state_dict': model_ascent.state_dict(),
-        #     #     'clean_acc': best_clean_acc,
-        #     #     'bad_acc': best_bad_acc,
-        #     #     'optimizer': optimizer.state_dict(),
-        #     # }, epoch, is_best, opt.checkpoint_root, opt.model_name)
-
-        #     # save checkpoint at interval epoch
-        #     if epoch % opt.interval == 0:
-        #         is_best = True
-        #         save_checkpoint({
-        #             'epoch': epoch + 1,
-        #             'state_dict': model_ascent.state_dict(),
-        #             'clean_acc': acc_clean[0],
-        #             'bad_acc': acc_bad[0],
-        #             'optimizer': optimizer.state_dict(),
-        #         }, epoch, is_best, opt)
+        
 
     return poisoned_data, model_ascent
 
@@ -276,7 +239,6 @@ def compute_loss_value(opt, poisoned_data, model_ascent):
         with torch.no_grad():
             output = model_ascent(img)
             loss = criterion(output, target)
-            # print(loss.item())
 
         losses_record.append(loss.item())
 
@@ -284,8 +246,7 @@ def compute_loss_value(opt, poisoned_data, model_ascent):
 
     # Show the top 10 loss values
     losses_record_arr = np.array(losses_record)
-    print('Top ten loss value:', losses_record_arr[losses_idx[:10]])
-    #logging.info('Top ten loss value:', losses_record_arr[losses_idx[:10]])
+    logging.info('Top ten loss value:', losses_record_arr[losses_idx[:10]])
 
     return losses_idx
 
@@ -302,7 +263,6 @@ def isolate_data(opt, poisoned_data, losses_idx):
                                         batch_size=1,
                                         shuffle=False,
                                         )
-    # print('full_poisoned_data_idx:', len(losses_idx))
     perm = losses_idx[0: int(len(losses_idx) * ratio)]
 
     for idx, (img, target) in tqdm(enumerate(example_data_loader, start=0)):
@@ -318,19 +278,6 @@ def isolate_data(opt, poisoned_data, losses_idx):
         else:
             other_examples.append((img, target))
 
-    # Save data
-    # if opt.save:
-    #     data_path_isolation = os.path.join(opt.isolate_data_root, "{}_isolation{}_examples.npy".format(opt.model_name,
-    #                                                                                          opt.isolation_ratio * 100))
-    #     data_path_other = os.path.join(opt.isolate_data_root, "{}_other{}_examples.npy".format(opt.model_name,
-    #                                                                                          100 - opt.isolation_ratio * 100))
-    #     # if os.path.exists(data_path_isolation):
-    #     #     raise ValueError('isolation data already exists')
-    #     # else:
-    #     #     # save the isolation examples
-    #     np.save(data_path_isolation, isolation_examples)
-    #     np.save(data_path_other, other_examples)
-
     print('Finish collecting {} isolation examples: '.format(len(isolation_examples)))
     print('Finish collecting {} other examples: '.format(len(other_examples)))
     logging.info('Finish collecting {} isolation examples: '.format(len(isolation_examples)))
@@ -340,8 +287,6 @@ def isolate_data(opt, poisoned_data, losses_idx):
 
 def train_step(args, train_loader, model_ascent, optimizer, criterion, epoch):
     losses = 0
-    # top1 = 0
-    #top5 = AverageMeter()
     size = 0
 
     model_ascent.train()
@@ -367,25 +312,14 @@ def train_step(args, train_loader, model_ascent, optimizer, criterion, epoch):
         else:
             raise NotImplementedError
 
-        # prec1 = accuracy(output, target)[0]
-        # losses.update(loss_ascent.item(), img.size(0))
-        # top1.update(prec1.item(), img.size(0))
-        # top5.update(prec5.item(), img.size(0))
         losses += loss_ascent * img.size(0)
         size += img.size(0)
         optimizer.zero_grad()
         loss_ascent.backward()
         optimizer.step()
-
-        # if idx % args.print_freq == 0:
-        #     print('Epoch[{0}]:[{1:03}/{2:03}] '
-        #           'Loss:{losses.val:.4f}({losses.avg:.4f})  '
-        #           'Prec@1:{top1.val:.2f}({top1.avg:.2f})  '
-        #           'Prec@5:{top5.val:.2f}({top5.avg:.2f})'.format(epoch, idx, len(train_loader), losses=losses, top1=top1, top5=top5))
-       
+   
         print('Epoch[{0}]:[{1:03}/{2:03}]'
                 'Loss:{losses:.4f}({losses_avg:.4f})'.format(epoch, idx, len(train_loader), losses=losses, losses_avg=losses/size))
-
 
 def adjust_learning_rate(optimizer, epoch, opt):
     if epoch < opt.tuning_epochs:
@@ -395,9 +329,6 @@ def adjust_learning_rate(optimizer, epoch, opt):
     print('epoch: {}  lr: {:.4f}'.format(epoch, lr))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-
-
-
 
 def train_step_finetuing(opt, train_loader, model_ascent, optimizer, criterion, epoch):
     losses = 0
@@ -409,9 +340,7 @@ def train_step_finetuing(opt, train_loader, model_ascent, optimizer, criterion, 
         
         img = img.to(opt.device)
         target = target.to(opt.device)
-
         output = model_ascent(img)
-
         loss = criterion(output, target)
 
         pre_label = torch.max(output,dim=1)[1]
@@ -426,19 +355,11 @@ def train_step_finetuing(opt, train_loader, model_ascent, optimizer, criterion, 
         loss.backward()  # Gradient ascent training
         optimizer.step()
 
-     
-            # print('Epoch[{0}]:[{1:03}/{2:03}] '
-            #       'loss:{losses.val:.4f}({losses.avg:.4f})  '
-            #       'prec@1:{top1.val:.2f}({top1.avg:.2f})  '
-            #       'prec@5:{top5.val:.2f}({top5.avg:.2f})'.format(epoch, idx, len(train_loader), losses=losses, top1=top1, top5=top5))
         print('Epoch[{0}]:[{1:03}/{2:03}] '
             'loss:{losses:.4f}({losses_avg:.4f})  '
             'prec@1:{top1:.2f}({top1_avg:.2f})  '.format(epoch, idx, len(train_loader), losses=losses, losses_avg = losses/len(train_loader), top1=top1, top1_avg=top1/len(train_loader)))
 
 def train_step_unlearning(opt, train_loader, model_ascent, optimizer, criterion, epoch):
-    # losses = AverageMeter()
-    # top1 = AverageMeter()
-    # top5 = AverageMeter()
 
     losses = 0
     top1 = 0
@@ -460,17 +381,11 @@ def train_step_unlearning(opt, train_loader, model_ascent, optimizer, criterion,
         losses += loss * img.size(0)
         size += img.size(0)
         top1 += prec1*len(train_loader)
-        # top5.update(prec5.item(), img.size(0))
 
         optimizer.zero_grad()
         (-loss).backward()  # Gradient ascent training
         optimizer.step()
 
-        
-            # print('Epoch[{0}]:[{1:03}/{2:03}] '
-            #       'loss:{losses.val:.4f}({losses.avg:.4f})  '
-            #       'prec@1:{top1.val:.2f}({top1.avg:.2f})  '
-            #       'prec@5:{top5.val:.2f}({top5.avg:.2f})'.format(epoch, idx, len(train_loader), losses=losses, top1=top1, top5=top5))
         print('Epoch[{0}]:[{1:03}/{2:03}] '
             'loss:{losses:.4f}({losses_avg:.4f})  '
             'prec@1:{top1:.2f}({top1_avg:.2f})  '.format(epoch, idx, len(train_loader), losses=losses, losses_avg = losses/len(train_loader), top1=top1, top1_avg=top1/len(train_loader)))
@@ -501,27 +416,7 @@ def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, crite
             losses += loss * img.size(0)
             size += img.size(0)
             top1 += prec1*len(test_clean_loader)
-            # top5.update(prec5.item(), img.size(0))
-
-        # losses = AverageMeter()
-        # top1 = AverageMeter()
-        # top5 = AverageMeter()
-
-        # model_ascent.eval()
-
-        # for idx, (img, target, isClean, gt_label) in enumerate(test_clean_loader, start=1):
-        #     if opt.cuda:
-        #         img = img.cuda()
-        #         target = target.cuda()
-
-        #     with torch.no_grad():
-        #         output = model_ascent(img)
-        #         loss = criterion(output, target)
-
-        #     prec1 = accuracy(output, target)[0]
-        #     losses.update(loss.item(), img.size(0))
-        #     top1.update(prec1.item(), img.size(0))
-        #     # top5.update(prec5.item(), img.size(0))
+            
 
         acc_clean = [top1/size, losses/size]
 
@@ -545,7 +440,6 @@ def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, crite
             losses += loss * img.size(0)
             size += img.size(0)
             top1 += prec1*len(test_bad_loader)
-            # top5.update(prec5.item(), img.size(0))
     
     acc_bd = [top1/size, losses/size]
 
@@ -553,14 +447,6 @@ def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, crite
     print('[Bad] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_bd[0], acc_bd[1]))
     logging.info('[Clean] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_clean[0], acc_clean[1]))
     logging.info('[Bad] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_bd[0], acc_bd[1]))
-    
-    # # save training progress
-    # log_root = opt.log_root + '/ABL_unlearning.csv'
-    # test_process.append(
-    #     (epoch, acc_clean[0], acc_bd[0], acc_clean[2], acc_bd[2]))
-    # df = pd.DataFrame(test_process, columns=("Epoch", "Test_clean_acc", "Test_bad_acc",
-    #                                          "Test_clean_loss", "Test_bad_loss"))
-    # df.to_csv(log_root, mode='a', index=False, encoding='utf-8')
 
     return acc_clean, acc_bd
 
@@ -585,66 +471,21 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    print('----------- Data Initialization --------------')
-    # data_path_isolation = os.path.join(opt.isolate_data_root, "{}_isolation{}_examples.npy".format(opt.model_name,
-    #                                                                                                 opt.isolation_ratio * 100))
-    # data_path_other = os.path.join(opt.isolate_data_root, "{}_other{}_examples.npy".format(opt.model_name,
-    #                                                                                         100 - opt.isolation_ratio * 100))
-    # data_path_isolation = opt.data_path_isolation
-    # data_path_other = opt.data_path_other
-
     tf_compose_finetuning = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((opt.input_height, opt.input_width)),
         transforms.RandomCrop((opt.input_height, opt.input_width), padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        #Cutout(1, 3),
+        Cutout(1, 3),
         transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
     ])
-    # transforms_list = []
-    # transforms_list.append(transforms.ToPILImage())
-    # transforms_list.append(transforms.Resize((opt.input_height, opt.input_width)))
-    # transforms_list.append(transforms.RandomCrop((opt.input_height, opt.input_width), padding=4))
-    # # transforms_list.append(transforms.RandomRotation(10))
-    # if opt.dataset == "cifar10":
-    #     transforms_list.append(transforms.RandomHorizontalFlip())
-    # transforms_list.append(transforms.ToTensor())
-    # if opt.dataset == "cifar10":
-    #     transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010]))
-    # elif opt.dataset == "mnist":
-    #     transforms_list.append(transforms.Normalize([0.5], [0.5]))
-    # elif opt.dataset == 'tiny':
-    #     transforms_list.append(transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
-    # elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-    #     pass
-    # else:
-    #     raise Exception("Invalid Dataset")
-    # tf_compose_finetuning = transforms.Compose(transforms_list)
 
     tf_compose_unlearning = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((opt.input_height, opt.input_width)),
         transforms.ToTensor()
     ])
-    # transforms_list = []
-    # transforms_list.append(transforms.ToPILImage())
-    # transforms_list.append(transforms.Resize((opt.input_height, opt.input_width)))
-    # transforms_list.append(transforms.ToTensor())
-    # if opt.dataset == "cifar10":
-    #     transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010]))
-    # elif opt.dataset == "mnist":
-    #     transforms_list.append(transforms.Normalize([0.5], [0.5]))
-    # elif opt.dataset == 'tiny':
-    #     transforms_list.append(transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
-    # elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-    #     pass
-    # else:
-    #     raise Exception("Invalid Dataset")
-    # tf_compose_unlearning = transforms.Compose(transforms_list)
-    # tf_compose_unlearning = get_transform(opt, train=False)
-
-    # isolate_poisoned_data = np.load(data_path_isolation, allow_pickle=True)
     poisoned_data_tf = Dataset_npy(full_dataset=isolate_poisoned_data, transform=tf_compose_unlearning)
     isolate_poisoned_data_loader = torch.utils.data.DataLoader(dataset=poisoned_data_tf,
                                       batch_size=opt.batch_size,
@@ -733,17 +574,6 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
             )
             model_ascent.to(opt.device)
         logging.info(f'Epoch{epoch}: clean_acc:{acc_clean[0]} asr:{acc_bad[0]} best_acc:{best_acc} best_asr{best_asr}')
-        # if opt.save:
-        #     # save checkpoint at interval epoch
-        #     # if epoch + 1 % opt.interval == 0:
-        #     is_best = True
-        #     save_checkpoint({
-        #         'epoch': epoch + 1,
-        #         'state_dict': model_ascent.state_dict(),
-        #         'clean_acc': acc_clean[0],
-        #         'bad_acc': acc_bad[0],
-        #         'optimizer': optimizer.state_dict(),
-        #     }, epoch + 1, is_best, opt)
     return model_ascent
 
 
@@ -767,13 +597,13 @@ def learning_rate_unlearning(optimizer, epoch, opt):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def abl(args,result,config):
+def abl(args,result):
+    ### set logger
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d:%H:%M:%S',
     )
     logger = logging.getLogger()
-    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
     if args.log is not None and args.log != '':
         fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
@@ -788,13 +618,15 @@ def abl(args,result,config):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
+    ### pre-train model
     poisoned_data, model_ascent = train(args,result)
-
+    
+    ### isolate the special data(loss is low) as backdoor data
     losses_idx = compute_loss_value(args, poisoned_data, model_ascent)
-
     print('----------- Collect isolation data -----------')
     isolation_examples, other_examples = isolate_data(args, poisoned_data, losses_idx)
 
+    ### unlearn the backdoor data and learn the remaining data
     model_new = train_unlearning(args,result,model_ascent,isolation_examples,other_examples)
 
     result = {}
@@ -803,6 +635,7 @@ def abl(args,result,config):
 
 if __name__ == '__main__':
     
+    ### basic setting: args, attack result(model, train data, test data)
     args = get_args()
     with open("./defense/ABL/config/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
@@ -836,9 +669,6 @@ if __name__ == '__main__':
     else:
         raise Exception("Invalid Dataset")
     
-    
-
-    ######为了测试临时写的代码
     save_path = '/record/' + args.result_file
     if args.checkpoint_save is None:
         args.checkpoint_save = save_path + '/record/defence/abl/'
@@ -849,97 +679,100 @@ if __name__ == '__main__':
         if not (os.path.exists(os.getcwd() + args.log)):
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
+
+
+    ### attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    if args.save_path is not None:
-        print("Continue training...")
-        result_defense = abl(args,result,config)
+    ### abl defense:
+    print("Continue training...")
+    result_defense = abl(args,result)
 
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
-        y = result['bd_test']['y']
-        data_bd_test = torch.utils.data.TensorDataset(x,y)
-        data_bd_testset = prepro_cls_DatasetBD(
-            full_dataset_without_transform=data_bd_test,
-            poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-            bd_image_pre_transform=None,
-            bd_label_pre_transform=None,
-            ori_image_transform_in_loading=tran,
-            ori_label_transform_in_loading=None,
-            add_details_in_preprocess=False,
-        )
-        data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    ### test the result and get ASR, ACC, RC 
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    y = result['bd_test']['y']
+    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_bd_test,
+        poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    asr_acc = 0
+    for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
+        outputs = result_defense['model'](inputs)
+        pre_label = torch.max(outputs,dim=1)[1]
+        asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    y = result['clean_test']['y']
+    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_clean_test,
+        poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    clean_acc = 0
+    for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
+        outputs = result_defense['model'](inputs)
+        pre_label = torch.max(outputs,dim=1)[1]
+        clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    robust_acc = -1
+    if 'original_targets' in result['bd_test']:
+        y_ori = result['bd_test']['original_targets']
+        if y_ori is not None:
+            if len(y_ori) != x.size(0):
+                y_idx = result['bd_test']['original_index']
+                y = y_ori[y_idx]
+            else :
+                y = y_ori
+            data_bd_test = torch.utils.data.TensorDataset(x,y)
+            data_bd_testset = prepro_cls_DatasetBD(
+                full_dataset_without_transform=data_bd_test,
+                poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+                bd_image_pre_transform=None,
+                bd_label_pre_transform=None,
+                ori_image_transform_in_loading=tran,
+                ori_label_transform_in_loading=None,
+                add_details_in_preprocess=False,
+            )
+            data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+        
+            robust_acc = 0
+            for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = result_defense['model'](inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+
+    if not (os.path.exists(os.getcwd() + f'{save_path}/abl/')):
+        os.makedirs(os.getcwd() + f'{save_path}/abl/')
+    torch.save(
+    {
+        'model_name':args.model,
+        'model': result_defense['model'].cpu().state_dict(),
+        'asr': asr_acc,
+        'acc': clean_acc,
+        'rc': robust_acc
+    },
+    os.getcwd() + f'{save_path}/abl/defense_result.pt'
+    )
     
-        asr_acc = 0
-        for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-            inputs, labels = inputs.to(args.device), labels.to(args.device)
-            outputs = result_defense['model'](inputs)
-            pre_label = torch.max(outputs,dim=1)[1]
-            asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
-
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
-        y = result['clean_test']['y']
-        data_clean_test = torch.utils.data.TensorDataset(x,y)
-        data_clean_testset = prepro_cls_DatasetBD(
-            full_dataset_without_transform=data_clean_test,
-            poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
-            bd_image_pre_transform=None,
-            bd_label_pre_transform=None,
-            ori_image_transform_in_loading=tran,
-            ori_label_transform_in_loading=None,
-            add_details_in_preprocess=False,
-        )
-        data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-    
-        clean_acc = 0
-        for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
-            inputs, labels = inputs.to(args.device), labels.to(args.device)
-            outputs = result_defense['model'](inputs)
-            pre_label = torch.max(outputs,dim=1)[1]
-            clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
-
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
-        robust_acc = -1
-        if 'original_targets' in result['bd_test']:
-            y_ori = result['bd_test']['original_targets']
-            if y_ori is not None:
-                if len(y_ori) != x.size(0):
-                    y_idx = result['bd_test']['original_index']
-                    y = y_ori[y_idx]
-                else :
-                    y = y_ori
-                data_bd_test = torch.utils.data.TensorDataset(x,y)
-                data_bd_testset = prepro_cls_DatasetBD(
-                    full_dataset_without_transform=data_bd_test,
-                    poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-                    bd_image_pre_transform=None,
-                    bd_label_pre_transform=None,
-                    ori_image_transform_in_loading=tran,
-                    ori_label_transform_in_loading=None,
-                    add_details_in_preprocess=False,
-                )
-                data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-            
-                robust_acc = 0
-                for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-                    inputs, labels = inputs.to(args.device), labels.to(args.device)
-                    outputs = result_defense['model'](inputs)
-                    pre_label = torch.max(outputs,dim=1)[1]
-                    robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
-
-        if not (os.path.exists(os.getcwd() + f'{save_path}/abl/')):
-            os.makedirs(os.getcwd() + f'{save_path}/abl/')
-        torch.save(
-        {
-            'model_name':args.model,
-            'model': result_defense['model'].cpu().state_dict(),
-            'asr': asr_acc,
-            'acc': clean_acc,
-            'rc': robust_acc
-        },
-        os.getcwd() + f'{save_path}/abl/defense_result.pt'
-        )
-    else:
-        print("There is no target model")

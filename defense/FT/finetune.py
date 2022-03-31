@@ -1,3 +1,15 @@
+'''
+The defense method is called ft.
+
+basic sturcture for defense method:
+    1. basic setting: args
+    2. attack result(model, train data, test data)
+    3. ft defense:
+        a. get some clean data
+        b. retrain the backdoor model
+    4. test the result and get ASR, ACC, RC 
+'''
+
 import argparse
 import logging
 import os
@@ -24,6 +36,7 @@ import yaml
 from pprint import pprint, pformat
 
 def get_args():
+    #set the basic parameter
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--device', type=str, help='cuda, cpu')
@@ -49,11 +62,10 @@ def get_args():
     parser.add_argument('--target_label', type=int)
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
-    ####添加额外
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    ###ft
+    #set the parameter for the ft defense
     parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
 
     arg = parser.parse_args()
@@ -213,39 +225,8 @@ def ft(args,result,config):
     return result
 
 
-# def main():
-#     global arg
-#     arg = args.get_args()
-
-#     # Dataset
-#     trainloader = get_dataloader(arg, True)
-#     testloader_clean, testloader_bd = get_dataloader_test(arg)
-
-#     # Prepare model, optimizer, scheduler
-#     model = get_network(arg)
-#     optimizer = torch.optim.SGD(model.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
-#     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
-
-#     checkpoint = torch.load(arg.checkpoint_load)
-#     print("Start finetuning model")
-#     model.load_state_dict(checkpoint['model'])
-#     start_epoch = 0
-
-#     # Training and Testing
-#     best_acc = 0
-#     criterion = nn.CrossEntropyLoss()
-
-#     for epoch in tqdm(range(start_epoch, arg.epochs)):
-#         train_loss, train_acc = train_epoch(arg, trainloader, model, optimizer, scheduler, criterion, epoch)
-#         test_loss, test_acc_cl = test_epoch(arg, testloader_clean, model, criterion, epoch, 'clean')
-#         test_loss, test_acc_bd = test_epoch(arg, testloader_bd, model, criterion, epoch, 'bd')
-
-#         if test_acc_cl > best_acc:
-#             best_acc = test_acc_cl
-#             save_checkpoint(arg.checkpoint_save, epoch, model, optimizer, scheduler)
-
-
 if __name__ == '__main__':
+    ### basic setting: args
     args = get_args()
     with open("./defense/FT/config/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
@@ -279,9 +260,6 @@ if __name__ == '__main__':
     else:
         raise Exception("Invalid Dataset")
     
-    
-
-    ######为了测试临时写的代码
     save_path = '/record/' + args.result_file
     if args.checkpoint_save is None:
         args.checkpoint_save = save_path + '/record/defence/ft/'
@@ -292,97 +270,98 @@ if __name__ == '__main__':
         if not (os.path.exists(os.getcwd() + args.log)):
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
+
+    ### attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    if args.save_path is not None:
-        print("Continue training...")
-        result_defense = ft(args,result,config)
+    print("Continue training...")
+    ### ft defense:
+    result_defense = ft(args,result,config)
 
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
-        y = result['bd_test']['y']
-        data_bd_test = torch.utils.data.TensorDataset(x,y)
-        data_bd_testset = prepro_cls_DatasetBD(
-            full_dataset_without_transform=data_bd_test,
-            poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-            bd_image_pre_transform=None,
-            bd_label_pre_transform=None,
-            ori_image_transform_in_loading=tran,
-            ori_label_transform_in_loading=None,
-            add_details_in_preprocess=False,
-        )
-        data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-    
-        asr_acc = 0
-        for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-            inputs, labels = inputs.to(args.device), labels.to(args.device)
-            outputs = result_defense['model'](inputs)
-            pre_label = torch.max(outputs,dim=1)[1]
-            asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+    ### test the result and get ASR, ACC, RC 
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    y = result['bd_test']['y']
+    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_bd_test,
+        poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
-        y = result['clean_test']['y']
-        data_clean_test = torch.utils.data.TensorDataset(x,y)
-        data_clean_testset = prepro_cls_DatasetBD(
-            full_dataset_without_transform=data_clean_test,
-            poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
-            bd_image_pre_transform=None,
-            bd_label_pre_transform=None,
-            ori_image_transform_in_loading=tran,
-            ori_label_transform_in_loading=None,
-            add_details_in_preprocess=False,
-        )
-        data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-    
-        clean_acc = 0
-        for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
-            inputs, labels = inputs.to(args.device), labels.to(args.device)
-            outputs = result_defense['model'](inputs)
-            pre_label = torch.max(outputs,dim=1)[1]
-            clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+    asr_acc = 0
+    for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
+        outputs = result_defense['model'](inputs)
+        pre_label = torch.max(outputs,dim=1)[1]
+        asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
 
-        tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-        x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
-        robust_acc = -1
-        if 'original_targets' in result['bd_test']:
-            y_ori = result['bd_test']['original_targets']
-            if y_ori is not None:
-                if len(y_ori) != x.size(0):
-                    y_idx = result['bd_test']['original_index']
-                    y = y_ori[y_idx]
-                else :
-                    y = y_ori
-                data_bd_test = torch.utils.data.TensorDataset(x,y)
-                data_bd_testset = prepro_cls_DatasetBD(
-                    full_dataset_without_transform=data_bd_test,
-                    poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-                    bd_image_pre_transform=None,
-                    bd_label_pre_transform=None,
-                    ori_image_transform_in_loading=tran,
-                    ori_label_transform_in_loading=None,
-                    add_details_in_preprocess=False,
-                )
-                data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-            
-                robust_acc = 0
-                for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-                    inputs, labels = inputs.to(args.device), labels.to(args.device)
-                    outputs = result_defense['model'](inputs)
-                    pre_label = torch.max(outputs,dim=1)[1]
-                    robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
-    
-        if not (os.path.exists(os.getcwd() + f'{save_path}/ft/')):
-            os.makedirs(os.getcwd() + f'{save_path}/ft/')
-        torch.save(
-        {
-            'model_name':args.model,
-            'model': result_defense['model'].cpu().state_dict(),
-            'asr': asr_acc,
-            'acc': clean_acc,
-            'rc': robust_acc
-        },
-        os.getcwd() + f'{save_path}/ft/defense_result.pt'
-        )
-    else:
-        print("There is no target model")
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    y = result['clean_test']['y']
+    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_clean_test,
+        poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    clean_acc = 0
+    for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
+        outputs = result_defense['model'](inputs)
+        pre_label = torch.max(outputs,dim=1)[1]
+        clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    robust_acc = -1
+    if 'original_targets' in result['bd_test']:
+        y_ori = result['bd_test']['original_targets']
+        if y_ori is not None:
+            if len(y_ori) != x.size(0):
+                y_idx = result['bd_test']['original_index']
+                y = y_ori[y_idx]
+            else :
+                y = y_ori
+            data_bd_test = torch.utils.data.TensorDataset(x,y)
+            data_bd_testset = prepro_cls_DatasetBD(
+                full_dataset_without_transform=data_bd_test,
+                poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+                bd_image_pre_transform=None,
+                bd_label_pre_transform=None,
+                ori_image_transform_in_loading=tran,
+                ori_label_transform_in_loading=None,
+                add_details_in_preprocess=False,
+            )
+            data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+        
+            robust_acc = 0
+            for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = result_defense['model'](inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+
+    if not (os.path.exists(os.getcwd() + f'{save_path}/ft/')):
+        os.makedirs(os.getcwd() + f'{save_path}/ft/')
+    torch.save(
+    {
+        'model_name':args.model,
+        'model': result_defense['model'].cpu().state_dict(),
+        'asr': asr_acc,
+        'acc': clean_acc,
+        'rc': robust_acc
+    },
+    os.getcwd() + f'{save_path}/ft/defense_result.pt'
+    )
