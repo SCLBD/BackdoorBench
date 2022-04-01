@@ -131,7 +131,7 @@ def spectral(arg,result):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    ### prepare the model and dataset
+    ### a. prepare the model and dataset
     model = generate_cls_model(arg.model,arg.num_classes)
     model.load_state_dict(result['model'])
     model.to(arg.device)
@@ -169,7 +169,7 @@ def spectral(arg,result):
     cur_examples = len(cur_indices)
     logging.info(f'Label, num ex: {lbl},{cur_examples}' )
     
-    ### get the activation as representation for each data
+    ### b. get the activation as representation for each data
     for iex in trange(cur_examples):
         cur_im = cur_indices[iex]
         x_batch = dataset[cur_im][0].unsqueeze(0).to(arg.device)
@@ -207,7 +207,7 @@ def spectral(arg,result):
             clean_cov[iex]= batch_grads.detach().cpu().numpy()
         full_cov[iex] = batch_grads.detach().cpu().numpy()
 
-    ### detect the backdoor data by the SVD decomposition
+    ### c. detect the backdoor data by the SVD decomposition
     total_p = arg.percentile            
     clean_mean = np.mean(clean_cov, axis=0, keepdims=True)
     full_mean = np.mean(full_cov, axis=0, keepdims=True)            
@@ -239,7 +239,7 @@ def spectral(arg,result):
            
     logging.info(f'Num Poisoned Left: {num_poisoned_after}' )   
     
-    ### retrain the model with remaining data
+    ### d. retrain the model with remaining data
     dataset.subset(left_inds)
     dataset_left = dataset
     data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=arg.batch_size, num_workers=arg.num_workers, shuffle=True)
@@ -328,9 +328,9 @@ def spectral(arg,result):
     return result
 
 if __name__ == '__main__':
-    ### basic setting: args
+    ### 1. basic setting: args
     args = get_args()
-    with open("./defense/spectral_signatural/config/config.yaml", 'r') as stream: 
+    with open("./defense/spectral_signatural/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -372,14 +372,14 @@ if __name__ == '__main__':
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
 
-    ### attack result(model, train data, test data)
+    ### 2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
     logging.info("Continue training...")
-    ### spectral defense
+    ### 3. spectral defense
     result_defense = spectral(args,result)
 
-    ### test the result and get ASR, ACC, RC 
+    ### 4. test the result and get ASR, ACC, RC 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

@@ -137,6 +137,22 @@ class AT(nn.Module):
 		return am
 
 def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
+    '''train the student model with regard to the teacher model and some clean train data for each step
+    arg:
+        Contains default parameters
+    trainloader:
+        the dataloader of some clean train data
+    nets:
+        the student model and the teacher model
+    optimizer:
+        optimizer during the train process
+    scheduler:
+        scheduler during the train process
+    criterion:
+        criterion during the train process
+    epoch:
+        current epoch
+    '''
     snet = nets['snet']
     tnet = nets['tnet']
 
@@ -244,6 +260,20 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
 
 
 def test_epoch(arg, testloader, model, criterion, epoch, word):
+    '''test the student model with regard to test data for each epoch
+    arg:
+        Contains default parameters
+    testloader:
+        the dataloader of clean test data or backdoor test data
+    model:
+        the student model
+    criterion:
+        criterion during the train process
+    epoch:
+        current epoch
+    word:
+        'bd' or 'clean'
+    '''
     model.eval()
 
     total_clean, total_clean_correct, test_loss = 0, 0, 0
@@ -287,7 +317,7 @@ def nad(arg, result, config):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    ### create student models, set training parameters and determine loss functions
+    ### a. create student models, set training parameters and determine loss functions
     # Load models
     logging.info('----------- Network Initialization --------------')
     teacher = generate_cls_model(args.model,args.num_classes)
@@ -355,7 +385,7 @@ def nad(arg, result, config):
     )
     testloader_clean = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
-    ### train the student model use the teacher model with the activation of model and result
+    ### b. train the student model use the teacher model with the activation of model and result
     logging.info('----------- Train Initialization --------------')
     start_epoch = 0
     best_acc = 0
@@ -391,9 +421,9 @@ def nad(arg, result, config):
 
 
 if __name__ == '__main__':
-    ### basic setting: args 
+    ### 1. basic setting: args 
     args = get_args()
-    with open("./defense/NAD/config/config.yaml", 'r') as stream: 
+    with open("./defense/NAD/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -436,13 +466,13 @@ if __name__ == '__main__':
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
 
-    ### attack result(model, train data, test data)
+    ### 2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    ### nad defense
+    ### 3. nad defense
     result_defense = nad(args,result,config)
 
-    ### test the result and get ASR, ACC, RC
+    ### 4. test the result and get ASR, ACC, RC
     result_defense['model'].to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
