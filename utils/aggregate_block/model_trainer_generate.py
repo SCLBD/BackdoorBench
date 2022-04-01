@@ -13,6 +13,12 @@ def generate_cls_model(
     model_name: str,
     num_classes: int = 10,
 ):
+    '''
+    aggregation block for selection of classifcation models
+    :param model_name:
+    :param num_classes:
+    :return:
+    '''
     if model_name == 'resnet18':
         net = resnet18(num_classes=num_classes, pretrained=False)
     elif model_name == 'preactresnet18':
@@ -54,6 +60,14 @@ def generate_cls_trainer(
         model,
         attack_name : Optional[str] = None,
 ):
+    '''
+    The warpper of model, which use to receive training settings.
+    You can add more options for more complicated backdoor attacks.
+
+    :param model:
+    :param attack_name:
+    :return:
+    '''
 
     trainer = ModelTrainerCLS(
         model=model,

@@ -1,3 +1,5 @@
+# This script contains function to set the training criterion, optimizer and schedule.
+
 import sys, logging
 sys.path.append('../../')
 import torch

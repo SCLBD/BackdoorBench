@@ -1,8 +1,0 @@
-N_REPEAT: 5
-N_EPOCH: 10
-
-TRAIN_NUM: 2048
-VAL_NUM: 256
-TEST_NUM: 256
-
-load_exist: False

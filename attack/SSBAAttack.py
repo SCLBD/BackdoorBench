@@ -1,10 +1,18 @@
 '''
-logic of load:
-1. yaml file, if yaml setting name is given then find the yaml setting
-2.
-3. argparse overwrite args from yaml file if any in args is not None
-(so ANY params in add_args should have NO default value except yaml config and yaml setting name)
-4. delete any params in args with value None
+this script is for SSBA attack
+
+Note that the autoencoder training process and img process part are not in this script,
+    which are time comsume and dataset-dependent, please follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data.
+    Then place the poisoned image array to `attack_train_replace_imgs_path` and `attack_test_replace_imgs_path`
+
+basic structure:
+1. config args, save_path, fix random seed
+2. set the clean train data and clean test data
+3. set the attack img transform and label transform
+4. set the backdoor attack data and backdoor test data
+5. set the device, model, criterion, optimizer, training schedule.
+6. attack or use the model to do finetune with 5% clean data
+7. save the attack result for defense
 '''
 
 import sys, yaml, os
@@ -84,20 +92,23 @@ def add_args(parser):
                         help='git hash number, in order to find which version of code is used')
     return parser
 
+
 def main():
 
+    ### 1. config args, save_path, fix random seed
     parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
     args = parser.parse_args()
 
     with open(args.yaml_path, 'r') as f:
         defaults = yaml.safe_load(f)
 
-    defaults.update({k:v for k,v in args.__dict__.items() if v is not None})
+    defaults.update({k: v for k, v in args.__dict__.items() if v is not None})
 
     args.__dict__ = defaults
 
     args.terminal_info = sys.argv
 
+    ### save path
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(
             run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
@@ -112,15 +123,12 @@ def main():
 
     torch.save(args.__dict__, save_path + '/info.pickle')
 
-
-
-    # logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    ### set the logger
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d:%H:%M:%S',
     )
     logger = logging.getLogger()
-    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
     fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
@@ -133,25 +141,23 @@ def main():
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-
+    ### set the random seed
     fix_random(int(args.random_seed))
 
 
-
+    ### 2. set the clean train data and clean test data
     train_dataset_without_transform, \
-                train_img_transform, \
-                train_label_transfrom, \
+    train_img_transform, \
+    train_label_transfrom, \
     test_dataset_without_transform, \
-                test_img_transform, \
-                test_label_transform = dataset_and_transform_generate(args)
-
-
-
+    test_img_transform, \
+    test_label_transform = dataset_and_transform_generate(args)
 
     benign_train_dl = DataLoader(
         prepro_cls_DatasetBD(
             full_dataset_without_transform=train_dataset_without_transform,
-            poison_idx=np.zeros(len(train_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
             bd_image_pre_transform=None,
             bd_label_pre_transform=None,
             ori_image_transform_in_loading=train_img_transform,
@@ -166,7 +172,8 @@ def main():
     benign_test_dl = DataLoader(
         prepro_cls_DatasetBD(
             test_dataset_without_transform,
-            poison_idx=np.zeros(len(test_dataset_without_transform)),  # one-hot to determine which image may take bd_transform
+            poison_idx=np.zeros(len(test_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
             bd_image_pre_transform=None,
             bd_label_pre_transform=None,
             ori_image_transform_in_loading=test_img_transform,
@@ -180,27 +187,28 @@ def main():
 
 
 
-
+    ### 3. set the attack img transform and label transform
     train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
-
+    ### get the backdoor transform on label
     bd_label_transform = bd_attack_label_trans_generate(args)
 
 
-
+    ### 4. set the backdoor attack data and backdoor test data
     train_pidx = generate_pidx_from_label_transform(
         benign_train_dl.dataset.targets,
         label_transform=bd_label_transform,
         train=True,
-        pratio= args.pratio if 'pratio' in args.__dict__ else None,
-        p_num= args.p_num if 'p_num' in args.__dict__ else None,
+        pratio=args.pratio if 'pratio' in args.__dict__ else None,
+        p_num=args.p_num if 'p_num' in args.__dict__ else None,
     )
     torch.save(train_pidx,
-        args.save_path + '/train_pidex_list.pickle',
-    )
+               args.save_path + '/train_pidex_list.pickle',
+               )
 
+    ### generate train dataset for backdoor attack
     adv_train_ds = prepro_cls_DatasetBD(
         deepcopy(train_dataset_without_transform),
-        poison_idx= train_pidx,
+        poison_idx=train_pidx,
         bd_image_pre_transform=train_bd_img_transform,
         bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=train_img_transform,
@@ -209,18 +217,20 @@ def main():
     )
 
     adv_train_dl = DataLoader(
-        dataset = adv_train_ds,
+        dataset=adv_train_ds,
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
     )
 
+    ### decide which img to poison in ASR Test
     test_pidx = generate_pidx_from_label_transform(
         benign_test_dl.dataset.targets,
         label_transform=bd_label_transform,
         train=False,
     )
 
+    ### generate test dataset for ASR
     adv_test_dataset = prepro_cls_DatasetBD(
         deepcopy(test_dataset_without_transform),
         poison_idx=test_pidx,
@@ -231,22 +241,23 @@ def main():
         add_details_in_preprocess=True,
     )
 
+    # delete the samples that do not used for ASR test (those non-poisoned samples)
     adv_test_dataset.subset(
         np.where(test_pidx == 1)[0]
     )
 
     adv_test_dl = DataLoader(
-        dataset = adv_test_dataset,
-        batch_size= args.batch_size,
-        shuffle= False,
-        drop_last= False,
+        dataset=adv_test_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
     )
 
 
-
+    ### 5. set the device, model, criterion, optimizer, training schedule.
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
-    net  = generate_cls_model(
+    net = generate_cls_model(
         model_name=args.model,
         num_classes=args.num_classes,
     )
@@ -256,36 +267,33 @@ def main():
         args.attack
     )
 
-
-
     criterion = argparser_criterion(args)
 
     optimizer, scheduler = argparser_opt_scheduler(net, args)
 
 
 
-
+    ### 6. attack or use the model to do finetune with 5% clean data
     if 'load_path' not in args.__dict__:
 
         trainer.train_with_test_each_epoch(
-            train_data = adv_train_dl,
-            test_data = benign_test_dl,
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'attack',
-            continue_training_path = None,
+            train_data=adv_train_dl,
+            test_data=benign_test_dl,
+            adv_test_data=adv_test_dl,
+            end_epoch_num=args.epochs,
+            criterion=criterion,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            device=device,
+            frequency_save=args.frequency_save,
+            save_folder_path=save_path,
+            save_prefix='attack',
+            continue_training_path=None,
         )
 
     else:
 
-        if 'recover' not in args.__dict__ or args.recover == False :
-
+        if 'recover' not in args.__dict__ or args.recover == False:
             print('finetune so use less data, 5% of benign train data')
 
             benign_train_dl.dataset.subset(
@@ -318,17 +326,20 @@ def main():
                 only_load_model=True,
             )
 
+
+    ### 7. save model, data, and other information that defense process may need
     save_attack_result(
-        model_name = args.model,
-        num_classes = args.num_classes,
-        model = trainer.model.cpu().state_dict(),
-        data_path = args.dataset_path,
-        img_size = args.img_size,
-        clean_data = args.dataset,
-        bd_train = adv_train_ds,
-        bd_test = adv_test_dataset,
-        save_path = save_path,
+        model_name=args.model,
+        num_classes=args.num_classes,
+        model=trainer.model.cpu().state_dict(),
+        data_path=args.dataset_path,
+        img_size=args.img_size,
+        clean_data=args.dataset,
+        bd_train=adv_train_ds,
+        bd_test=adv_test_dataset,
+        save_path=save_path,
     )
+
 
 if __name__ == '__main__':
     main()

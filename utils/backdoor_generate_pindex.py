@@ -1,9 +1,4 @@
-'''
-我们测试无论是什么的准确性其实就是一个数值，表示一个映射在实验中达成的数量是多少。
-限于trainer写的方式，我这边先不讨论random的情况，如果一个攻击样本我们希望output随机那就只有另写。
-这里的pidx用来测试的只能是固定且唯一的。
-一般用generate_pidx_from_label_transform就行
-'''
+
 import sys, logging
 sys.path.append('../')
 import random
@@ -20,22 +15,24 @@ def generate_single_target_attack_train_pidx(
         train : bool = True,
 ) -> np.ndarray:
     '''
-    注意！！！
-    遵循bdzoo1的方式，all-to-one攻击中生成pidx不会避开target-label，
-    但是测试阶段计算ASR的时候会避开target-label以免计算不准！
+
+    :param targets: y array of clean dataset that tend to do poison
+    :param tlabel: target label in backdoor attack
+
+    :param pratio: poison ratio, if the whole dataset size = 1
+    :param p_num: poison data number, more precise
+    need one of pratio and pnum
+
+    :param clean_label: whether use clean label logic to select
+    :param train: train or test phase (if test phase the pratio will be close to 1 no matter how you set)
+    :return: one-hot array to indicate which of samples is selected
     '''
+
     logging.info('Reminder: plz note that if p_num or pratio exceed the number of possible candidate samples\n then only maximum number of samples will be applied')
     logging.info('Reminder: priority p_num > pratio, and choosing fix number of sample is prefered if possible ')
     pidx = np.zeros(len(targets))
     if train == False:
-        # Test for both clean label and normal case are the same, just skip target class samples
-        # if p_num is not None or round(pratio * len(targets)):
-        #     if p_num is not None:
-        #         non_zero_array = np.random.choice(np.where(targets != tlabel)[0], p_num, replace = False)
-        #         pidx[list(non_zero_array)] = 1
-        #     else:
-        #         non_zero_array = np.random.choice(np.where(targets != tlabel)[0], round(pratio * len(targets)), replace = False)
-        #         pidx[list(non_zero_array)] = 1
+
         non_zero_array = np.where(targets != tlabel)[0]
         pidx[list(non_zero_array)] = 1
     else:
@@ -62,35 +59,6 @@ def generate_single_target_attack_train_pidx(
         raise SystemExit('No poison sample generated !')
     return pidx
 
-def generate_multi_target_attack_train_pidx(
-        targets:Union[np.ndarray, List],
-        tlabel_list:List,
-        pratio: Union[float, None] = None,
-        p_num: Union[int,None] = None,
-) -> np.ndarray:
-    '''
-    idea: avoid  sample with target label ( since cannot infer wheather attack succeed)
-
-    '''
-    logging.info('Reminder: plz note that if p_num or pratio exceed the number of possible candidate samples\n then only maximum number of samples will be applied')
-    logging.info('Reminder: priority p_num > pratio, and choosing fix number of sample is prefered if possible ')
-    pidx = np.zeros(len(targets))
-    if p_num is not None or round(pratio * len(targets)):
-        if p_num is not None:
-            non_zero_array = np.random.choice(np.where([True if i not in tlabel_list else False for i in targets ])[0], p_num, replace = False)
-            pidx[list(non_zero_array)] = 1
-        else:
-            non_zero_array = np.random.choice(np.where([True if i not in tlabel_list else False for i in targets ])[0], round(pratio * len(targets)), replace = False)
-            pidx[list(non_zero_array)] = 1
-    # else:
-    #     for (i, t) in enumerate(targets):
-    #         if random.random() < pratio and t not in tlabel_list:
-    #             pidx[i] = 1
-    logging.info(f'poison num:{sum(pidx)},real pratio:{sum(pidx) / len(pidx)}')
-    if sum(pidx) == 0:
-        raise SystemExit('No poison sample generated !')
-    return pidx
-
 from utils.bd_label_transform.backdoor_label_transform import *
 from typing import Optional
 def generate_pidx_from_label_transform(
@@ -102,8 +70,18 @@ def generate_pidx_from_label_transform(
         clean_label: bool = False,
 ) -> Optional[np.ndarray]:
     '''
-    idea: avoid sample with target label ( since cannot infer wheather attack succeed)
     !only support label_transform with deterministic output value (one sample one fix target label)!
+
+    :param targets: y array of clean dataset that tend to do poison
+    :param tlabel: target label in backdoor attack
+
+    :param pratio: poison ratio, if the whole dataset size = 1
+    :param p_num: poison data number, more precise
+    need one of pratio and pnum
+
+    :param clean_label: whether use clean label logic to select (only in all2one case can be used !!!)
+    :param train: train or test phase (if test phase the pratio will be close to 1 no matter how you set)
+    :return: one-hot array to indicate which of samples is selected
     '''
     if isinstance(label_transform, AllToOne_attack):
         # this is both for allToOne normal case and cleanLabel attack
@@ -117,7 +95,6 @@ def generate_pidx_from_label_transform(
         )
 
     elif isinstance(label_transform, AllToAll_shiftLabelAttack):
-
         if train:
             pass
         else:
@@ -132,8 +109,6 @@ def generate_pidx_from_label_transform(
             raise SystemExit('p_num or pratio must be given')
         logging.info(f'poison num:{len(select_position)},real pratio:{len(select_position) / len(original_labels)}')
         return np.zeros(len(original_labels))[select_position]
-
-
     else:
         logging.info('Not valid label_transform')
 

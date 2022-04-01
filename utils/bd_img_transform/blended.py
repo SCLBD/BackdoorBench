@@ -1,3 +1,5 @@
+# the callable object for Blended attack
+
 class blendedImageAttack(object):
 
     @classmethod

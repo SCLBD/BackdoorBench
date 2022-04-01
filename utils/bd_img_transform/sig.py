@@ -1,3 +1,16 @@
+#This script is for Sig attack callable transform
+
+'''
+This code is based on https://github.com/bboylyg/NAD
+
+The original license:
+License CC BY-NC
+
+The update include:
+    1. change to callable object
+    2. change the way of trigger generation, use the original formulation.
+'''
+
 from typing import Union
 import torch
 import numpy as np
@@ -24,13 +37,6 @@ class sigTriggerAttack(object):
 
 
     def sigTrigger(self, img):
-        """
-        Implement paper:
-        > Barni, M., Kallas, K., & Tondi, B. (2019).
-        > A new Backdoor Attack in CNNs by training set corruption without label poisoning.
-        > arXiv preprint arXiv:1902.11237
-        superimposed sinusoidal backdoor signal with default parameters
-        """
 
         img = np.float32(img)
         pattern = np.zeros_like(img)

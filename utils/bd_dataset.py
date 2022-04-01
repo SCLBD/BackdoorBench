@@ -1,8 +1,7 @@
-
-# 这个dataset可以是通用的，不过只能做到在某一个时间点对一部分数据集施加同一种扰动
-# 比如说如果是每一个epoch都要update的autoencoder，那么ok，只要我修改callable的那个bd_image_pre_transform 和bd_label_pre_transform就行
-# 但是一旦是需要实时update一小部分的数据集，那么就比较头疼了，因为每一次都需要对全部数据做self.prepro_backdoor()，但是这种情况也可以不通过原本的数据集完成就是，放在trainer内部就行。
-# 这里我默认不移除原本的数据集，只是为了更加general的情况。如果希望回收内存，那么可以手动删除。
+'''
+ This script is for prepro_cls_DatasetBD (preprocess classifcation dataset of backdoor, warpper)
+    the main idea is to separate the transform from original clean dataset, do the backdoor modification first on raw image.
+'''
 
 import sys, logging
 sys.path.append('../')
@@ -19,6 +18,10 @@ from copy import deepcopy
 
 class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
 
+    '''
+    This is a warpper object for clean dataset
+    '''
+
     def __init__(self,
                     full_dataset_without_transform : torch.utils.data.dataset.Dataset,
                     poison_idx : Sequence, # one-hot to determine which image may take bd_transform
@@ -29,6 +32,20 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                     add_details_in_preprocess: Optional[bool] = True,
                     init_with_prepro_backdoor: Optional[bool] = True,
                  ):
+        '''
+        For analysis consideration, the original dataset will not be delete,
+            you can assign the self.dataset = None to free up momery if no further need.
+
+        :param full_dataset_without_transform:
+        :param poison_idx: one-hot array of indicate whether poison or not
+        :param bd_image_pre_transform: backdoor attack img transform
+        :param bd_label_pre_transform: backdoor attack label transform
+        :param ori_image_transform_in_loading: original clean data transform
+        :param ori_label_transform_in_loading: original clean data transform
+        :param add_details_in_preprocess: whether add details to dataset (index, original label, and poison indicator)
+        :param init_with_prepro_backdoor: whether to do the backdoor modification at the initialization,
+            you can do it after init by manually call prepro_backdoor method
+        '''
 
         logging.info('dataset must have NO transform in BOTH image and label !')
 
@@ -47,6 +64,9 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             self.prepro_backdoor()
 
     def prepro_backdoor(self):
+        '''
+        do the backdoor modification by poison indicator, (and add details)
+        '''
 
         self.data = []
         self.targets = []
@@ -91,6 +111,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                 self.data.append(img)
                 self.targets.append(label)
 
+        # if the data is all of the same size, then can stack to array.
         if all(
                 [issubclass(img.dtype.type, np.integer) for img in self.data]
         ) and min(img.shape for img in self.data) == max(img.shape for img in self.data):
@@ -144,6 +165,17 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                inplace = True,
                memorize_original = True,
                ):
+        '''
+
+        :param chosen_index_array: array of position to keep in subset
+            Note that here the array is NOT one-hot !!!
+            eg. [5,10,31,651....]
+        :param inplace:
+            inplace = True will modify attr of obj itself
+             inplace = False will return a new obj with subseted attr
+        :param memorize_original: delete the original dataset or not
+        :return:
+        '''
         if inplace:
             self.data = self.data[chosen_index_array]
             self.targets = self.targets[chosen_index_array]

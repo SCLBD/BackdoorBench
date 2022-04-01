@@ -1,3 +1,6 @@
+'''
+This script aims to do transformation between nCHW and nHWC
+'''
 def nCHW_to_nHWC(images):
     if images.shape.__len__() == 3:
         return images.transpose((1,2,0))

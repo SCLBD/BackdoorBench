@@ -1,4 +1,11 @@
+'''
+This script aims to save and load the attack result as a bridge between attack and defense files.
 
+Model, clean data, backdoor data and all infomation needed to reconstruct will be saved.
+
+Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
+
+'''
 import logging
 from pprint import pformat
 import numpy as np
@@ -37,6 +44,23 @@ def save_attack_result(
     bd_test : torch.utils.data.Dataset, # dataset without transform
     save_path : str,
 ):
+    '''
+
+    main idea is to loop through the backdoor train and test dataset, and match with the clean dataset
+    by remove replicated parts, this function can save the space.
+
+    WARNING: keep all dataset with shuffle = False, same order of data samples is the basic of this function !!!!
+
+    :param model_name : str,
+    :param num_classes : int,
+    :param model : dict, # the state_dict
+    :param data_path : str,
+    :param img_size : list, like [32,32,3]
+    :param clean_data : str, clean dataset name
+    :param bd_train : torch.utils.data.Dataset, # dataset without transform !!
+    :param bd_test : torch.utils.data.Dataset, # dataset without transform
+    :param save_path : str,
+    '''
 
     def loop_through_cls_ds_without_transform(dataset_without_transform):
         if isinstance(dataset_without_transform, prepro_cls_DatasetBD):
@@ -113,6 +137,13 @@ class Args:
 def load_attack_result(
     save_path : str,
 ):
+    '''
+    This function first replicate the basic steps of generate models and clean train and test datasets
+    then use the index given in files to replace the samples should be poisoned to re-create the backdoor train and test dataset
+
+    save_path MUST have 'record' in its abspath, and data_path in attack result MUST have 'data' in its path!!!
+    save_path : the path of "attack_result.pt"
+    '''
     load_file = torch.load(save_path)
 
     if all(key in load_file for key in ['model_name',

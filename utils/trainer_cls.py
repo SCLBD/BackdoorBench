@@ -1,3 +1,6 @@
+# This script is for trainer.
+
+
 import sys, logging
 sys.path.append('../')
 import random
@@ -25,7 +28,7 @@ def last_and_valid_max(col:pd.Series):
 
 class Metric_Aggregator(object):
     '''
-    aggregate the metric to log
+    aggregate the metric to log automatically
     '''
     def __init__(self):
         self.history = []
@@ -48,6 +51,16 @@ class Metric_Aggregator(object):
         logging.info("return df with np.nan and None converted by str()")
         return self.df
     def summary(self):
+        '''
+        do summary for dataframe of record
+        :return:
+        eg.
+            ,train_epoch_num,train_acc_clean
+            last,100.0,96.68965148925781
+            valid_max,100.0,96.70848846435547
+            exist_nan_value,False,False
+
+        '''
         if 'df' not in self.__dict__:
             logging.info('No df found in Metric_Aggregator, generate now')
             self.to_dataframe()
@@ -68,6 +81,19 @@ class ModelTrainerCLS():
                                continue_training_path: Optional[str] = None,
                                only_load_model: bool = False,
                                ) -> None:
+        '''
+        config the training process, from 0 or continue previous.
+        The requirement for saved file please refer to save_all_state_to_path
+        :param train_data: train_data_loader, only if when you need of number of batch, you need to input it. Otherwise just skip.
+        :param end_epoch_num: end training epoch number, if not continue training process, then equal to total training epoch
+        :param criterion: loss function used
+        :param optimizer: optimizer
+        :param scheduler: scheduler
+        :param device: device
+        :param continue_training_path: where to load files for continue training process
+        :param only_load_model: only load the model, do not load other settings and random state.
+
+        '''
 
         model = self.model
 
@@ -106,6 +132,13 @@ class ModelTrainerCLS():
                                epoch: Optional[int] = None,
                                batch: Optional[int] = None,
                                only_model_state_dict: bool = False) -> None:
+        '''
+        save all information needed to continue training, include 3 random state in random, numpy and torch
+        :param path: where to save
+        :param epoch: which epoch when save
+        :param batch: which batch index when save
+        :param only_model_state_dict: only save the model, drop all other information
+        '''
 
         save_dict = {
             'epoch_num_when_save': epoch,
@@ -130,7 +163,12 @@ class ModelTrainerCLS():
                        device,
                        only_load_model: bool = False
                        ) -> [Optional[int], Optional[int]]:
-        'all move to cpu first, then consider to move to GPU again'
+        '''
+
+        :param path:
+        :param device: map model to which device
+        :param only_load_model: only_load_model or not?
+        '''
 
         self.model = self.model.to(device)
 
@@ -243,8 +281,6 @@ class ModelTrainerCLS():
         loss = self.criterion(log_probs, labels.long())
         loss.backward()
 
-
-
         self.optimizer.step()
 
         batch_loss = (loss.item())
@@ -271,6 +307,22 @@ class ModelTrainerCLS():
               save_prefix,
               continue_training_path: Optional[str] = None,
               only_load_model: bool = False, ):
+        '''
+
+        simplest train algorithm with init function put inside.
+
+        :param train_data: train_data_loader
+        :param end_epoch_num: end training epoch number, if not continue training process, then equal to total training epoch
+        :param criterion: loss function used
+        :param optimizer: optimizer
+        :param scheduler: scheduler
+        :param device: device
+        :param frequency_save: how many epoch to save model and random states information once
+        :param save_folder_path: folder path to save files
+        :param save_prefix: for saved files, the prefix of file name
+        :param continue_training_path: where to load files for continue training process
+        :param only_load_model: only load the model, do not load other settings and random state.
+        '''
 
         self.init_or_continue_train(
             train_data,
@@ -308,6 +360,23 @@ class ModelTrainerCLS():
                                    continue_training_path: Optional[str] = None,
                                    only_load_model: bool = False,
                                    ):
+        '''
+        train with test on benign and backdoor dataloader for each epoch
+
+        :param train_data: train_data_loader
+        :param test_data: benign test data
+        :param adv_test_data: backdoor poisoned test data (for ASR)
+        :param end_epoch_num: end training epoch number, if not continue training process, then equal to total training epoch
+        :param criterion: loss function used
+        :param optimizer: optimizer
+        :param scheduler: scheduler
+        :param device: device
+        :param frequency_save: how many epoch to save model and random states information once
+        :param save_folder_path: folder path to save files
+        :param save_prefix: for saved files, the prefix of file name
+        :param continue_training_path: where to load files for continue training process
+        :param only_load_model: only load the model, do not load other settings and random state.
+        '''
         agg = Metric_Aggregator()
         self.init_or_continue_train(
             train_data,
@@ -365,21 +434,27 @@ class ModelTrainerCLS():
                                    only_load_model: bool = False,
                                    ):
         '''
-        v2 can feed many test_dataloader, so more easy for test with multiple dataloader
-        :param train_data:
+        v2 can feed many test_dataloader, so easier for test with multiple dataloader.
+
+        only change the test data part, instead of predetermined 2 dataloader, you can input any number of dataloader to test
+        with {
+            test_name (will show in log): test dataloader
+        }
+        in log you will see acc and loss for each test dataloader
+
         :param test_dataloader_dict: { name : dataloader }
 
-        :param end_epoch_num:
-        :param criterion:
-        :param optimizer:
-        :param scheduler:
-        :param device:
-        :param frequency_save:
-        :param save_folder_path:
-        :param save_prefix:
-        :param continue_training_path:
-        :param only_load_model:
-        :return:
+        :param train_data: train_data_loader
+        :param end_epoch_num: end training epoch number, if not continue training process, then equal to total training epoch
+        :param criterion: loss function used
+        :param optimizer: optimizer
+        :param scheduler: scheduler
+        :param device: device
+        :param frequency_save: how many epoch to save model and random states information once
+        :param save_folder_path: folder path to save files
+        :param save_prefix: for saved files, the prefix of file name
+        :param continue_training_path: where to load files for continue training process
+        :param only_load_model: only load the model, do not load other settings and random state.
         '''
         agg = Metric_Aggregator()
         self.init_or_continue_train(
