@@ -156,10 +156,10 @@ def spectral(arg,result):
     dataset = data_set_o
    
     num_poisoned_left = int(len(dataset)*arg.poison_rate_test)
-    logging.info('Num poisoned left: ', num_poisoned_left)
+    logging.info(f'Num poisoned left: {num_poisoned_left}' )
 
     # initialize data augmentation
-    logging.info('Dataset Size: ', len(dataset))
+    logging.info(f'Dataset Size: {len(dataset)}' )
 
     lbl = target_label
     dataset_y = []
@@ -167,7 +167,7 @@ def spectral(arg,result):
         dataset_y.append(dataset[i][1])
     cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
     cur_examples = len(cur_indices)
-    logging.info('Label, num ex: ', lbl, cur_examples)
+    logging.info(f'Label, num ex: {lbl},{cur_examples}' )
     
     ### get the activation as representation for each data
     for iex in trange(cur_examples):
