@@ -7,11 +7,10 @@ The update include:
     1. data preprocess and dataset setting
     2. model setting
     3. args and config
-    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
-    5. save process
-    6. new standard: robust accuracy
-    7. add some addtional backbone such as resnet18 and vgg19
-    8. the method to get the activation of model
+    4. save process
+    5. new standard: robust accuracy
+    6. add some addtional backbone such as resnet18 and vgg19
+    7. the method to get the activation of model
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)

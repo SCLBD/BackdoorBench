@@ -29,11 +29,10 @@ The update include:
     1. data preprocess and dataset setting
     2. model setting
     3. args and config
-    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
-    5. save process
-    6. new standard: robust accuracy
-    7. use the PyTorch environment instead of TensorFlow
-    8. add some addtional backbone such as resnet18 and vgg19
+    4. save process
+    5. new standard: robust accuracy
+    6. use the PyTorch environment instead of TensorFlow
+    7. add some addtional backbone such as resnet18 and vgg19
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)

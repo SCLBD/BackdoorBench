@@ -7,10 +7,9 @@ The update include:
     1. data preprocess and dataset setting
     2. model setting
     3. args and config
-    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
-    5. save process
-    6. new standard: robust accuracy
-    7. add some addtional backbone such as resnet18 and vgg19
+    4. save process
+    5. new standard: robust accuracy
+    6. add some addtional backbone such as resnet18 and vgg19
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -82,6 +81,20 @@ def get_args():
 
 
 def test_epoch(arg, testloader, model, criterion, epoch, word):
+    '''test the student model with regard to test data for each epoch
+    arg:
+        Contains default parameters
+    testloader:
+        the dataloader of clean test data or backdoor test data
+    model:
+        the training model
+    criterion:
+        criterion during the train process
+    epoch:
+        current epoch
+    word:
+        'bd' or 'clean'
+    '''
     model.eval()
 
     total_clean, total_clean_correct, test_loss = 0, 0, 0
@@ -127,7 +140,7 @@ def fp(args, result , config):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    ### hook the activation layer representation of each data
+    ### a. hook the activation layer representation of each data
     # Prepare model
     netC = generate_cls_model(args.model,args.num_classes)
     netC.load_state_dict(result['model'])
@@ -205,7 +218,7 @@ def fp(args, result , config):
         netC(inputs)
     hook.remove()
 
-    ### rank the mean of activation for each neural
+    ### b. rank the mean of activation for each neural
     # Processing to get the "more important mask"
     container = torch.cat(container, dim=0)
     activation = torch.mean(container, dim=[0, 2, 3])
@@ -222,7 +235,7 @@ def fp(args, result , config):
         addtional_dim = 1
         pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
     
-    ### according to the sorting results, prune and test the accuracy
+    ### c. according to the sorting results, prune and test the accuracy
     acc_dis = 0
     # Pruning times - no-tuning after pruning a channel!!!
     for index in range(int(pruning_mask.shape[0])):
@@ -317,7 +330,7 @@ def fp(args, result , config):
         test_loss, test_acc_bd = test_epoch(args, testloader_bd, net_pruned, criterion, 0, 'bd')
         print('Acc Clean: {:.3f} | Acc Bd: {:.3f}'.format(test_acc_cl, test_acc_bd)) 
         logging.info("%d %0.4f %0.4f\n" % (index, test_acc_cl, test_acc_bd))
-        ### save the model with the greatest difference between ACC and ASR
+        ### d. save the model with the greatest difference between ACC and ASR
         if index == 0:
             acc_dis = test_acc_cl - test_acc_bd
             best_net = copy.deepcopy(net_pruned)
@@ -334,9 +347,9 @@ def fp(args, result , config):
 
 if __name__ == '__main__':
     
-    ### basic setting: args
+    ### 1. basic setting: args
     args = get_args()
-    with open("./defense/FP/config/config.yaml", 'r') as stream: 
+    with open("./defense/FP/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -379,13 +392,13 @@ if __name__ == '__main__':
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
 
-    ### attack result(model, train data, test data)
+    ### 2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    ### fp defense:
+    ### 3. fp defense:
     result_defense = fp(args,result,config)
 
-    ### test the result and get ASR, ACC, RC 
+    ### 4. test the result and get ASR, ACC, RC 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']
@@ -453,6 +466,28 @@ if __name__ == '__main__':
             )
             data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
         
+            robust_acc = 0
+            for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = result_defense['model'](inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+        else :
+            ori_label_un = result['clean_test']['y']
+            ori_label = [i for i in ori_label_un if i != 0]
+            y = torch.tensor(ori_label)
+            data_bd_test = torch.utils.data.TensorDataset(x,y)
+            data_bd_testset = prepro_cls_DatasetBD(
+                full_dataset_without_transform=data_bd_test,
+                poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+                bd_image_pre_transform=None,
+                bd_label_pre_transform=None,
+                ori_image_transform_in_loading=tran,
+                ori_label_transform_in_loading=None,
+                add_details_in_preprocess=False,
+            )
+            data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
             robust_acc = 0
             for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
                 inputs, labels = inputs.to(args.device), labels.to(args.device)
