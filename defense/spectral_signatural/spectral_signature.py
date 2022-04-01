@@ -212,32 +212,32 @@ def spectral(arg,result):
     clean_mean = np.mean(clean_cov, axis=0, keepdims=True)
     full_mean = np.mean(full_cov, axis=0, keepdims=True)            
 
-    logging.info('Norm of Difference in Mean: ', np.linalg.norm(clean_mean-full_mean))
+    logging.info(f'Norm of Difference in Mean: {np.linalg.norm(clean_mean-full_mean)}' )
     clean_centered_cov = clean_cov - clean_mean
     s_clean = np.linalg.svd(clean_centered_cov, full_matrices=False, compute_uv=False)
-    logging.info('Top 7 Clean SVs: ', s_clean[0:7])
+    logging.info(f'Top 7 Clean SVs: {s_clean[0:7]}' )
     
     centered_cov = full_cov - full_mean
     u,s,v = np.linalg.svd(centered_cov, full_matrices=False)
-    logging.info('Top 7 Singular Values: ', s[0:7])
+    logging.info(f'Top 7 Singular Values: {s[0:7]}')
     eigs = v[0:1]  
     p = total_p
     corrs = np.matmul(eigs, np.transpose(full_cov)) #shape num_top, num_active_indices
     scores = np.linalg.norm(corrs, axis=0) #shape num_active_indices
-    logging.info('Length Scores: ', len(scores))
+    logging.info(f'Length Scores: {len(scores)}' )
     p_score = np.percentile(scores, p)
     top_scores = np.where(scores>p_score)[0]
-    logging.info(top_scores)
+    logging.info(f'{top_scores}')
     num_bad_removed = np.count_nonzero(top_scores>=(len(scores)-num_poisoned_left))
-    logging.info('Num Bad Removed: ', num_bad_removed)
-    logging.info('Num Good Rmoved: ', len(top_scores)-num_bad_removed)
+    logging.info(f'Num Bad Removed: {num_bad_removed}' )
+    logging.info(f'Num Good Rmoved: {len(top_scores)-num_bad_removed}' )
     
     num_poisoned_after = num_poisoned_left - num_bad_removed
     removed_inds = np.copy(top_scores)
     re = [cur_indices[v] for i,v in enumerate(removed_inds)]
     left_inds = np.delete(range(len(dataset)), re)
            
-    logging.info('Num Poisoned Left: ', num_poisoned_after)   
+    logging.info(f'Num Poisoned Left: {num_poisoned_after}' )   
     
     ### retrain the model with remaining data
     dataset.subset(left_inds)
