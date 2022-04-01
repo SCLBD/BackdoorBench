@@ -7,9 +7,8 @@ The update include:
     1. data preprocess and dataset setting
     2. model setting
     3. args and config
-    4. during training the backdoor attack generalization to lower poison ratio (generalize_to_lower_pratio)
-    5. save process
-    6. new standard: robust accuracy
+    4. save process
+    5. new standard: robust accuracy
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -145,30 +144,18 @@ class Cutout(object):
 
         return img
 
-class Dataset_npy(torch.utils.data.Dataset):
-    def __init__(self, full_dataset=None, transform=None):
-        self.dataset = full_dataset
-        self.transform = transform
-        self.dataLen = len(self.dataset)
-
-    def __getitem__(self, index):
-        image = self.dataset[index][0]
-        label = self.dataset[index][1]
-
-        if self.transform:
-            image = self.transform(image)
-        return image, label
-
-    def __len__(self):
-        return self.dataLen
-
 def train(args, result):
+    '''Pretrain the model with raw data
+    args:
+        Contains default parameters
+    result:
+        attack result(details can be found in utils)
+    '''
     # Load models
-    print('----------- Network Initialization --------------')
+    logging.info('----------- Network Initialization --------------')
     model_ascent = generate_cls_model(args.model,args.num_classes)
     # model_ascent = get_network(opt)
     model_ascent.to(args.device)
-    print('finished model init...')
     logging.info('finished model init...')
     # initialize optimizer
     optimizer = torch.optim.SGD(model_ascent.parameters(),
@@ -183,7 +170,7 @@ def train(args, result):
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    print('----------- Data Initialization --------------')
+    logging.info('----------- Data Initialization --------------')
 
     tf_compose = transforms.Compose([
         transforms.ToTensor()
@@ -202,7 +189,7 @@ def train(args, result):
     )
     poisoned_data_loader = torch.utils.data.DataLoader(poisoned_data, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)    
 
-    print('----------- Train Initialization --------------')
+    logging.info('----------- Train Initialization --------------')
     for epoch in range(0, args.tuning_epochs):
 
         adjust_learning_rate(optimizer, epoch, args)
@@ -215,8 +202,82 @@ def train(args, result):
 
     return poisoned_data, model_ascent
 
+def train_step(args, train_loader, model_ascent, optimizer, criterion, epoch):
+    '''Pretrain the model with raw data for each step
+    args:
+        Contains default parameters
+    train_loader:
+        the dataloader of train data
+    model_ascent:
+        the initial model
+    optimizer:
+        optimizer during the pretrain process
+    criterion:
+        criterion during the pretrain process
+    epoch:
+        current epoch
+    '''
+    losses = 0
+    size = 0
+
+    model_ascent.train()
+
+    for idx, (img, target) in enumerate(train_loader, start=1):
+        
+        img = img.to(args.device)
+        target = target.to(args.device)
+
+        if args.gradient_ascent_type == 'LGA':
+            output = model_ascent(img)
+            loss = criterion(output, target)
+            # add Local Gradient Ascent(LGA) loss
+            loss_ascent = torch.sign(loss - args.gamma) * loss
+
+        elif args.gradient_ascent_type == 'Flooding':
+            output = model_ascent(img)
+            # output = student(img)
+            loss = criterion(output, target)
+            # add flooding loss
+            loss_ascent = (loss - args.flooding).abs() + args.flooding
+
+        else:
+            raise NotImplementedError
+
+        losses += loss_ascent * img.size(0)
+        size += img.size(0)
+        optimizer.zero_grad()
+        loss_ascent.backward()
+        optimizer.step()
+   
+        logging.info('Epoch[{0}]:[{1:03}/{2:03}]'
+                'Loss:{losses:.4f}({losses_avg:.4f})'.format(epoch, idx, len(train_loader), losses=losses, losses_avg=losses/size))
+
+def adjust_learning_rate(optimizer, epoch, opt):
+    '''set learning rate during the process of pretraining model 
+    optimizer:
+        optimizer during the pretrain process
+    epoch:
+        current epoch
+    opt:
+        Contains default parameters
+    '''
+    if epoch < opt.tuning_epochs:
+        lr = opt.lr
+    else:
+        lr = 0.01
+    logging.info('epoch: {}  lr: {:.4f}'.format(epoch, lr))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 def compute_loss_value(opt, poisoned_data, model_ascent):
-    # Calculate loss value per example
+    '''Calculate loss value per example
+    opt:
+        Contains default parameters
+    poisoned_data:
+        the train dataset which contains backdoor data
+    model_ascent:
+        the model after the process of pretrain
+    '''
     # Define loss function
     if opt.device == 'cuda':
         criterion = torch.nn.CrossEntropyLoss().cuda()
@@ -250,8 +311,15 @@ def compute_loss_value(opt, poisoned_data, model_ascent):
 
     return losses_idx
 
-
 def isolate_data(opt, poisoned_data, losses_idx):
+    '''isolate the backdoor data with the calculated loss
+    opt:
+        Contains default parameters
+    poisoned_data:
+        the train dataset which contains backdoor data
+    losses_idx:
+        the index of order about the loss value for each data 
+    '''
     # Initialize lists
     other_examples = []
     isolation_examples = []
@@ -278,59 +346,27 @@ def isolate_data(opt, poisoned_data, losses_idx):
         else:
             other_examples.append((img, target))
 
-    print('Finish collecting {} isolation examples: '.format(len(isolation_examples)))
-    print('Finish collecting {} other examples: '.format(len(other_examples)))
     logging.info('Finish collecting {} isolation examples: '.format(len(isolation_examples)))
     logging.info('Finish collecting {} other examples: '.format(len(other_examples)))
 
     return isolation_examples, other_examples
 
-def train_step(args, train_loader, model_ascent, optimizer, criterion, epoch):
-    losses = 0
-    size = 0
-
-    model_ascent.train()
-
-    for idx, (img, target) in enumerate(train_loader, start=1):
-        
-        img = img.to(args.device)
-        target = target.to(args.device)
-
-        if args.gradient_ascent_type == 'LGA':
-            output = model_ascent(img)
-            loss = criterion(output, target)
-            # add Local Gradient Ascent(LGA) loss
-            loss_ascent = torch.sign(loss - args.gamma) * loss
-
-        elif args.gradient_ascent_type == 'Flooding':
-            output = model_ascent(img)
-            # output = student(img)
-            loss = criterion(output, target)
-            # add flooding loss
-            loss_ascent = (loss - args.flooding).abs() + args.flooding
-
-        else:
-            raise NotImplementedError
-
-        losses += loss_ascent * img.size(0)
-        size += img.size(0)
-        optimizer.zero_grad()
-        loss_ascent.backward()
-        optimizer.step()
-   
-        print('Epoch[{0}]:[{1:03}/{2:03}]'
-                'Loss:{losses:.4f}({losses_avg:.4f})'.format(epoch, idx, len(train_loader), losses=losses, losses_avg=losses/size))
-
-def adjust_learning_rate(optimizer, epoch, opt):
-    if epoch < opt.tuning_epochs:
-        lr = opt.lr
-    else:
-        lr = 0.01
-    print('epoch: {}  lr: {:.4f}'.format(epoch, lr))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
 
 def train_step_finetuing(opt, train_loader, model_ascent, optimizer, criterion, epoch):
+    '''finetuing the model with remaining data for each step
+    args:
+        Contains default parameters
+    train_loader:
+        the dataloader of remaining data
+    model_ascent:
+        the model after pretrain
+    optimizer:
+        optimizer during the finetuing process
+    criterion:
+        criterion during the finetuing process
+    epoch:
+        current epoch
+    '''
     losses = 0
     top1 = 0
     size = 0
@@ -355,12 +391,25 @@ def train_step_finetuing(opt, train_loader, model_ascent, optimizer, criterion, 
         loss.backward()  # Gradient ascent training
         optimizer.step()
 
-        print('Epoch[{0}]:[{1:03}/{2:03}] '
+        logging.info('Epoch[{0}]:[{1:03}/{2:03}] '
             'loss:{losses:.4f}({losses_avg:.4f})  '
             'prec@1:{top1:.2f}({top1_avg:.2f})  '.format(epoch, idx, len(train_loader), losses=losses, losses_avg = losses/len(train_loader), top1=top1, top1_avg=top1/len(train_loader)))
 
 def train_step_unlearning(opt, train_loader, model_ascent, optimizer, criterion, epoch):
-
+    '''unlearning the model with 'backdoor' data for each step
+    args:
+        Contains default parameters
+    train_loader:
+        the dataloader of 'backdoor' data
+    model_ascent:
+        the model after finetuning
+    optimizer:
+        optimizer during the unlearning process
+    criterion:
+        criterion during the unlearning process
+    epoch:
+        current epoch
+    '''
     losses = 0
     top1 = 0
     size = 0
@@ -386,12 +435,26 @@ def train_step_unlearning(opt, train_loader, model_ascent, optimizer, criterion,
         (-loss).backward()  # Gradient ascent training
         optimizer.step()
 
-        print('Epoch[{0}]:[{1:03}/{2:03}] '
+        logging.info('Epoch[{0}]:[{1:03}/{2:03}] '
             'loss:{losses:.4f}({losses_avg:.4f})  '
             'prec@1:{top1:.2f}({top1_avg:.2f})  '.format(epoch, idx, len(train_loader), losses=losses, losses_avg = losses/len(train_loader), top1=top1, top1_avg=top1/len(train_loader)))
 
 
 def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, criterion, epoch):
+    '''test the model during the unlearning process
+    opt:
+        Contains default parameters
+    test_clean_loader:
+        the dataloader of clean test data
+    test_bad_loader:
+        the dataloader of backdoor test data    
+    model_ascent:
+        the model during the unlearning process
+    criterion:
+        criterion during the unlearning process
+    epoch:
+        current epoch
+    '''
     test_process = []
 
     with torch.no_grad():
@@ -443,8 +506,6 @@ def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, crite
     
     acc_bd = [top1/size, losses/size]
 
-    print('[Clean] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_clean[0], acc_clean[1]))
-    print('[Bad] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_bd[0], acc_bd[1]))
     logging.info('[Clean] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_clean[0], acc_clean[1]))
     logging.info('[Bad] Prec@1: {:.2f}, Loss: {:.4f}'.format(acc_bd[0], acc_bd[1]))
 
@@ -452,11 +513,21 @@ def test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, crite
 
 
 def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_other_data):
+    '''train the model with remaining data and unlearn the backdoor data
+    opt:
+        Contains default parameters
+    result:
+        attack result(details can be found in utils)
+    model_ascent:
+        the model after pretrain
+    isolate_poisoned_data:
+        the dataset of 'backdoor' data
+    isolate_other_data:
+        the dataset of remaining data
+    '''
     # Load models
-    print('----------- Network Initialization --------------')
     logging.info('----------- Network Initialization --------------')
     model_ascent.to(opt.device)
-    print('Finish loading ascent model...')
     logging.info('Finish loading ascent model...')
     # initialize optimizer
     optimizer = torch.optim.SGD(model_ascent.parameters(),
@@ -472,7 +543,7 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
         criterion = torch.nn.CrossEntropyLoss()
 
     tf_compose_finetuning = transforms.Compose([
-        transforms.ToPILImage(),
+        # transforms.ToPILImage(),
         transforms.Resize((opt.input_height, opt.input_width)),
         transforms.RandomCrop((opt.input_height, opt.input_width), padding=4),
         transforms.RandomHorizontalFlip(),
@@ -482,18 +553,37 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
     ])
 
     tf_compose_unlearning = transforms.Compose([
-        transforms.ToPILImage(),
+        # transforms.ToPILImage(),
         transforms.Resize((opt.input_height, opt.input_width)),
         transforms.ToTensor()
     ])
-    poisoned_data_tf = Dataset_npy(full_dataset=isolate_poisoned_data, transform=tf_compose_unlearning)
+    # poisoned_data_tf = Dataset_npy(full_dataset=isolate_poisoned_data, transform=tf_compose_unlearning)
+    poisoned_data_tf =  prepro_cls_DatasetBD(
+        full_dataset_without_transform=isolate_poisoned_data,
+        poison_idx=np.zeros(len(isolate_poisoned_data)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tf_compose_unlearning,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
     isolate_poisoned_data_loader = torch.utils.data.DataLoader(dataset=poisoned_data_tf,
                                       batch_size=opt.batch_size,
                                       shuffle=True,
                                       )
 
     # isolate_other_data = np.load(data_path_other, allow_pickle=True)
-    isolate_other_data_tf = Dataset_npy(full_dataset=isolate_other_data, transform=tf_compose_finetuning)
+    # isolate_other_data_tf = Dataset_npy(full_dataset=isolate_other_data, transform=tf_compose_finetuning)
+    isolate_other_data_tf = prepro_cls_DatasetBD(
+        full_dataset_without_transform=isolate_other_data,
+        poison_idx=np.zeros(len(isolate_other_data)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tf_compose_finetuning,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+        init_with_prepro_backdoor=True,
+    )
     isolate_other_data_loader = torch.utils.data.DataLoader(dataset=isolate_other_data_tf,
                                               batch_size=opt.batch_size,
                                               shuffle=True,
@@ -534,7 +624,7 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
 
     if opt.finetuning_ascent_model == True:
         # this is to improve the clean accuracy of isolation model, you can skip this step
-        print('----------- Finetuning isolation model --------------')
+        logging.info('----------- Finetuning isolation model --------------')
         for epoch in range(0, opt.finetuning_epochs):
             learning_rate_finetuning(optimizer, epoch, opt)
             train_step_finetuing(opt, isolate_other_data_loader, model_ascent, optimizer, criterion,
@@ -543,7 +633,7 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
 
     best_acc = 0
     best_asr = 0
-    print('----------- Model unlearning --------------')
+    logging.info('----------- Model unlearning --------------')
     for epoch in range(0, opt.unlearning_epochs):
         
         learning_rate_unlearning(optimizer, epoch, opt)
@@ -555,7 +645,7 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
             train_step_unlearning(opt, isolate_poisoned_data_loader, model_ascent, optimizer, criterion, epoch + 1)
 
         # evaluate on testing set
-        print('testing the ascended model......')
+        logging.info('testing the ascended model......')
         acc_clean, acc_bad = test_unlearning(opt, test_clean_loader, test_bad_loader, model_ascent, criterion, epoch + 1)
 
         if not (os.path.exists(os.getcwd() + f'{save_path}/abl/ckpt_best/')):
@@ -578,22 +668,38 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
 
 
 def learning_rate_finetuning(optimizer, epoch, opt):
+    '''set learning rate during the process of finetuing model 
+    optimizer:
+        optimizer during the pretrain process
+    epoch:
+        current epoch
+    opt:
+        Contains default parameters
+    '''
     if epoch < 40:
         lr = 0.01
     elif epoch < 60:
         lr = 0.001
     else:
         lr = 0.001
-    print('epoch: {}  lr: {:.4f}'.format(epoch, lr))
+    logging.info('epoch: {}  lr: {:.4f}'.format(epoch, lr))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 def learning_rate_unlearning(optimizer, epoch, opt):
+    '''set learning rate during the process of unlearning model 
+    optimizer:
+        optimizer during the pretrain process
+    epoch:
+        current epoch
+    opt:
+        Contains default parameters
+    '''
     if epoch < opt.unlearning_epochs:
         lr = 0.0001
     else:
         lr = 0.0001
-    print('epoch: {}  lr: {:.4f}'.format(epoch, lr))
+    logging.info('epoch: {}  lr: {:.4f}'.format(epoch, lr))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -618,15 +724,15 @@ def abl(args,result):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    ### pre-train model
+    ###a. pre-train model
     poisoned_data, model_ascent = train(args,result)
     
-    ### isolate the special data(loss is low) as backdoor data
+    ###b. isolate the special data(loss is low) as backdoor data
     losses_idx = compute_loss_value(args, poisoned_data, model_ascent)
-    print('----------- Collect isolation data -----------')
+    logging.info('----------- Collect isolation data -----------')
     isolation_examples, other_examples = isolate_data(args, poisoned_data, losses_idx)
 
-    ### unlearn the backdoor data and learn the remaining data
+    ###c. unlearn the backdoor data and learn the remaining data
     model_new = train_unlearning(args,result,model_ascent,isolation_examples,other_examples)
 
     result = {}
@@ -635,9 +741,9 @@ def abl(args,result):
 
 if __name__ == '__main__':
     
-    ### basic setting: args, attack result(model, train data, test data)
+    ###1. basic setting: args, attack result(model, train data, test data)
     args = get_args()
-    with open("./defense/ABL/config/config.yaml", 'r') as stream: 
+    with open("./defense/ABL/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -681,14 +787,14 @@ if __name__ == '__main__':
     args.save_path = save_path
 
 
-    ### attack result(model, train data, test data)
+    ###2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    ### abl defense:
+    ###3. abl defense:
     print("Continue training...")
     result_defense = abl(args,result)
 
-    ### test the result and get ASR, ACC, RC 
+    ###4. test the result and get ASR, ACC, RC 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']
