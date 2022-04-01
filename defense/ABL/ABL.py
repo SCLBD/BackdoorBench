@@ -307,7 +307,7 @@ def compute_loss_value(opt, poisoned_data, model_ascent):
 
     # Show the top 10 loss values
     losses_record_arr = np.array(losses_record)
-    logging.info('Top ten loss value:', losses_record_arr[losses_idx[:10]])
+    logging.info(f'Top ten loss value: {losses_record_arr[losses_idx[:10]]}')
 
     return losses_idx
 
