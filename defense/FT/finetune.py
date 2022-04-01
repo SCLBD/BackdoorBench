@@ -226,9 +226,9 @@ def ft(args,result,config):
 
 
 if __name__ == '__main__':
-    ### basic setting: args
+    ### 1. basic setting: args
     args = get_args()
-    with open("./defense/FT/config/config.yaml", 'r') as stream: 
+    with open("./defense/FT/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -271,14 +271,14 @@ if __name__ == '__main__':
             os.makedirs(os.getcwd() + args.log)  
     args.save_path = save_path
 
-    ### attack result(model, train data, test data)
+    ### 2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
     print("Continue training...")
-    ### ft defense:
+    ### 3. ft defense:
     result_defense = ft(args,result,config)
 
-    ### test the result and get ASR, ACC, RC 
+    ### 4. test the result and get ASR, ACC, RC 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']
