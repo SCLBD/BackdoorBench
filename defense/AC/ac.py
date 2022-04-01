@@ -29,6 +29,7 @@ The update include:
     6. new standard: robust accuracy
     7. reintegrate the framework
     8. hook the activation of the neural network
+    9. add some addtional backbone such as preactresnet18, resnet18 and vgg19
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -74,6 +75,46 @@ sys.path.append(os.getcwd())
 import yaml
 from pprint import pprint, pformat
 
+def get_args():
+    #set the basic parameter
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument('--device', type=str, help='cuda, cpu')
+    parser.add_argument('--checkpoint_load', type=str)
+    parser.add_argument('--checkpoint_save', type=str)
+    parser.add_argument('--log', type=str)
+    parser.add_argument("--data_root", type=str)
+
+    parser.add_argument('--dataset', type=str, help='mnist, cifar10, gtsrb, celeba, tiny') 
+    parser.add_argument("--num_classes", type=int)
+    parser.add_argument("--input_height", type=int)
+    parser.add_argument("--input_width", type=int)
+    parser.add_argument("--input_channel", type=int)
+
+    parser.add_argument('--epochs', type=int)
+    parser.add_argument('--batch_size', type=int)
+    parser.add_argument("--num_workers", type=float)
+    parser.add_argument('--lr', type=float)
+
+    parser.add_argument('--attack', type=str)
+    parser.add_argument('--poison_rate', type=float)
+    parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
+    parser.add_argument('--target_label', type=int)
+    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
+
+    parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--result_file', type=str, help='the location of result')
+
+    #set the parameter for the ac defense
+    parser.add_argument('--nb_dims', type=int, help='train epoch')
+    parser.add_argument('--nb_clusters', type=int, help='the number of mini_batch train model')
+    parser.add_argument('--cluster_analysis', type=str, help='the method of cluster analysis')
+    
+    arg = parser.parse_args()
+
+    print(arg)
+    return arg
+
 def segment_by_class(data , classes: np.ndarray, num_classes: int) -> List[np.ndarray]:
     by_class: List[List[int]] = [[] for _ in range(num_classes)]
 
@@ -103,7 +144,6 @@ def measure_misclassification(
     """
     predictions = np.argmax(classifier.predict(x_test), axis=1)
     return 1.0 - np.sum(predictions == np.argmax(y_test, axis=1)) / y_test.shape[0]
-
 
 def train_remove_backdoor(
     classifier,
@@ -221,46 +261,43 @@ def reduce_dimensionality(activations: np.ndarray, nb_dims: int = 10, reduce: st
     reduced_activations = projector.fit_transform(activations)
     return reduced_activations
 
+def get_activations(name,model,x_batch):
+    ''' get activations of the model for each sample
+    name:
+        the model name 
+    model:
+        the train model
+    x_batch:
+        each batch for tain data
+    '''
+    TOO_SMALL_ACTIVATIONS = 32
+    assert name in ['preactresnet18', 'vgg19', 'resnet18']
+    if name == 'preactresnet18':
+        inps,outs = [],[]
+        def layer_hook(module, inp, out):
+            outs.append(out.data)
+        hook = model.avgpool.register_forward_hook(layer_hook)
+        _ = model(x_batch)
+        activations = outs[0].view(outs[0].size(0), -1)
+        hook.remove()
+    elif name == 'vgg19':
+        inps,outs = [],[]
+        def layer_hook(module, inp, out):
+            outs.append(out.data)
+        hook = model.features.register_forward_hook(layer_hook)
+        _ = model(x_batch)
+        activations = outs[0].view(outs[0].size(0), -1)
+        hook.remove()
+    elif name == 'resnet18':
+        inps,outs = [],[]
+        def layer_hook(module, inp, out):
+            outs.append(out.data)
+        hook = model.layer4.register_forward_hook(layer_hook)
+        _ = model(x_batch)
+        activations = outs[0].view(outs[0].size(0), -1)
+        hook.remove()
 
-def get_args():
-    #set the basic parameter
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument('--device', type=str, help='cuda, cpu')
-    parser.add_argument('--checkpoint_load', type=str)
-    parser.add_argument('--checkpoint_save', type=str)
-    parser.add_argument('--log', type=str)
-    parser.add_argument("--data_root", type=str)
-
-    parser.add_argument('--dataset', type=str, help='mnist, cifar10, gtsrb, celeba, tiny') 
-    parser.add_argument("--num_classes", type=int)
-    parser.add_argument("--input_height", type=int)
-    parser.add_argument("--input_width", type=int)
-    parser.add_argument("--input_channel", type=int)
-
-    parser.add_argument('--epochs', type=int)
-    parser.add_argument('--batch_size', type=int)
-    parser.add_argument("--num_workers", type=float)
-    parser.add_argument('--lr', type=float)
-
-    parser.add_argument('--attack', type=str)
-    parser.add_argument('--poison_rate', type=float)
-    parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
-    parser.add_argument('--target_label', type=int)
-    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
-
-    parser.add_argument('--model', type=str, help='resnet18')
-    parser.add_argument('--result_file', type=str, help='the location of result')
-
-    #set the parameter for the ac defense
-    parser.add_argument('--nb_dims', type=int, help='train epoch')
-    parser.add_argument('--nb_clusters', type=int, help='the number of mini_batch train model')
-    parser.add_argument('--cluster_analysis', type=str, help='the method of cluster analysis')
-    
-    arg = parser.parse_args()
-
-    print(arg)
-    return arg
+    return activations
 
 def ac(args,result):
     ### set logger
@@ -284,7 +321,7 @@ def ac(args,result):
     logging.info(pformat(args.__dict__))
 
 
-    ### classify data by activation results
+    ### a. classify data by activation results
     nb_dims = args.nb_dims
     nb_clusters = args.nb_clusters
     cluster_analysis = args.cluster_analysis
@@ -341,7 +378,7 @@ def ac(args,result):
                 [red_activations_by_class[class_idx], red_activations_by_class_i[class_idx]]
             )
 
-    ### identify backdoor data according to classification results
+    ### b. identify backdoor data according to classification results
     analyzer = ClusteringAnalyzer()
     if cluster_analysis == "smaller":
         (
@@ -383,7 +420,7 @@ def ac(args,result):
         is_clean_lst += is_clean_lst_i
     
 
-    ### retrain the model with filtered data
+    ### c. retrain the model with filtered data
     data_set_o.subset([i for i,v in enumerate(is_clean_lst) if v==1])
     data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     
@@ -471,44 +508,12 @@ def ac(args,result):
 
    
 
-def get_activations(name,model,x_batch):
-    TOO_SMALL_ACTIVATIONS = 32
-    assert name in ['preactresnet18', 'vgg19', 'resnet18']
-    if name == 'preactresnet18':
-        inps,outs = [],[]
-        def layer_hook(module, inp, out):
-            outs.append(out.data)
-        hook = model.avgpool.register_forward_hook(layer_hook)
-        _ = model(x_batch)
-        activations = outs[0].view(outs[0].size(0), -1)
-        hook.remove()
-    elif name == 'vgg19':
-        inps,outs = [],[]
-        def layer_hook(module, inp, out):
-            outs.append(out.data)
-        hook = model.features.register_forward_hook(layer_hook)
-        _ = model(x_batch)
-        activations = outs[0].view(outs[0].size(0), -1)
-        hook.remove()
-    elif name == 'resnet18':
-        inps,outs = [],[]
-        def layer_hook(module, inp, out):
-            outs.append(out.data)
-        hook = model.layer4.register_forward_hook(layer_hook)
-        _ = model(x_batch)
-        activations = outs[0].view(outs[0].size(0), -1)
-        hook.remove()
-
-    return activations
-
-
-
 
 if __name__ == '__main__':
     
-    ### basic setting: args
+    ### 1. basic setting: args
     args = get_args()
-    with open("./defense/AC/config/config.yaml", 'r') as stream: 
+    with open("./defense/AC/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
@@ -551,14 +556,14 @@ if __name__ == '__main__':
             os.makedirs(os.getcwd() + args.log) 
     args.save_path = save_path
     
-    ### attack result(model, train data, test data)
+    ### 2. attack result(model, train data, test data)
     result = load_attack_result(os.getcwd() + save_path + '/attack_result.pt')
     
-    ### ac defense:
+    ### 3. ac defense:
     print("Continue training...")
     result_defense = ac(args,result)
 
-    ### test the result and get ASR, ACC, RC 
+    ### 4. test the result and get ASR, ACC, RC 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']
