@@ -60,9 +60,9 @@ BackdoorBench will be continuously updated to track the lastest advances of back
 | BadNets    | [badnetsattack.py](./attack/badnetsattack.py)       | [BadNets: Identifying Vulnerabilities in  the Machine Learning Model Supply Chain](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j) IEEE Access 2019 |
 | Blended    | [blendedattack.py](./attack/blendedattack.py)       | [Targeted Backdoor Attacks on Deep  Learning Systems Using Data Poisoning](https://arxiv.org/abs/1712.05526v1) Arxiv 2017 |
 | SIG        | [sigattack.py](./attack/sigattack.py)               | [A new backdoor attack in  cnns by training set corruption](https://ieeexplore.ieee.org/document/8802997) ICIP 2019 |
-| SSBA       | [ssbaattack.py](./attack/ssbaattack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), ICCV 2021 |
+| SSBA       | [ssbaattack.py](./attack/ssbaattack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf) ICCV 2021 |
 | WaNet      | [wanetattack.py](./attack/wanetattack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021 |
-| InputAware | [inputawareattack.py](./attack/inputawareattack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf), NeurIPS 2020 |
+| InputAware | [inputawareattack.py](./attack/inputawareattack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020 |
 
 [//]: # ()
 [//]: # (- BadNets)
@@ -93,24 +93,15 @@ BackdoorBench will be continuously updated to track the lastest advances of back
 
 [//]: # (  - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020.)
 ### Defense :
-|       | File name                      | Paper                             |
 
-| ---------- | --------------------------------------------------- | ------------------------------------------------------------ |
-
+|       | File name                 | Paper                |
+| :------------- |:-------------|:-----|
 | FT| [finetune.py](./defense/ft/finetune.py) | standard fine-tuning|
-
 | Spectral Signatures| [spectral_signatural.py](./defense/spectral_signatural/spectral_signatural.py)      | [Spectral Signatures in Backdoor Attacks](https://proceedings.neurips.cc/paper/2018/file/280cf18baf4311c92aa5a042336587d3-Paper.pdf) NeurIPS 2018 |
-
 | AC| [ac.py](./defense/ac/ac.py)       | [Detecting Backdoor Attacks on Deep Neural Networks by Activation Clustering](http://ceur-ws.org/Vol-2301/paper_18.pdf) ceur-ws 2018 |
-
-| Fine-pruning| [fineprune.py](./defense/fp/fineprune.py)    | [Fine-pruning: Defending against
-backdooring attacks on deep neural networks](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13) International Symposium on Research in Attacks, Intrusions, and Defenses(2018) |
-
+| Fine-pruning| [fineprune.py](./defense/fp/fineprune.py)    | [Fine-pruning: Defending againstbackdooring attacks on deep neural networks](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13) International Symposium on Research in Attacks, Intrusions, and Defenses(2018) |
 | ABL| [abl.py](./defense/abl/abl.py)    | [Anti-Backdoor Learning: Training Clean Models on Poisoned Data](https://proceedings.neurips.cc/paper/2021/file/7d38b1e9bd793d3f45e0e212a729a93c-Paper.pdf) NeurIPS 2021|
-
-| NAD| [nad.py](./defense/nad/nad.py)   | [NEURAL ATTENTION DISTILLATION: ERASING BACKDOOR TRIGGERS FROM DEEP NEURAL NETWORKS](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021 |
-
-
+| NAD| [nad.py](./defense/nad/nad.py)   | [NEURAL ATTENTION DISTILLATION: ERASING BACKDOOR TRIGGERS FROM DEEP NEURAL NETWORKS](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021|
 
 
 
