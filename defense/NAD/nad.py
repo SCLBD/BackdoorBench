@@ -422,7 +422,7 @@ def nad(arg, result, config):
 if __name__ == '__main__':
     ### 1. basic setting: args 
     args = get_args()
-    with open("./defense/NAD/config.yaml", 'r') as stream: 
+    with open("./defense/nad/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

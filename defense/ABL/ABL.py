@@ -743,7 +743,7 @@ if __name__ == '__main__':
     
     ###1. basic setting: args, attack result(model, train data, test data)
     args = get_args()
-    with open("./defense/ABL/config.yaml", 'r') as stream: 
+    with open("./defense/abl/config.yaml", 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
