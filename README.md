@@ -76,18 +76,27 @@ This benchmark is aiming to compare the results from different attack and defens
 [//]: # (- InputAware)
 
 [//]: # (  - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020.)
-### Defense methods:
-- Fine-pruning
-  - Liu, Kang, et al. “Fine-pruning: Defending against backdooring attacks on deep neural networks.” ArXiv:1805.12185 [Cs], Mar. 2018. arXiv.org, https://arxiv.org/abs/1805.12185.
-- ABL
-  - Li, Yige, et al. Anti-Backdoor Learning: Training Clean Models on Poisoned Data. NeurIPS. 2021.  https://arxiv.org/abs/2110.11571v2
-- NAD
-  - Li, Yige, et al. Neural attention distillation: Erasing backdoor triggers from deep neural networks. NeurIPS. 2021
-101–105. IEEE (2019)
-- AC
-  - Chen, Bryant, et al. “Detecting backdoor attacks on deep neural networks by activation clustering” arXiv:1811.03728 [Cs], 2018. arXiv.org, http://arxiv.org/abs/1811.03728.
-- Spectral signature
-  - Tran, Brandon, et al. “Spectral Signatures in Backdoor Attacks” NeurIPS. 2018. arXiv.org, https://arxiv.org/abs/1811.00636.
+### Defense :
+|       | File name                      | Paper                             |
+
+| ---------- | --------------------------------------------------- | ------------------------------------------------------------ |
+
+| FT| [finetune.py](./defense/ft/finetune.py) | standard fine-tuning|
+
+| Spectral Signatures| [spectral_signatural.py](./defense/spectral_signatural/spectral_signatural.py)      | [Spectral Signatures in Backdoor Attacks](https://proceedings.neurips.cc/paper/2018/file/280cf18baf4311c92aa5a042336587d3-Paper.pdf) NeurIPS 2018 |
+
+| AC| [ac.py](./defense/ac/ac.py)       | [Detecting Backdoor Attacks on Deep Neural Networks by Activation Clustering](http://ceur-ws.org/Vol-2301/paper_18.pdf) ceur-ws 2018 |
+
+| Fine-pruning| [fineprune.py](./defense/fp/fineprune.py)    | [Fine-pruning: Defending against
+backdooring attacks on deep neural networks](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13) International Symposium on Research in Attacks, Intrusions, and Defenses(2018) |
+
+| ABL| [abl.py](./defense/abl/abl.py)    | [Anti-Backdoor Learning: Training Clean Models on Poisoned Data](https://proceedings.neurips.cc/paper/2021/file/7d38b1e9bd793d3f45e0e212a729a93c-Paper.pdf) NeurIPS 2021|
+
+| NAD| [nad.py](./defense/nad/nad.py)   | [NEURAL ATTENTION DISTILLATION: ERASING BACKDOOR TRIGGERS FROM DEEP NEURAL NETWORKS](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021 |
+
+
+
+
 
 
 
