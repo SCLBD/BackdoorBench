@@ -1,4 +1,4 @@
-# BDZOO2: backdoor defense and attack platform
+# BackdoorBench: a comprehensive benchmark of backdoor attack and defense methods
 
 # Contents
 * [Overview](#overview)
@@ -41,12 +41,12 @@ This benchmark is aiming to compare the results from different attack and defens
 ### Attacks:
 |            | File name                                           | Paper                                                        |
 | ---------- | --------------------------------------------------- | ------------------------------------------------------------ |
-| BadNets    | [BadNetsAttack.py](./attack/BadNetsAttack.py)       | [BadNets: Identifying Vulnerabilities in  the Machine Learning Model Supply Chain](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j)) IEEE Access(2019) |
+| BadNets    | [BadNetsAttack.py](./attack/BadNetsAttack.py)       | [BadNets: Identifying Vulnerabilities in  the Machine Learning Model Supply Chain](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j)), IEEE Access 2019 |
 | Blended    | [BlendedAttack.py](./attack/BlendedAttack.py)       | [Targeted Backdoor Attacks on Deep  Learning Systems Using Data Poisoning](https://arxiv.org/abs/1712.05526v1) Arxiv 2017 |
 | SIG        | [sigAttack.py](./attack/sigAttack.py)               | [A new backdoor attack in  cnns by training set corruption](https://ieeexplore.ieee.org/document/8802997) ICIP 2019 |
-| SSBA       | [SSBAAttack.py](./attack/SSBAAttack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf) ICCV 2021 |
+| SSBA       | [SSBAAttack.py](./attack/SSBAAttack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), ICCV 2021 |
 | WaNet      | [wanetAttack.py](./attack/wanetAttack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021 |
-| InputAware | [inputAwareAttack.py](./attack/inputAwareAttack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NIPS2020 |
+| InputAware | [inputAwareAttack.py](./attack/inputAwareAttack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf), NeurIPS 2020 |
 
 [//]: # ()
 [//]: # (- BadNets)
