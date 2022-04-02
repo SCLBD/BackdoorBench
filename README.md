@@ -59,7 +59,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0`
 -->
 
-[//]: # (### Target Types: `'all2one', 'all2all', 'cleanLabel'` &#40;different attack varys&#41;)
+[//]: # "### Target Types: `'all2one', 'all2all', 'cleanLabel'` &#40;different attack varys&#41;"
 ### Attacks:
 |            | File name                                           | Paper                                                        |
 | ---------- | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -70,34 +70,34 @@ The implementations of more backdoor methods, as well as their evaluations are o
 | WaNet      | [wanetattack.py](./attack/wanetattack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021 |
 | InputAware | [inputawareattack.py](./attack/inputawareattack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020 |
 
-[//]: # ()
-[//]: # (- BadNets)
+[//]: #
+[//]: # "- BadNets"
 
-[//]: # (  - Gu, Tianyu, et al. “BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain.” ArXiv:1708.06733 [Cs], Mar. 2019. arXiv.org, http://arxiv.org/abs/1708.06733.)
+[//]: # "  - Gu, Tianyu, et al. “BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain.” ArXiv:1708.06733 [Cs], Mar. 2019. arXiv.org, http://arxiv.org/abs/1708.06733."
 
-[//]: # (- Blended)
+[//]: # "- Blended"
 
-[//]: # (  - Chen, Xinyun, et al. Targeted Backdoor Attacks on Deep Learning Systems Using Data Poisoning. Dec. 2017. arxiv.org, https://arxiv.org/abs/1712.05526v1.)
+[//]: # "  - Chen, Xinyun, et al. Targeted Backdoor Attacks on Deep Learning Systems Using Data Poisoning. Dec. 2017. arxiv.org, https://arxiv.org/abs/1712.05526v1."
 
-[//]: # (- SIG)
+[//]: # "- SIG"
 
-[//]: # (  - Barni, M., Kallas, K., Tondi, B.: A new backdoor attack in cnns by training set corruption)
+[//]: # "  - Barni, M., Kallas, K., Tondi, B.: A new backdoor attack in cnns by training set corruption"
 
-[//]: # (  without label poisoning. In: IEEE International Conference on Image Processing &#40;ICIP&#41;. pp.)
+[//]: # "  without label poisoning. In: IEEE International Conference on Image Processing &#40;ICIP&#41;. pp."
 
-[//]: # (  101–105. IEEE &#40;2019&#41;)
+[//]: # "  101–105. IEEE &#40;2019&#41;"
 
-[//]: # (- SSBA)
+[//]: # "- SSBA"
 
-[//]: # (  - Li, Yuezun, et al. “Invisible Backdoor Attack with Sample-Specific Triggers.” ArXiv:2012.03816 [Cs], Aug. 2021. arXiv.org, http://arxiv.org/abs/2012.03816.)
+[//]: # "  - Li, Yuezun, et al. “Invisible Backdoor Attack with Sample-Specific Triggers.” ArXiv:2012.03816 [Cs], Aug. 2021. arXiv.org, http://arxiv.org/abs/2012.03816."
 
-[//]: # (- WaNet)
+[//]: # "- WaNet"
 
-[//]: # (  - Nguyen, Anh, and Anh Tran. “WaNet -- Imperceptible Warping-Based Backdoor Attack.” ArXiv:2102.10369 [Cs], Mar. 2021. arXiv.org, http://arxiv.org/abs/2102.10369.)
+[//]: # "  - Nguyen, Anh, and Anh Tran. “WaNet -- Imperceptible Warping-Based Backdoor Attack.” ArXiv:2102.10369 [Cs], Mar. 2021. arXiv.org, http://arxiv.org/abs/2102.10369."
 
-[//]: # (- InputAware)
+[//]: # "- InputAware"
 
-[//]: # (  - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020.)
+[//]: # "  - Nguyen, A., and A. Tran. “Input-Aware Dynamic Backdoor Attack.” NeurIPS, 2020."
 ### Defense :
 
 |       | File name                 | Paper                |
@@ -116,7 +116,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 ### Detailed Structure and Implementation Details
 You can refer to `./docs` folder.
-  
+
 ## [Dependence](#dependence)
 
 <a href="#top">[Back to top]</a>
@@ -147,7 +147,7 @@ You should specify both the attack method script and the YAML config file to use
 
 If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path` 
 
-[//]: # (like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`)
+[//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
 
 The detailed descriptions for each attack may be put into the `add_args` function in each script. 
 
@@ -157,134 +157,116 @@ Examples: (assume in `./attack` folder)
 
     `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml`
 
-[//]: # ( - Blended)
+[//]: # " - Blended"
 
-[//]: # ()
-[//]: # (    `python basicAttack.py --yaml_path ../config/basicAttack/default_blended.yaml`)
+[//]: #
+[//]: # "    `python basicAttack.py --yaml_path ../config/basicAttack/default_blended.yaml`"
 
-[//]: # ( )
-[//]: # ( - SIG)
+[//]: # " "
+[//]: # " - SIG"
 
-[//]: # ()
-[//]: # (    `python sigAttack.py --yaml_path ../config/sigAttack/default.yaml`)
+[//]: #
+[//]: # "    `python sigAttack.py --yaml_path ../config/sigAttack/default.yaml`"
 
-[//]: # ()
-[//]: # ( - SSBA)
+[//]: #
+[//]: # " - SSBA"
 
-[//]: # ()
-[//]: # (    `python basicAttack.py --yaml_path ../config/basicAttack/default_ssba.yaml`)
+[//]: #
+[//]: # "    `python basicAttack.py --yaml_path ../config/basicAttack/default_ssba.yaml`"
 
 (For SSBA, first, you need to follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data. Then place the poisoned image array to `attack_train_replace_imgs_path` and
 `attack_test_replace_imgs_path`. Due to file size limitations, we may not provide it in this repo.)
 
-[//]: # ( - WaNet)
+[//]: # " - WaNet"
 
-[//]: # ()
-[//]: # (    `python wanetAttack.py --yaml_path ../config/wanetAttack/default.yaml`    )
+[//]: #
+[//]: # "    `python wanetAttack.py --yaml_path ../config/wanetAttack/default.yaml`    "
 
-[//]: # ()
-[//]: # ( - InputAware)
+[//]: #
+[//]: # " - InputAware"
 
-[//]: # ()
-[//]: # (    `python inputAwareAttack.py --yaml_path ../config/inputAwareAttack/default.yaml`    )
+[//]: #
+[//]: # "    `python inputAwareAttack.py --yaml_path ../config/inputAwareAttack/default.yaml`    "
 
 ### [defense](#defense)
 
 <a href="#top">[Back to top]</a>
 
-You should specify both the defense method script and the attack result to use different attack methods. The yaml config is in defense method. 
-
-If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after yaml_path like `python -u ./defense/AC/ac_zmd.py --result_file badnet_0_1`
+You should specify both **the defense method script** and **the attack result** to use different attack methods. The yaml config is in defense method. 
 
 Examples: (assume in project `bdzoo\` folder)
 
  - AC
 
-    `python -u ./defense/AC/ac_zmd.py --result_file badnet_0_1`
-
- - ABL
-
-    `python -u ./defense/ABL/ABL.py --result_file badnet_0_1`
- 
- - NAD
-
-    `python -u ./defense/NAD/nad.py --result_file badnet_0_1`
-
- - Fine-pruning
-
-    `python -u ./defense/FP/fineprune.py --result_file badnet_0_1`
-
- - Spectral signature
-
-    `python -u ./defense/spectral_signatural/spectral_signature.py --result_file blended_0_1`    
- 
+    `python -u ./defense/ac/ac.py --result_file badnet_0_1`
 
 
 
 
 
 
-[//]: # (# [Data Preparation]&#40;#data_preparation&#41;)
 
-[//]: # ()
-[//]: # (<a href="#top">[Back to top]</a>)
+[//]: # "# [Data Preparation]&#40;#data_preparation&#41;"
 
-[//]: # ()
-[//]: # (Please download datasets to `./data`. For GTSRB and TinyImagenet, we provide srcipts.)
+[//]: #
+[//]: # "<a href="#top">[Back to top]</a>"
 
-[//]: # (# [Detalied Structure]&#40;#detailed_structure&#41;)
+[//]: #
+[//]: # "Please download datasets to `./data`. For GTSRB and TinyImagenet, we provide srcipts."
 
-[//]: # ()
-[//]: # (<a href="#top">[Back to top]</a>)
+[//]: # "# [Detalied Structure]&#40;#detailed_structure&#41;"
 
-[//]: # ()
-[//]: # (- attack : all attack should be put here separately)
+[//]: #
+[//]: # "<a href="#top">[Back to top]</a>"
 
-[//]: # (- defense : all defense should be put here separately )
+[//]: #
+[//]: # "- attack : all attack should be put here separately"
 
-[//]: # (- config : all config file in yaml &#40;all attack and defense config should all be put here separately&#41;)
+[//]: # "- defense : all defense should be put here separately "
 
-[//]: # (- data : data file )
+[//]: # "- config : all config file in yaml &#40;all attack and defense config should all be put here separately&#41;"
 
-[//]: # (- experiment : analysis script and the final main entry will be put here )
+[//]: # "- data : data file "
 
-[//]: # (- models : models that do not in the torchvision)
+[//]: # "- experiment : analysis script and the final main entry will be put here "
 
-[//]: # (- record : all experiment generated files and logs)
+[//]: # "- models : models that do not in the torchvision"
 
-[//]: # (- utils : frequent-use functions and other tools)
+[//]: # "- record : all experiment generated files and logs"
 
-[//]: # (  - bd_attack_specific_dataset : all special implementation of dataset-level backdoor )
+[//]: # "- utils : frequent-use functions and other tools"
 
-[//]: # (    that CANNOT handle by )
+[//]: # "  - bd_attack_specific_dataset : all special implementation of dataset-level backdoor "
 
-[//]: # (    - bd_groupwise_transform &#40;backdoor depends on mutliple batch-wise feed samples&#41; or )
+[//]: # "    that CANNOT handle by "
 
-[//]: # (    - bd_dataset &#40;backdoor only depends on each sample&#41;)
+[//]: # "    - bd_groupwise_transform &#40;backdoor depends on mutliple batch-wise feed samples&#41; or "
 
-[//]: # (  - aggregate_block : frequent-use blocks in script)
+[//]: # "    - bd_dataset &#40;backdoor only depends on each sample&#41;"
 
-[//]: # (  - bd_img_transform : basic perturbation on img)
+[//]: # "  - aggregate_block : frequent-use blocks in script"
 
-[//]: # (  - bd_label_transform : basic transform on label)
+[//]: # "  - bd_img_transform : basic perturbation on img"
 
-[//]: # (  - bd_non_mandatory_preparation: all non-mandatory preparation process for attack process, eg. train auto-encoder, selection of attack patterns that are non-dependent on victim model or dataset )
+[//]: # "  - bd_label_transform : basic transform on label"
 
-[//]: # (  - bd_groupwise_transform : for special case, such that data poison must be carried out groupwise, eg. HiddenTriggerBackdoorAttacks)
+[//]: # "  - bd_non_mandatory_preparation: all non-mandatory preparation process for attack process, eg. train auto-encoder, selection of attack patterns that are non-dependent on victim model or dataset "
 
-[//]: # (  - bd_trainer : the training process can replicate for attack &#40;for re-use, eg. noise training&#41;)
+[//]: # "  - bd_groupwise_transform : for special case, such that data poison must be carried out groupwise, eg. HiddenTriggerBackdoorAttacks"
 
-[//]: # (  - dataset : script for loading the dataset)
+[//]: # "  - bd_trainer : the training process can replicate for attack &#40;for re-use, eg. noise training&#41;"
 
-[//]: # (  - dataset_preprocess : script for preprocess transforms on dataset )
+[//]: # "  - dataset : script for loading the dataset"
 
-[//]: # (  - backdoor_generate_pindex.py : some function for generation of poison index )
+[//]: # "  - dataset_preprocess : script for preprocess transforms on dataset "
 
-[//]: # (  - bd_dataset.py : the wrapper of backdoored datasets )
+[//]: # "  - backdoor_generate_pindex.py : some function for generation of poison index "
 
-[//]: # (  - trainer_cls.py : some basic functions for classification case)
+[//]: # "  - bd_dataset.py : the wrapper of backdoored datasets "
 
-[//]: # (- resource : pre-trained model &#40;eg. auto-encoder for attack&#41;, or other large file &#40;other than data&#41;)
+[//]: # "  - trainer_cls.py : some basic functions for classification case"
+
+[//]: # "- resource : pre-trained model &#40;eg. auto-encoder for attack&#41;, or other large file &#40;other than data&#41;"
 
 ## [Results](#results)
 
