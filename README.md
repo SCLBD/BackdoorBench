@@ -1,6 +1,34 @@
 # BackdoorBench: a comprehensive benchmark of backdoor attack and defense methods
 
-# Contents
+![Python 3.6](https://img.shields.io/badge/python-3.6-DodgerBlue.svg?style=plastic)
+![Pytorch 1.6.0](https://img.shields.io/badge/pytorch-1.6.0-DodgerBlue.svg?style=plastic)
+
+<!---
+## [Overview](#overview)
+
+<a href="#top">[Back to top]</a>
+-->
+
+BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to provide **easy implementations** of mainstream backdoor attack and defense methods, as well as a [**public leaderboard**](https://backdoorbench.github.io/index.html) of evaluating existing backdoor attack and defense methods. Currently, we support:
+
+- **Methods**
+  - 6 Backdoor attack methods: [BadNets](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j), [Blended](https://arxiv.org/abs/1712.05526v1), [SIG](https://ieeexplore.ieee.org/document/8802997), [SSBA](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), [WaNet](https://openreview.net/pdf?id=eEn8KTtJOx), [InputAware](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf)
+  - 6 Backdoor defense methods: 
+- **Datasets**: CIFAR-10, GTSRB, Tiny ImageNet 
+<!--- `mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
+(MNIST, CIFAR10, CIFAR100 using the pytorch official implementation, download when it is first executed. (TinyImageNet use third-party implementation, and it will be download when first executed.) The download script for GTSRB is in `./sh`. For CelebA and ImageNet, you need to download by yourself and change the dataset path argument. ) -->
+- **Models**: Resnet18, PreactResnet18, VGG19
+<!--- `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0` -->
+
+
+<!--- Note that, instead of implementing each individual method separately, we try to unify the workflow of different methods, by extracting some shared modules. Consequently, it can not only ensure fair implementations of different methods, but also facilitate other researchers to quickly implement their new methhods. -->
+
+BackdoorBench will be continuously updated to track the lastest advances of backddor learning.
+The implementations of more backdoor methods, as well as their evaluations are on the way. **You are welcome to contribute your backdoor methods to BackdoorBench.**
+
+---
+<font size=5><center><b> Table of Contents </b> </center></font>
+
 * [Overview](#overview)
 
 * [Usage](#usage)
@@ -21,29 +49,7 @@
 
 * [Citation](#citation)
 
-
-
-
-
-## [Overview](#overview)
-
-<a href="#top">[Back to top]</a>
-
-BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to provide **easy implementations** of mainstream backdoor attack and defense methods, as well as a [**public leaderboard**](https://backdoorbench.github.io/index.html) of evaluating existing backdoor attack and defense methods. Currently, we mainly support:
-
-- **Methods**
-  - 6 Backdoor attack methods: [BadNets](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j), [Blended](https://arxiv.org/abs/1712.05526v1), [SIG](https://ieeexplore.ieee.org/document/8802997), [SSBA](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), [WaNet](https://openreview.net/pdf?id=eEn8KTtJOx), [InputAware](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf)
-  - 6 Backdoor defense methods: 
-- **Datasets**: CIFAR-10, GTSRB, Tiny ImageNet 
-<!--- `mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
-(MNIST, CIFAR10, CIFAR100 using the pytorch official implementation, download when it is first executed. (TinyImageNet use third-party implementation, and it will be download when first executed.) The download script for GTSRB is in `./sh`. For CelebA and ImageNet, you need to download by yourself and change the dataset path argument. ) -->
-- **Models**: Resnet18, PreactResnet18, VGG19
-<!--- `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0` -->
-
-
-Note that, instead of implementing each individual method separately, we try to unify the workflow of different methods, by extracting some shared modules. Consequently, it can not only ensure fair implementations of different methods, but also facilitate other researchers to quickly implement their new methhods.
-
-BackdoorBench will be continuously updated to track the lastest advances of backddor learning, including the implementations of more backddor methods, as well as their evaluations in the leaderboard. You are welcome to contribute your backdoor methods to BackdoorBench.
+---
 
 <!---
 ### Datasets: 
@@ -292,7 +298,7 @@ Examples: (assume in project `bdzoo\` folder)
 
 <!-- This repository is licensed by [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) and [Shenzhen Research Institute of Big Data](http://www.sribd.cn/en) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license.  -->
 
-This benchmark is built by the Secure Computing Lab of Big Data ([SCLBD](http://scl.sribd.cn/index.html)) at The Chinese University of Hong Kong, Shenzhen and Shenzhen Research Institute of Big Data, directed by Professor [Baoyuan Wu](https://sites.google.com/site/baoyuanwu2015/home). SCLBD focuses on research of trustworthy AI, including backdoor learning, adversarial examples, federated learning, fairness, etc.
+This project is built by the Secure Computing Lab of Big Data ([SCLBD](http://scl.sribd.cn/index.html)) at The Chinese University of Hong Kong, Shenzhen and Shenzhen Research Institute of Big Data, directed by Professor [Baoyuan Wu](https://sites.google.com/site/baoyuanwu2015/home). SCLBD focuses on research of trustworthy AI, including backdoor learning, adversarial examples, federated learning, fairness, etc.
 
 
 ## [Citation](#citation)
