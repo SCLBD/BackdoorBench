@@ -45,9 +45,9 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 * [Results](#results)
 
-* [Copyright](#copyright)
-
 * [Citation](#citation)
+
+* [Copyright](#copyright)
 
 ---
 
@@ -291,16 +291,6 @@ Examples: (assume in project `bdzoo\` folder)
 <a href="#top">[Back to top]</a>
 
 
-
-## [Copyright](#copyright)
-
-<a href="#top">[Back to top]</a>
-
-<!-- This repository is licensed by [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) and [Shenzhen Research Institute of Big Data](http://www.sribd.cn/en) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license.  -->
-
-This project is built by the Secure Computing Lab of Big Data ([SCLBD](http://scl.sribd.cn/index.html)) at The Chinese University of Hong Kong, Shenzhen and Shenzhen Research Institute of Big Data, directed by Professor [Baoyuan Wu](https://sites.google.com/site/baoyuanwu2015/home). SCLBD focuses on research of trustworthy AI, including backdoor learning, adversarial examples, federated learning, fairness, etc.
-
-
 ## [Citation](#citation)
 
 <a href="#top">[Back to top]</a>
@@ -323,3 +313,14 @@ pages={16463--16472},
 year={2021}
 }
 ```
+
+
+## [Copyright](#copyright)
+
+<a href="#top">[Back to top]</a>
+
+<!-- This repository is licensed by [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) and [Shenzhen Research Institute of Big Data](http://www.sribd.cn/en) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license.  -->
+
+This project is built by the Secure Computing Lab of Big Data ([SCLBD](http://scl.sribd.cn/index.html)) at The Chinese University of Hong Kong, Shenzhen and Shenzhen Research Institute of Big Data, directed by Professor [Baoyuan Wu](https://sites.google.com/site/baoyuanwu2015/home). SCLBD focuses on research of trustworthy AI, including backdoor learning, adversarial examples, federated learning, fairness, etc.
+
+If any suggestion or comment, please contact us at <wubaoyuan@cuhk.edu.cn>.
