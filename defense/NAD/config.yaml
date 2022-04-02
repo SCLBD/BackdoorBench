@@ -1,0 +1,38 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'preactresnet18'
+
+print_freq: 50
+momentum: 0.9
+weight_decay: 1.0e-4
+ratio: 0.05
+beta1: 500
+beta2: 1000
+beta3: 1000
+p: 2.0
+threshold_clean: 70.0
+threshold_bad: 90.0
+
+
+
+
