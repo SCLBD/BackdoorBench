@@ -877,7 +877,7 @@ if __name__ == '__main__':
         'model': result_defense['model'].cpu().state_dict(),
         'asr': asr_acc,
         'acc': clean_acc,
-        'rc': robust_acc
+        'ra': robust_acc
     },
     os.getcwd() + f'{save_path}/abl/defense_result.pt'
     )
