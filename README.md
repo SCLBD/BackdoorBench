@@ -143,14 +143,11 @@ tqdm
 <a href="#top">[Back to top]</a>
 
 
-You should specify both the attack method script and the YAML config file to use different attack methods.
+You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.
 
-If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path` 
+[//]: # (If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`)
 
 [//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
-
-The detailed descriptions for each attack may be put into the `add_args` function in each script. 
-
 Examples: (assume in `./attack` folder)
 
  - BadNets
@@ -174,8 +171,9 @@ Examples: (assume in `./attack` folder)
 [//]: #
 [//]: # "    `python basicAttack.py --yaml_path ../config/basicAttack/default_ssba.yaml`"
 
-(For SSBA, first, you need to follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data. Then place the poisoned image array to `attack_train_replace_imgs_path` and
-`attack_test_replace_imgs_path`. Due to file size limitations, we may not provide it in this repo.)
+[//]: # (&#40;For SSBA, first, you need to follow https://github.com/tancik/StegaStamp to train models for generating the poisoned data. Then place the poisoned image array to `attack_train_replace_imgs_path` and)
+
+[//]: # (`attack_test_replace_imgs_path`. Due to file size limitations, we may not provide it in this repo.&#41;)
 
 [//]: # " - WaNet"
 
