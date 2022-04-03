@@ -148,11 +148,13 @@ You should specify both the attack method script and the YAML config file to use
 [//]: # (If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`)
 
 [//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
-Examples: (assume in `./attack` folder)
 
- - BadNets
 
-    `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml`
+ - BadNets 
+```shell
+cd attack 
+python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml
+```
 
 [//]: # " - Blended"
 
@@ -192,11 +194,12 @@ Examples: (assume in `./attack` folder)
 
 You should specify both **the defense method script** and **the attack result** to use different attack methods. The yaml config is in defense method. 
 
-Examples: (assume in project `bdzoo\` folder)
+Examples: 
 
- - AC
-
-    `python -u ./defense/ac/ac.py --result_file badnet_0_1`
+- AC
+```shell
+python -u ./defense/ac/ac.py --result_file badnet_0_1
+```
 
 
 
