@@ -10,7 +10,7 @@
 <a href="#top">[Back to top]</a>
 -->
 
-BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to provide **easy implementations** of mainstream backdoor attack and defense methods, as well as a [**public leaderboard**](https://backdoorbench.github.io/index.html) of evaluating existing backdoor attack and defense methods. Currently, we support:
+BackdoorBench is a comprehensive benchmark of backdoor learning, which studies the adversarial vulnerablity of deep learning models in the training stage. It aims to provide **easy implementations** of mainstream backdoor attack and defense methods. Currently, we support:
 
 - **Methods**
   - 6 Backdoor attack methods: [BadNets](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j), [Blended](https://arxiv.org/abs/1712.05526v1), [SIG](https://ieeexplore.ieee.org/document/8802997), [SSBA](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), [WaNet](https://openreview.net/pdf?id=eEn8KTtJOx), [InputAware](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf)
@@ -21,9 +21,11 @@ BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to prov
 - **Models**: Resnet18, PreactResnet18, VGG19
 <!--- `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0` -->
 
-For detailed structure and implementation details, you can refer to [detailed_structure.md](./docs/detailed_structure.md)
+For detailed structure and implementation details, you can refer to [detailed_structure.md](./docs/detailed_structure.md).
 
 <!--- Note that, instead of implementing each individual method separately, we try to unify the workflow of different methods, by extracting some shared modules. Consequently, it can not only ensure fair implementations of different methods, but also facilitate other researchers to quickly implement their new methhods. -->
+
+We also provide a [**public leaderboard**](https://backdoorbench.github.io/index.html) of evaluating above backdoor attacks against above backdoor defense methods.
 
 BackdoorBench will be continuously updated to track the lastest advances of backddor learning.
 The implementations of more backdoor methods, as well as their evaluations are on the way. **You are welcome to contribute your backdoor methods to BackdoorBench.**
