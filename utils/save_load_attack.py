@@ -14,6 +14,7 @@ from utils.nCHW_nHWC import *
 from utils.bd_dataset import prepro_cls_DatasetBD
 import numpy as np
 from copy import deepcopy
+from torchvision.transforms import Resize, ToTensor
 
 def summary_dict(input_dict):
     '''
@@ -40,8 +41,8 @@ def save_attack_result(
     data_path : str,
     img_size : list,
     clean_data : str,
-    bd_train : torch.utils.data.Dataset, # dataset without transform
-    bd_test : torch.utils.data.Dataset, # dataset without transform
+    bd_train : prepro_cls_DatasetBD, # dataset without transform
+    bd_test : prepro_cls_DatasetBD, # dataset without transform
     save_path : str,
 ):
     '''
@@ -61,23 +62,24 @@ def save_attack_result(
     :param bd_test : torch.utils.data.Dataset, # dataset without transform
     :param save_path : str,
     '''
-
-    def loop_through_cls_ds_without_transform(dataset_without_transform):
-        if isinstance(dataset_without_transform, prepro_cls_DatasetBD):
+    rs = Resize(img_size[:2])
+    toT = ToTensor()
+    def loop_through_cls_ds_without_transform(dataset_without_transform : prepro_cls_DatasetBD):
+        if dataset_without_transform.data.shape.__len__() > 1:
+            logging.info('data with same shape no need to resize.')
             return torch.tensor(nHWC_to_nCHW(dataset_without_transform.data)).float().cpu(), \
+                   torch.tensor(dataset_without_transform.targets).long().cpu(), \
+                   dataset_without_transform.original_index, \
+                   dataset_without_transform.poison_indicator, \
+                   dataset_without_transform.original_targets
+        else:
+            logging.info('data with variant size, so do resize.')
+            x = torch.cat([rs(toT(x))[None,...] for x in dataset_without_transform.data])
+            return x.float().cpu(), \
                 torch.tensor(dataset_without_transform.targets).long().cpu(), \
                    dataset_without_transform.original_index, \
                    dataset_without_transform.poison_indicator, \
                     dataset_without_transform.original_targets
-        else:
-            all_x = []
-            all_y = []
-            for x, y, *addition in dataset_without_transform:
-                all_x.append(torch.from_numpy(nHWC_to_nCHW(x[None,...])) if isinstance(x, np.ndarray) else x)
-                all_y.append(int(y) if isinstance(y, np.ndarray) else y.item())
-            all_x = torch.cat(all_x).float().cpu()
-            all_y = torch.tensor(all_y).long().cpu()
-            return all_x, all_y, None, None, None
 
     if bd_train is not None:
         bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = loop_through_cls_ds_without_transform(bd_train)
