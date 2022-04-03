@@ -14,7 +14,7 @@ BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to prov
 
 - **Methods**
   - 6 Backdoor attack methods: [BadNets](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j), [Blended](https://arxiv.org/abs/1712.05526v1), [SIG](https://ieeexplore.ieee.org/document/8802997), [SSBA](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf), [WaNet](https://openreview.net/pdf?id=eEn8KTtJOx), [InputAware](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf)
-  - 6 Backdoor defense methods: 
+  - 6 Backdoor defense methods: FT, [Spectral Signatures](https://proceedings.neurips.cc/paper/2018/file/280cf18baf4311c92aa5a042336587d3-Paper.pdf), [AC](http://ceur-ws.org/Vol-2301/paper_18.pdf), [Fine-pruning](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13), [ABL](https://proceedings.neurips.cc/paper/2021/file/7d38b1e9bd793d3f45e0e212a729a93c-Paper.pdf), [NAD](https://openreview.net/pdf?id=9l0K4OM-oXE)
 - **Datasets**: CIFAR-10, GTSRB, Tiny ImageNet 
 <!--- `mnist, cifar10, cifar100, gtsrb, celeba, tiny, imagenet`
 (MNIST, CIFAR10, CIFAR100 using the pytorch official implementation, download when it is first executed. (TinyImageNet use third-party implementation, and it will be download when first executed.) The download script for GTSRB is in `./sh`. For CelebA and ImageNet, you need to download by yourself and change the dataset path argument. ) -->
@@ -96,29 +96,29 @@ tqdm
 
 This is a demo script of running badnets attack on cifar-10
 ```
-cd ../attack
+cd ./attack
 python badnetsattack.py --yaml_path ../config/BadNetsAttack/default.yaml --dataset cifar10 --dataset_path ../data/cifar10 --save_folder_name badnet_0_1
 ```
 After attack you will get a folder with all files saved in ./record/<folder name in record>, including attack_result.pt for attack model and backdoored data, which will be used by following defense methods.
 If you want to change the attack methods, dataset, save folder location, you should specify both the attack method script in ../attack and the YAML config file to use different attack methods.
 The detailed descriptions for each attack may be put into the `add_args` function in each script.
 
-[//]: # (You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.)
+[//]: # "You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script."
 
 [//]: # "If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`"
 
 [//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
 
 
-[//]: # ( - BadNets )
+[//]: # " - BadNets "
 
-[//]: # (```shell)
+[//]: # "```shell"
 
-[//]: # (cd attack )
+[//]: # "cd attack "
 
-[//]: # (python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml)
+[//]: # "python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml"
 
-[//]: # (```)
+[//]: # "```"
 
 
 
@@ -126,14 +126,15 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 
 <a href="#top">[Back to top]</a>
 
-You should specify both **the defense method script** and **the attack result** to use different attack methods. The yaml config is in defense method. 
+This is a demo script of running ac defense on cifar-10 for badnet attack. Before defense you need to run badnet attack on cifar-10 at first. Then you use the folder name as result_file.
 
-Examples: 
-
-- AC
-```shell
-python -u ./defense/ac/ac.py --result_file badnet_0_1
 ```
+python /defense/ac/ac.py --result_file badnet_0_1
+```
+
+
+If you want to change the defense methods and the setting for defense, you should specify both the attack method script in ../defense and the YAML config file to use different defense methods.
+The detailed descriptions for each defense may be put into the `add_args` function in each script.
 
 ## [Supported attacks](#supportedattacks)
 
@@ -156,11 +157,11 @@ python -u ./defense/ac/ac.py --result_file badnet_0_1
 |       | File name                 | Paper                |
 | :------------- |:-------------|:-----|
 | FT| [finetune.py](./defense/ft/finetune.py) | standard fine-tuning|
-| Spectral Signatures| [spectral_signatural.py](./defense/spectral_signatural/spectral_signatural.py)      | [Spectral Signatures in Backdoor Attacks](https://proceedings.neurips.cc/paper/2018/file/280cf18baf4311c92aa5a042336587d3-Paper.pdf) NeurIPS 2018 |
+| Spectral Signatures| [spectral_signature.py](./defense/spectral_signatural/spectral_signature.py)    | [Spectral Signatures in Backdoor Attacks](https://proceedings.neurips.cc/paper/2018/file/280cf18baf4311c92aa5a042336587d3-Paper.pdf) NeurIPS 2018 |
 | AC| [ac.py](./defense/ac/ac.py)       | [Detecting Backdoor Attacks on Deep Neural Networks by Activation Clustering](http://ceur-ws.org/Vol-2301/paper_18.pdf) ceur-ws 2018 |
-| Fine-pruning| [fineprune.py](./defense/fp/fineprune.py)    | [Fine-pruning: Defending againstbackdooring attacks on deep neural networks](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13) International Symposium on Research in Attacks, Intrusions, and Defenses(2018) |
+| Fine-pruning| [fineprune.py](./defense/fp/fineprune.py)    | [Fine-Pruning: Defending Against Backdooring Attacks on Deep Neural Networks](https://link.springer.com/chapter/10.1007/978-3-030-00470-5_13) RAID 2018 |
 | ABL| [abl.py](./defense/abl/abl.py)    | [Anti-Backdoor Learning: Training Clean Models on Poisoned Data](https://proceedings.neurips.cc/paper/2021/file/7d38b1e9bd793d3f45e0e212a729a93c-Paper.pdf) NeurIPS 2021|
-| NAD| [nad.py](./defense/nad/nad.py)   | [NEURAL ATTENTION DISTILLATION: ERASING BACKDOOR TRIGGERS FROM DEEP NEURAL NETWORKS](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021|
+| NAD| [nad.py](./defense/nad/nad.py)   | [Neural Attention Distillation: Erasing Backdoor Triggers From Deep Neural Networks](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021 |
 
 
 ## [Results](#results)
