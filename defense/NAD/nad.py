@@ -95,16 +95,16 @@ def get_args():
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     #set the parameter for the nad defense
-    parser.add_argument('--print_freq', type=int, default=50, help='frequency of showing training results on console')
-    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--ratio', type=float, default=0.05, help='ratio of training data')
-    parser.add_argument('--beta1', type=int, default=500, help='beta of low layer')
-    parser.add_argument('--beta2', type=int, default=1000, help='beta of middle layer')
-    parser.add_argument('--beta3', type=int, default=1000, help='beta of high layer')
-    parser.add_argument('--p', type=float, default=2.0, help='power for AT')
-    parser.add_argument('--threshold_clean', type=float, default=70.0, help='threshold of save weight')
-    parser.add_argument('--threshold_bad', type=float, default=90.0, help='threshold of save weight')
+    parser.add_argument('--print_freq', type=int, help='frequency of showing training results on console')
+    parser.add_argument('--momentum', type=float, help='momentum')
+    parser.add_argument('--weight_decay', type=float, help='weight decay')
+    parser.add_argument('--ratio', type=float, help='ratio of training data')
+    parser.add_argument('--beta1', type=int, help='beta of low layer')
+    parser.add_argument('--beta2', type=int, help='beta of middle layer')
+    parser.add_argument('--beta3', type=int, help='beta of high layer')
+    parser.add_argument('--p', type=float, help='power for AT')
+    parser.add_argument('--threshold_clean', type=float, help='threshold of save weight')
+    parser.add_argument('--threshold_bad', type=float, help='threshold of save weight')
     
     arg = parser.parse_args()
 
