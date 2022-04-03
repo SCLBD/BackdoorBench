@@ -502,6 +502,7 @@ def ac(args,result):
             )
         logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
+    model.to(args.device)
     result['model'] = model
     result['dataset'] = data_set_o
     return result       
