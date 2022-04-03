@@ -168,7 +168,7 @@ The detailed descriptions for each defense may be put into the `add_args` functi
 
 <a href="#top">[Back to top]</a>
 
-We present partial result on cifar10 with poison ratio = 10% here. For further result please go to our leaderboard.
+We present partial result on cifar10 with poison ratio = 10% here. For further result please go to our [leaderboard](https://backdoorbench.github.io/leaderboard-cifar10.html).
 
 |                |              | No Defense | No Defense | No Defense | AC     | AC          | AC     | Fine_pruning | Fine_pruning | Fine_pruning | Fine_tuning | Fine_tuning | Fine_tuning | Abl    | Abl     | Abl    | NAD    | NAD    | NAD    | Spectral_signatural | Spectral_signatural | Spectral_signatural |
 | -------------- | ------------ | ---------- | ---------- | ---------- | ------ | ----------- | ------ | ------------ | ------------ | ------------ | ----------- | ----------- | ----------- | ------ | ------- | ------ | ------ | ------ | ------ | ------------------- | ------------------- | ------------------- |
