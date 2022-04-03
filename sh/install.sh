@@ -1,0 +1,10 @@
+pip install keras==2.7.0
+pip install opencv-python==4.5.4.60
+pip install pandas==1.3.5
+pip install Pillow==8.4.0
+pip install scikit-learn==1.0.2
+pip install scikit-image==0.18.3
+pip install torch==1.10.0
+pip install torchaudio==0.10.0
+pip install torchvision==0.11.1
+pip install tqdm
