@@ -20,6 +20,7 @@ BackdoorBench is a comprehensive benchmark of backdoor learning. It aims to prov
 - **Models**: Resnet18, PreactResnet18, VGG19
 <!--- `resnet18, preactresnet18, resnet34, alexnet, vgg16, vgg19, squeezenet1_0, densenet161, inception_v3, googlenet, shufflenet_v2_x1_0, mobilenet_v2, resnext50_32x4d, wide_resnet50_2, mnasnet1_0` -->
 
+For detailed structure and implementation details, you can refer to `./docs/detailed_structure.md`
 
 <!--- Note that, instead of implementing each individual method separately, we try to unify the workflow of different methods, by extracting some shared modules. Consequently, it can not only ensure fair implementations of different methods, but also facilitate other researchers to quickly implement their new methhods. -->
 
@@ -42,8 +43,6 @@ The implementations of more backdoor methods, as well as their evaluations are o
 * [Supported attacks](#supportedattacks)
 
 * [Supported defense](#supporteddefsense)
-  
-* [Detalied Structure](#detailed_structure)
 
 * [Results](#results)
 
@@ -66,8 +65,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 
 
-### Detailed Structure and Implementation Details
-You can refer to `./docs` folder.
+
 
 ## [Dependence](#dependence)
 
@@ -95,19 +93,24 @@ tqdm
 
 <a href="#top">[Back to top]</a>
 
+Please go to `./sh/attack_demo.sh`.
 
-You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.
+[//]: # (You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.)
 
 [//]: # "If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`"
 
 [//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
 
 
- - BadNets 
-```shell
-cd attack 
-python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml
-```
+[//]: # ( - BadNets )
+
+[//]: # (```shell)
+
+[//]: # (cd attack )
+
+[//]: # (python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml)
+
+[//]: # (```)
 
 
 
