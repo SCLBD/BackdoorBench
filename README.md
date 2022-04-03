@@ -78,7 +78,7 @@ keras==2.7.0
 opencv-python==4.5.4.60
 pandas==1.3.5
 Pillow==8.4.0
-sklearn==0.0
+scikit-learn==1.0.2
 scikit-image==0.18.3
 torch==1.10.0
 torchaudio==0.10.0
