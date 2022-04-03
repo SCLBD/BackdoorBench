@@ -1,7 +1,8 @@
 # BackdoorBench: a comprehensive benchmark of backdoor attack and defense methods
 
-![Python 3.6](https://img.shields.io/badge/python-3.6-DodgerBlue.svg?style=plastic)
-![Pytorch 1.6.0](https://img.shields.io/badge/pytorch-1.6.0-DodgerBlue.svg?style=plastic)
+![Python 3.6](https://img.shields.io/badge/python-3.7-DodgerBlue.svg?style=plastic)
+![Pytorch 1.10.0](https://img.shields.io/badge/pytorch-1.10.0-DodgerBlue.svg?style=plastic)
+![opencv 4.5.4.60](https://img.shields.io/badge/opencv-4.5.4.60-DodgerBlue.svg?style=plastic)
 
 <!---
 ## [Overview](#overview)
@@ -93,7 +94,14 @@ tqdm
 
 <a href="#top">[Back to top]</a>
 
-Please go to `./sh/attack_demo.sh`.
+This is a demo script of running badnets attack on cifar-10
+```
+cd ../attack
+python badnetsattack.py --yaml_path ../config/BadNetsAttack/default.yaml --dataset cifar10 --dataset_path ../data/cifar10 --save_folder_name badnet_0_1
+```
+After attack you will get a folder with all files saved in ./record/<folder name in record>, including attack_result.pt for attack model and backdoored data, which will be used by following defense methods.
+If you want to change the attack methods, dataset, save folder location, you should specify both the attack method script in ../attack and the YAML config file to use different attack methods.
+The detailed descriptions for each attack may be put into the `add_args` function in each script.
 
 [//]: # (You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.)
 
@@ -133,12 +141,12 @@ python -u ./defense/ac/ac.py --result_file badnet_0_1
 
 |            | File name                                           | Paper                                                        |
 | ---------- | --------------------------------------------------- | ------------------------------------------------------------ |
-| BadNets    | [badnetsattack.py](./attack/badnetsattack.py)       | [BadNets: Identifying Vulnerabilities in  the Machine Learning Model Supply Chain](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j) IEEE Access 2019 |
-| Blended    | [blendedattack.py](./attack/blendedattack.py)       | [Targeted Backdoor Attacks on Deep  Learning Systems Using Data Poisoning](https://arxiv.org/abs/1712.05526v1) Arxiv 2017 |
-| SIG        | [sigattack.py](./attack/sigattack.py)               | [A new backdoor attack in  cnns by training set corruption](https://ieeexplore.ieee.org/document/8802997) ICIP 2019 |
-| SSBA       | [ssbaattack.py](./attack/ssbaattack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf) ICCV 2021 |
+| BadNets    | [badnetsattack.py](./attack/badnets_attack.py)       | [BadNets: Identifying Vulnerabilities in  the Machine Learning Model Supply Chain](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwir55bv0-X2AhVJIjQIHYTjAMgQFnoECCEQAQ&url=https%3A%2F%2Fmachine-learning-and-security.github.io%2Fpapers%2Fmlsec17_paper_51.pdf&usg=AOvVaw1Cu3kPaD0a4jgvwkPCX63j) IEEE Access 2019 |
+| Blended    | [blendedattack.py](./attack/blended_attack.py)       | [Targeted Backdoor Attacks on Deep  Learning Systems Using Data Poisoning](https://arxiv.org/abs/1712.05526v1) Arxiv 2017 |
+| SIG        | [sigattack.py](./attack/sig_attack.py)               | [A new backdoor attack in  cnns by training set corruption](https://ieeexplore.ieee.org/document/8802997) ICIP 2019 |
+| SSBA       | [ssbaattack.py](./attack/ssba_attack.py)             | [Invisible Backdoor Attack with  Sample-Specific Triggers](https://openaccess.thecvf.com/content/ICCV2021/papers/Li_Invisible_Backdoor_Attack_With_Sample-Specific_Triggers_ICCV_2021_paper.pdf) ICCV 2021 |
 | WaNet      | [wanetattack.py](./attack/wanetattack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021 |
-| InputAware | [inputawareattack.py](./attack/inputawareattack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020 |
+| InputAware | [inputawareattack.py](./attack/inputaware_attack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020 |
 
 
 ## [Supported defense](#supporteddefsense) 
@@ -158,6 +166,8 @@ python -u ./defense/ac/ac.py --result_file badnet_0_1
 ## [Results](#results)
 
 <a href="#top">[Back to top]</a>
+
+We present partial result on cifar10 with poison ratio = 10% here. For further result please go to our leaderboard.
 
 |                |              | No Defense | No Defense | No Defense | AC     | AC          | AC     | Fine_pruning | Fine_pruning | Fine_pruning | Fine_tuning | Fine_tuning | Fine_tuning | Abl    | Abl     | Abl    | NAD    | NAD    | NAD    | Spectral_signatural | Spectral_signatural | Spectral_signatural |
 | -------------- | ------------ | ---------- | ---------- | ---------- | ------ | ----------- | ------ | ------------ | ------------ | ------------ | ----------- | ----------- | ----------- | ------ | ------- | ------ | ------ | ------ | ------ | ------------------- | ------------------- | ------------------- |
