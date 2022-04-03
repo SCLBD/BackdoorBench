@@ -96,8 +96,7 @@ tqdm
 
 This is a demo script of running badnets attack on cifar-10
 ```
-cd ./attack
-python badnets_attack.py --yaml_path ../config/badnets_attack/default.yaml --dataset cifar10 --dataset_path ../data/cifar10 --save_folder_name badnet_0_1
+python ./attack/badnets_attack.py --yaml_path ../config/badnets_attack/default.yaml --dataset cifar10 --dataset_path ../data/cifar10 --save_folder_name badnet_0_1
 ```
 After attack you will get a folder with all files saved in ./record/<folder name in record>, including attack_result.pt for attack model and backdoored data, which will be used by following defense methods.
 If you want to change the attack methods, dataset, save folder location, you should specify both the attack method script in ../attack and the YAML config file to use different attack methods.
