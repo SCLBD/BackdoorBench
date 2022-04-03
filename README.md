@@ -78,6 +78,7 @@ keras==2.7.0
 opencv-python==4.5.4.60
 pandas==1.3.5
 Pillow==8.4.0
+scikit-learn==1.0.2
 scikit-image==0.18.3
 torch==1.10.0
 torchaudio==0.10.0
@@ -97,7 +98,7 @@ tqdm
 
 You should specify both the attack method script and the YAML config file to use different attack methods. The detailed descriptions for each attack may be put into the `add_args` function in each script.
 
-[//]: # (If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`)
+[//]: # "If you want to change the setting, either change the parameter saved in the YAML config file directly or specify it after `--yaml_path`"
 
 [//]: # "like `python basicAttack.py --yaml_path ../config/basicAttack/default_badnet.yaml --pratio 0.001`"
 
