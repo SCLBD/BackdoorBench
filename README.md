@@ -35,17 +35,17 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 * [Overview](#overview)
 
-* [Dependence](#dependence)
+* [Requirements](#requirements)
 
 * [Usage](#usage)
 
-  * [attack](#attack)
+  * [Attack](#attack)
   
-  * [defense](#defense)
+  * [Defense](#defense)
 
-* [Supported attacks](#supportedattacks)
+* [Supported attacks](#supported-attacks)
 
-* [Supported defense](#supporteddefsense)
+* [Supported defenses](#supported-defsense)
 
 * [Results](#results)
 
@@ -70,7 +70,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 
 
-## [Dependence](#dependence)
+### [Requirements](#requirements)
 
 <a href="#top">[Back to top]</a>
 
@@ -87,12 +87,12 @@ torchvision==0.11.1
 tqdm
 ```
 
-## [Usage](#usage)
+### [Usage](#usage)
 
-<a href="#top">[Back to top]</a>
+<!--- <a href="#top">[Back to top]</a> -->
 
 
-### [attack](#attack)
+#### [Attack](#attack)
 
 <a href="#top">[Back to top]</a>
 
@@ -123,7 +123,7 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 
 
 
-### [defense](#defense)
+#### [Defense](#defense)
 
 <a href="#top">[Back to top]</a>
 
@@ -137,7 +137,7 @@ python /defense/ac/ac.py --result_file badnet_0_1
 If you want to change the defense methods and the setting for defense, you should specify both the attack method script in ../defense and the YAML config file to use different defense methods.
 The detailed descriptions for each defense may be put into the `add_args` function in each script.
 
-## [Supported attacks](#supportedattacks)
+### [Supported attacks](#supported-attacks)
 
 <a href="#top">[Back to top]</a>
 
@@ -151,7 +151,7 @@ The detailed descriptions for each defense may be put into the `add_args` functi
 | InputAware | [inputaware_attack.py](./attack/inputaware_attack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020 |
 
 
-## [Supported defense](#supporteddefsense) 
+### [Supported defenses](#supported-defsense) 
 
 <a href="#top">[Back to top]</a>
 
@@ -165,15 +165,15 @@ The detailed descriptions for each defense may be put into the `add_args` functi
 | NAD| [nad.py](./defense/nad/nad.py)   | [Neural Attention Distillation: Erasing Backdoor Triggers From Deep Neural Networks](https://openreview.net/pdf?id=9l0K4OM-oXE) ICLR 2021 |
 
 
-## [Results](#results)
+### [Results](#results)
 
 <a href="#top">[Back to top]</a>
 
-We present partial result on cifar10 with poison ratio = 10% here. For further result please go to our [leaderboard](https://backdoorbench.github.io/leaderboard-cifar10.html).
+We present partial results on cifar10 with poison ratio = 10% here. For complete results, please refer to our [leaderboard](https://backdoorbench.github.io/leaderboard-cifar10.html).
 
-|                |              | No Defense | No Defense | No Defense | AC     | AC     | AC     | Fine_pruning | Fine_pruning | Fine_pruning | Fine_tuning | Fine_tuning | Fine_tuning | Abl    | Abl     | Abl    | NAD    | NAD    | NAD    | Spectral_signatural | Spectral_signatural | Spectral_signatural |
+|                |  Defenses →    | No Defense | No Defense | No Defense | AC     | AC     | AC     | Fine_pruning | Fine_pruning | Fine_pruning | Fine_tuning | Fine_tuning | Fine_tuning | Abl    | Abl     | Abl    | NAD    | NAD    | NAD    | Spectral_signatural | Spectral_signatural | Spectral_signatural |
 | -------------- | ------------ | ---------- |---------| ---------- | ------ |--------| ------ | ------------ | ------------ | ------------ | ----------- | ----------- | ----------- | ------ | ------- | ------ | ------ | ------ | ------ | ------------------- | ------------------- | ------------------- |
-|                |              | CA         | ASR     | RA         | CA     | ASR    | RA     | CA           | ASR          | RA           | CA          | ASR         | RA          | CA     | ASR     | RA     | CA     | ASR    | RA     | CA                  | ASR                 | RA                  |
+|  **Models ↓**   |  **Attacks ↓**   | CA         | ASR     | RA         | CA     | ASR    | RA     | CA           | ASR          | RA           | CA          | ASR         | RA          | CA     | ASR     | RA     | CA     | ASR    | RA     | CA                  | ASR                 | RA                  |
 | PreactResnet18 | Badnet       | 91.49%     | 96.30%  | 67.09%     | 84.50% | 18.30% | 73.89% | 90.98%       | 6.32%        | 87.29%       | 88.81%      | 2.56%       | 88.19%      | 84.32% | 72.23%  | 79.18% | 64.96% | 3.69%  | 59.86% | 89.42%              | 93.43%              | 80.02%              |
 | PreactResnet18 | Blended      | 93.16%     | 99.79%  | 58.81%     | 87.56% | 28.52% | 51.43% | 93.16%       | 99.79%       | 58.81%       | 91.10%      | 15.26%      | 63.38%      | 82.47% | 24.09%  | 64.52% | 63.95% | 3.06%  | 51.76% | 91.19%              | 99.41%              | 56.56%              |
 | PreactResnet18 | SIG          | 84.64%     | 98.24%  | 82.44%     | 80.93% | 3.04%  | 78.41% | 53.48%       | 3.34%        | 11.73%       | 89.42%      | 8.54%       | 76.84%      | 72.96% | 32.84%  | 78.97% | 64.40% | 0.96%  | 47.28% | 82.73%              | 97.01%              | 79.91%              |
