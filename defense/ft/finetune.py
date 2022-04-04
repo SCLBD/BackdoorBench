@@ -14,7 +14,11 @@ import argparse
 import logging
 import os
 import random
-import sys 
+import sys
+
+
+
+
 sys.path.append('../')
 sys.path.append(os.getcwd())
 import time
@@ -26,6 +30,8 @@ from tqdm import tqdm
 import numpy as np
 
 #from utils import args
+from utils.choose_index import choose_index
+from utils.aggregate_block.fix_random import fix_random 
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
@@ -63,6 +69,8 @@ def get_args():
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--seed', type=str, help='random seed')
+    parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     #set the parameter for the ft defense
@@ -192,6 +200,8 @@ def ft(args,result,config):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
+    fix_random(args.seed)
+
     # Prepare model, optimizer, scheduler
     model = generate_cls_model(args.model,args.num_classes)
     model.load_state_dict(result['model'])
@@ -203,7 +213,9 @@ def ft(args,result,config):
     x = torch.tensor(nCHW_to_nHWC(result['clean_train']['x'].detach().numpy()))
     y = result['clean_train']['y']
     data_all_length = y.size()[0]
-    ran_idx = random.sample(range(data_all_length),int(data_all_length*args.ratio))
+    ran_idx = choose_index(args, data_all_length) 
+    log_index = os.getcwd() + args.log + 'index.txt'
+    np.savetxt(log_index, ran_idx, fmt='%d')
     data_set = torch.utils.data.TensorDataset(x[ran_idx],y[ran_idx])
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_set,

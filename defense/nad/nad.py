@@ -43,6 +43,8 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
+from utils.choose_index import choose_index
+from utils.aggregate_block.fix_random import fix_random 
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.bd_dataset import prepro_cls_DatasetBD
@@ -92,6 +94,8 @@ def get_args():
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--seed', type=str, help='random seed')
+    parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     #set the parameter for the nad defense
@@ -316,6 +320,8 @@ def nad(arg, result, config):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
+    fix_random(args.seed)
+
     ### a. create student models, set training parameters and determine loss functions
     # Load models
     logging.info('----------- Network Initialization --------------')
@@ -342,7 +348,11 @@ def nad(arg, result, config):
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
     x = torch.tensor(nCHW_to_nHWC(result['clean_train']['x'].detach().numpy()))
     y = result['clean_train']['y']
-    data_clean_train = torch.utils.data.TensorDataset(x,y)
+    data_all_length = y.size()[0]
+    ran_idx = choose_index(args, data_all_length) 
+    log_index = os.getcwd() + args.log + 'index.txt'
+    np.savetxt(log_index,ran_idx, fmt='%d')
+    data_clean_train = torch.utils.data.TensorDataset(x[ran_idx],y[ran_idx])
     data_clean_trainset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_train,
         poison_idx=np.zeros(len(data_clean_train)),  # one-hot to determine which image may take bd_transform
@@ -352,7 +362,7 @@ def nad(arg, result, config):
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
     )
-    data_clean_trainset.subset(random.sample(range(len(data_clean_trainset)), int(len(data_clean_trainset)*arg.ratio)))
+    #data_clean_trainset.subset(random.sample(range(len(data_clean_trainset)), int(len(data_clean_trainset)*arg.ratio)))
     trainloader = torch.utils.data.DataLoader(data_clean_trainset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))

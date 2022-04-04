@@ -21,6 +21,8 @@ target_label: 0
 trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
+seed: 0
+index: 
 
 ratio: 0.05
 

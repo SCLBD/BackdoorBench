@@ -44,6 +44,7 @@ basic sturcture for defense method:
 
 
 
+from ast import arg
 import logging
 import time
 
@@ -54,17 +55,17 @@ import logging
 import argparse
 import sys
 import os
-
-
 sys.path.append('../')
 sys.path.append(os.getcwd())
+
 import pickle
 import time
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.cluster import KMeans
+from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils_ac.clustering_analyzer import ClusteringAnalyzer
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
@@ -103,6 +104,8 @@ def get_args():
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--seed', type=str, help='random seed')
+    parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     #set the parameter for the ac defense
@@ -320,6 +323,7 @@ def ac(args,result):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
+    fix_random(args.seed)
 
     ### a. classify data by activation results
     nb_dims = args.nb_dims

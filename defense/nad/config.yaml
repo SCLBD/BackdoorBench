@@ -21,6 +21,8 @@ target_label: 0
 trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
+seed: 0
+index: 
 
 print_freq: 50
 momentum: 0.9

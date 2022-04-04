@@ -36,6 +36,7 @@ import copy
 from tqdm import tqdm
 import numpy as np
 
+from utils.aggregate_block.fix_random import fix_random 
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
@@ -72,6 +73,8 @@ def get_args():
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
+    parser.add_argument('--seed', type=str, help='random seed')
+    parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     arg = parser.parse_args()
@@ -139,6 +142,8 @@ def fp(args, result , config):
 
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
+
+    fix_random(args.seed)
 
     ### a. hook the activation layer representation of each data
     # Prepare model
