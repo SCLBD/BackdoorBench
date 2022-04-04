@@ -33,7 +33,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 ---
 <font size=5><center><b> Table of Contents </b> </center></font>
 
-* [Overview](#overview)
+<!-- * [Overview](#overview) -->
 
 * [Requirements](#requirements)
 
@@ -74,6 +74,14 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 <a href="#top">[Back to top]</a>
 
+You can run the following script to configurate necessary environment
+
+
+```
+sh ./sh/install.sh
+```
+
+<!--
 ```
 keras==2.7.0
 opencv-python==4.5.4.60
@@ -86,6 +94,7 @@ torchaudio==0.10.0
 torchvision==0.11.1
 tqdm
 ```
+-->
 
 ### [Usage](#usage)
 
