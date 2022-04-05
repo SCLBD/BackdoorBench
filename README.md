@@ -139,7 +139,7 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 This is a demo script of running ac defense on cifar-10 for badnet attack. Before defense you need to run badnet attack on cifar-10 at first. Then you use the folder name as result_file.
 
 ```
-python /defense/ac/ac.py --result_file badnet_0_1
+python ./defense/ac/ac.py --result_file badnet_0_1
 ```
 
 
