@@ -1,4 +1,4 @@
-model_name: preactresnet18
+model: preactresnet18
 data_root: ../data/cifar10
 checkpoints: ../record/inputAwareAttack/checkpoints/
 temps: ../record/inputAwareAttack/temps
@@ -34,7 +34,7 @@ lambda_norm: 100
 num_workers: 4
 target_label: 0
 attack_mode: all2one
-p_attack: 0.1
+pratio: 0.1
 #p_cross: 0.1
 mask_density: 0.032
 EPSILON: 0.0000001

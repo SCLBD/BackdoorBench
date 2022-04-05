@@ -528,7 +528,7 @@ def train_step(
         inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
 
         bs = inputs1.shape[0]
-        num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
+        num_bd = int(generalize_to_lower_pratio(opt.pratio, bs)) #int(opt.pratio * bs)
         num_cross = num_bd
 
         inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt, 'train')
@@ -800,9 +800,9 @@ def eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt):
 def train(opt):
     ### 3. set the device, model, criterion, optimizer, training schedule.
     logging.info('use generate_cls_model() ')
-    netC = generate_cls_model(opt.model_name, opt.num_classes)
+    netC = generate_cls_model(opt.model, opt.num_classes)
     netC.to(opt.device)
-    logging.warning(f'actually model use = {opt.model_name}')
+    logging.warning(f'actually model use = {opt.model}')
 
     netG = Generator(opt).to(opt.device)
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
@@ -939,7 +939,7 @@ def train(opt):
         inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
 
         bs = inputs1.shape[0]
-        num_bd = int(generalize_to_lower_pratio(opt.p_attack, bs)) #int(opt.p_attack * bs)
+        num_bd = int(generalize_to_lower_pratio(opt.pratio, bs)) #int(opt.pratio * bs)
         num_cross = num_bd
 
         inputs_bd, targets_bd, patterns1, masks1 = create_bd(inputs1[:num_bd], targets1[:num_bd], netG, netM, opt, 'train')
@@ -998,7 +998,7 @@ def train(opt):
     test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
     final_save_dict = {
-            'model_name': opt.model_name,
+            'model_name': opt.model,
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
 
@@ -1033,7 +1033,7 @@ def get_arguments():
 
     parser.add_argument('--yaml_path', type=str, default='../config/inputAwareAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-    parser.add_argument('--model_name', type=str, help='Only use when model is not given in original code !!!')
+    parser.add_argument('--model', type=str, help='Only use when model is not given in original code !!!')
     parser.add_argument('--save_folder_name', type=str,
                         help='(Optional) should be time str + given unique identification str')
     parser.add_argument("--continue_training", action="store_true")
@@ -1067,7 +1067,7 @@ def get_arguments():
 
     parser.add_argument("--target_label", type=int, )#default=0)
     parser.add_argument("--attack_mode", type=str, )#default="all2one", help="all2one or all2all")
-    parser.add_argument("--p_attack", type=float, )#default=0.1)
+    parser.add_argument("--pratio", type=float, )#default=0.1)
     # parser.add_argument("--p_cross", type=float, )#default=0.1)
     parser.add_argument("--mask_density", type=float, )#default=0.032)
     parser.add_argument("--EPSILON", type=float, )#default=1e-7)

@@ -262,7 +262,7 @@ def get_arguments():
 
     parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
                         help='path for yaml file provide additional default attributes')
-    parser.add_argument('--model_name', type=str, help='Only use when model is not given in original code !!!')
+    parser.add_argument('--model', type=str, help='Only use when model is not given in original code !!!')
     parser.add_argument('--save_folder_name', type=str,
                         help='(Optional) should be time str + given unique identification str')
 
@@ -284,8 +284,8 @@ def get_arguments():
     parser.add_argument("--num_workers", type=float, )  # default=6)
 
     parser.add_argument("--target_label", type=int, )  # default=0)
-    parser.add_argument("--pc", type=float, )  # default=0.1)
-    parser.add_argument("--cross_ratio", type=float, )  # default=2)  # rho_a = pc, rho_n = pc * cross_ratio
+    parser.add_argument("--pratio", type=float, )  # default=0.1)
+    parser.add_argument("--cross_ratio", type=float, )  # default=2)  # rho_a = pratio, rho_n = pratio * cross_ratio
 
     parser.add_argument("--random_rotation", type=int, )  # default=10)
     parser.add_argument("--random_crop", type=int, )  # default=5)
@@ -302,9 +302,9 @@ def get_arguments():
 def get_model(opt):
 
     logging.info('use generate_cls_model() ')
-    netC = generate_cls_model(opt.model_name, opt.num_classes)
+    netC = generate_cls_model(opt.model, opt.num_classes)
     netC.to(opt.device)
-    logging.warning(f'actually model use = {opt.model_name}')
+    logging.warning(f'actually model use = {opt.model}')
 
     # Optimizer
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
@@ -331,7 +331,7 @@ We set the ratio being 0 if TOTAL number of bd/cross/clean is 0 (otherwise 0/0 h
 def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt):
     logging.info(" Train:")
     netC.train()
-    rate_bd = opt.pc
+    rate_bd = opt.pratio
     total_loss_ce = 0
     total_sample = 0
 
@@ -746,7 +746,7 @@ def main():
         bs = inputs.shape[0]
 
         # Create backdoor data
-        num_bd = int(generalize_to_lower_pratio(opt.pc,bs)) #int(bs * rate_bd)
+        num_bd = int(generalize_to_lower_pratio(opt.pratio,bs)) #int(bs * rate_bd)
         num_cross = int(num_bd * opt.cross_ratio)
         grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
         grid_temps = torch.clamp(grid_temps, -1, 1)
@@ -831,7 +831,7 @@ def main():
     test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
     final_save_dict = {
-            'model_name': opt.model_name,
+            'model_name': opt.model,
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
 

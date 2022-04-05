@@ -1,4 +1,4 @@
-model_name: preactresnet18
+model: preactresnet18
 data_root: ../data/cifar10
 checkpoints: ./wanet/checkpoints
 temps: ./temps 
@@ -16,8 +16,8 @@ schedulerC_lambda: 0.1
 n_iters: 1000
 num_workers: 6
 target_label: 0
-pc: 0.1
-cross_ratio: 2  # rho_a = pc, rho_n = pc * cross_ratio
+pratio: 0.1
+cross_ratio: 2  # rho_a = pratio, rho_n = pratio * cross_ratio
 random_rotation: 10
 random_crop: 5
 s: 0.5
