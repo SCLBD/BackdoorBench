@@ -1,10 +1,11 @@
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 pip install keras==2.7.0
-pip install opencv-python==4.5.4.60
-pip install pandas==1.3.5
-pip install Pillow==8.4.0
-pip install scikit-learn==1.0.2
-pip install scikit-image==0.18.3
-pip install torch==1.10.0
-pip install torchaudio==0.10.0
-pip install torchvision==0.11.1
-pip install tqdm
+pip install opencv-python==3.4.2
+pip install pandas==1.3.1
+pip install Pillow==8.2.0
+pip install scikit-learn==0.24.2
+pip install scikit-image==0.18.1
+pip install tqdm==4.61.0
+pip install pyyaml==5.4.1
+pip install tensorboard==2.7.0
+pip install Kornia==0.5.0

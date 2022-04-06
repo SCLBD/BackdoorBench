@@ -574,9 +574,9 @@ def train_step(
         total_loss += loss_ce.detach() * bs
         avg_loss = total_loss / total
 
-        acc_clean = total_correct_clean * 100.0 / total_clean
-        acc_bd = (total_bd_correct * 100.0 / total_bd) if total_bd > 0 else 0
-        acc_cross = (total_cross_correct * 100.0 / total_cross) if total_cross > 0 else 0
+        acc_clean = total_correct_clean  / total_clean
+        acc_bd = (total_bd_correct  / total_bd) if total_bd > 0 else 0
+        acc_cross = (total_cross_correct  / total_cross) if total_cross > 0 else 0
         infor_string = "CE loss: {:.4f} - Accuracy: {:.3f} | BD Accuracy: {:.3f} | Cross Accuracy: {:3f}".format(
             avg_loss, acc_clean, acc_bd, acc_cross
         )
@@ -662,9 +662,9 @@ def eval(
             total_correct_cross += correct_cross
 
             total += bs
-            avg_acc_clean = total_correct_clean * 100.0 / total
-            avg_acc_cross = total_correct_cross * 100.0 / total
-            avg_acc_bd = total_correct_bd * 100.0 / total
+            avg_acc_clean = total_correct_clean  / total
+            avg_acc_cross = total_correct_cross  / total
+            avg_acc_bd = total_correct_bd  / total
 
             infor_string = "Clean Accuracy: {:.3f} | Backdoor Accuracy: {:.3f} | Cross Accuracy: {:3f}".format(
                 avg_acc_clean, avg_acc_bd, avg_acc_cross

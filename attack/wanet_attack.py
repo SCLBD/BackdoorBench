@@ -403,10 +403,10 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
                 torch.argmax(total_preds[num_bd: (num_bd + num_cross)], dim=1)
                 == total_targets[num_bd: (num_bd + num_cross)]
             ) if num_bd > 0 else 0)
-            avg_acc_cross = total_cross_correct * 100.0 / total_cross if total_cross > 0 else 0
+            avg_acc_cross = total_cross_correct  / total_cross if total_cross > 0 else 0
 
-        avg_acc_clean = total_clean_correct * 100.0 / total_clean if total_clean > 0 else 0
-        avg_acc_bd = total_bd_correct * 100.0 / total_bd if total_bd > 0 else 0
+        avg_acc_clean = total_clean_correct  / total_clean if total_clean > 0 else 0
+        avg_acc_bd = total_bd_correct  / total_bd if total_bd > 0 else 0
 
         avg_loss_ce = total_loss_ce / total_sample
 
@@ -525,8 +525,8 @@ def eval(
             preds_bd = netC(inputs_bd)
             total_bd_correct += torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
 
-            acc_clean = total_clean_correct * 100.0 / total_sample
-            acc_bd = total_bd_correct * 100.0 / total_sample
+            acc_clean = total_clean_correct  / total_sample
+            acc_bd = total_bd_correct  / total_sample
 
             # Evaluate cross
             if opt.cross_ratio:
@@ -534,7 +534,7 @@ def eval(
                 preds_cross = netC(inputs_cross)
                 total_cross_correct += torch.sum(torch.argmax(preds_cross, 1) == targets)
 
-                acc_cross = total_cross_correct * 100.0 / total_sample
+                acc_cross = total_cross_correct  / total_sample
 
                 info_string = (
                     "Clean Acc: {:.4f} - Best: {:.4f} | Bd Acc: {:.4f} - Best: {:.4f} | Cross: {:.4f}".format(
