@@ -24,6 +24,12 @@ def get_num_classes(dataset_name : str) -> int:
         num_classes = 43
     elif dataset_name == "celeba":
         num_classes = 8
+    elif dataset_name == 'cifar100':
+        num_classes = 100
+    elif dataset_name == 'tiny':
+        num_classes = 200
+    elif dataset_name == 'imagenet':
+        num_classes = 1000
     else:
         raise Exception("Invalid Dataset")
     return num_classes
@@ -47,6 +53,18 @@ def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
         input_height = 64
         input_width = 64
         input_channel = 3
+    elif dataset_name == 'cifar100':
+        input_height = 32
+        input_width = 32
+        input_channel = 3
+    elif dataset_name == 'tiny':
+        input_height = 64
+        input_width = 64
+        input_channel = 3
+    elif dataset_name == 'imagenet':
+        input_height = 224
+        input_width = 224
+        input_channel = 3
     else:
         raise Exception("Invalid Dataset")
     return input_height, input_width, input_channel
@@ -64,7 +82,7 @@ def get_dataset_normalization(dataset_name):
     elif dataset_name == 'tiny':
         dataset_normalization = (transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
     elif dataset_name == "gtsrb" or dataset_name == "celeba":
-        dataset_normalization = lambda x : x
+        dataset_normalization = transforms.Normalize([0, 0, 0], [1, 1, 1])
     elif dataset_name == 'imagenet':
         dataset_normalization = (
             transforms.Normalize(

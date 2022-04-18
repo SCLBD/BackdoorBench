@@ -7,10 +7,22 @@ import numpy as np
 import torchvision.transforms as transforms
 
 from utils.bd_img_transform.blended import blendedImageAttack
-from utils.bd_img_transform.patch import AddPatchTrigger
+from utils.bd_img_transform.patch import AddMaskPatchTrigger
 from utils.bd_img_transform.sig import sigTriggerAttack
 from utils.bd_img_transform.SSBA import SSBA_attack_replace_version
 from utils.bd_label_transform.backdoor_label_transform import *
+from torchvision.transforms import Resize
+
+class general_compose(object):
+    def __init__(self, transform_list):
+        self.transform_list = transform_list
+    def __call__(self, img, *args, **kwargs):
+        for transform, if_all in self.transform_list:
+            if if_all == False:
+                img = transform(img)
+            else:
+                img = transform(img, *args, **kwargs)
+        return img
 
 def bd_attack_img_trans_generate(args):
     '''
@@ -21,14 +33,34 @@ def bd_attack_img_trans_generate(args):
 
     if args.attack == 'fix_patch':
 
-        trigger_loc = args.attack_trigger_loc # [[26, 26], [26, 27], [27, 26], [27, 27]]
-        trigger_ptn = args.trigger_ptn # torch.randint(0, 256, [len(trigger_loc)])
-        bd_transform = AddPatchTrigger(
-            trigger_loc=trigger_loc,
-            trigger_ptn=trigger_ptn,
+        # trigger_loc = args.attack_trigger_loc # [[26, 26], [26, 27], [27, 26], [27, 27]]
+        # trigger_ptn = args.trigger_ptn # torch.randint(0, 256, [len(trigger_loc)])
+        # bd_transform = AddPatchTrigger(
+        #     trigger_loc=trigger_loc,
+        #     trigger_ptn=trigger_ptn,
+        # )
+
+        trans = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize(args.img_size[:2]),  # (32, 32)
+            np.array,
+        ])
+
+        bd_transform = AddMaskPatchTrigger(
+            trans(np.load(args.patch_mask_path)),
         )
-        train_bd_transform = bd_transform
-        test_bd_transform = bd_transform
+
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (bd_transform, True),
+        ])
+
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (bd_transform, True),
+        ])
 
     elif args.attack == 'blended':
 
@@ -38,32 +70,57 @@ def bd_attack_img_trans_generate(args):
             transforms.ToTensor()
         ])
 
-        train_bd_transform = blendedImageAttack(
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (blendedImageAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
                   ).cpu().numpy().transpose(1, 2, 0) * 255,
-            float(args.attack_train_blended_alpha)) # 0.1
-        test_bd_transform = blendedImageAttack(
+            float(args.attack_train_blended_alpha)), True) # 0.1,
+        ])
+
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (blendedImageAttack(
             trans(
                 imageio.imread(args.attack_trigger_img_path) # '../data/hello_kitty.jpeg'
                   ).cpu().numpy().transpose(1, 2, 0) * 255,
-            float(args.attack_test_blended_alpha)) # 0.1
+            float(args.attack_test_blended_alpha)), True) # 0.1,
+        ])
 
     elif args.attack == 'sig':
         trans = sigTriggerAttack(
             delta=args.sig_delta,
             f=args.sig_f,
         )
-        train_bd_transform = trans
-        test_bd_transform = trans
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (trans, True),
+        ])
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (trans, True),
+        ])
 
     elif args.attack == 'SSBA_replace':
-        train_bd_transform = SSBA_attack_replace_version(
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (SSBA_attack_replace_version(
             replace_images=np.load(args.attack_train_replace_imgs_path) # '../data/cifar10_SSBA/train.npy'
-        )
-        test_bd_transform = SSBA_attack_replace_version(
+                ), True),
+        ])
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (SSBA_attack_replace_version(
             replace_images=np.load(args.attack_test_replace_imgs_path) #'../data/cifar10_SSBA/test.npy'
-        )
+                ),True),
+        ])
 
 
     return train_bd_transform, test_bd_transform

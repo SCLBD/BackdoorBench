@@ -21,10 +21,11 @@ import argparse
 from pprint import  pformat
 import numpy as np
 import torch
-from utils.aggregate_block.save_path_generate import generate_save_folder
 import time
 import logging
 
+from utils.aggregate_block.save_path_generate import generate_save_folder
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
@@ -67,11 +68,9 @@ def add_args(parser):
     parser.add_argument('--attack_target', type=int,
                         help='target class in all2one attack')
     parser.add_argument('--batch_size', type=int)
-    parser.add_argument('--img_size', type=list)
     parser.add_argument('--lr', type=float)
     parser.add_argument('--steplr_stepsize', type=int)
     parser.add_argument('--steplr_gamma', type=float)
-    parser.add_argument('--num_classes', type=int)
     parser.add_argument('--sgd_momentum', type=float)
     parser.add_argument('--wd', type=float, help='weight decay of sgd')
     parser.add_argument('--steplr_milestones', type=list)
@@ -102,6 +101,10 @@ def main():
     args.__dict__ = defaults
 
     args.terminal_info = sys.argv
+
+    args.num_classes = get_num_classes(args.dataset)
+    args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
+    args.img_size = (args.input_height, args.input_width, args.input_channel)
 
     ### save path
     if 'save_folder_name' not in args:
@@ -212,6 +215,7 @@ def main():
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
+        to_np_array_before_poison=False,
     )
 
     adv_train_dl = DataLoader(
@@ -237,6 +241,7 @@ def main():
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
+        to_np_array_before_poison=False,
     )
 
     # delete the samples that do not used for ASR test (those non-poisoned samples)

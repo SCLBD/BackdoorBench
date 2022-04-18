@@ -33,11 +33,13 @@ import argparse
 
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
-from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.save_load_attack import summary_dict
 from utils.trainer_cls import Metric_Aggregator
+from utils.bd_dataset import prepro_cls_DatasetBD
+
 
 agg = Metric_Aggregator()
 
@@ -178,25 +180,13 @@ class Generator(nn.Sequential):
         self._denormalizer = self._get_denormalize(opt)
 
     def _get_denormalize(self, opt):
-        if opt.dataset == "cifar10":
-            denormalizer = Denormalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        elif opt.dataset == "mnist":
-            denormalizer = Denormalize(opt, [0.5], [0.5])
-        elif opt.dataset == "gtsrb":
-            denormalizer = None
-        else:
-            raise Exception("Invalid dataset")
+        denormalizer = Denormalize(opt, get_dataset_normalization(opt.dataset).mean,
+                                   get_dataset_normalization(opt.dataset).std)
         return denormalizer
 
     def _get_normalize(self, opt):
-        if opt.dataset == "cifar10":
-            normalizer = Normalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        elif opt.dataset == "mnist":
-            normalizer = Normalize(opt, [0.5], [0.5])
-        elif opt.dataset == "gtsrb":
-            normalizer = None
-        else:
-            raise Exception("Invalid dataset")
+        normalizer = Normalize(opt, get_dataset_normalization(opt.dataset).mean,
+                                   get_dataset_normalization(opt.dataset).std)
         return normalizer
 
     def forward(self, x):
@@ -338,63 +328,8 @@ def get_transform(opt, train=True, c=0, k=0):
         transforms_list.append(Smoothing(k))
 
     transforms_list.append(transforms.ToTensor())
-    if opt.dataset == "cifar10":
-        transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]))
-    elif opt.dataset == "mnist":
-        transforms_list.append(transforms.Normalize([0.5], [0.5]))
-    elif opt.dataset == "gtsrb":
-        pass
-    else:
-        raise Exception("Invalid Dataset")
+    transforms_list.append(get_dataset_normalization(opt.dataset))
     return transforms.Compose(transforms_list)
-
-
-class GTSRB(data.Dataset):
-    def __init__(self, opt, train, transforms):
-        super(GTSRB, self).__init__()
-        if train:
-            self.data_folder = os.path.join(opt.data_root, "GTSRB/Train")
-            self.images, self.labels = self._get_data_train_list()
-        else:
-            self.data_folder = os.path.join(opt.data_root, "GTSRB/Test")
-            self.images, self.labels = self._get_data_test_list()
-
-        self.transforms = transforms
-
-    def _get_data_train_list(self):
-        images = []
-        labels = []
-        for c in range(0, 43):
-            prefix = self.data_folder + "/" + format(c, "05d") + "/"
-            gtFile = open(prefix + "GT-" + format(c, "05d") + ".csv")
-            gtReader = csv.reader(gtFile, delimiter=";")
-            next(gtReader)
-            for row in gtReader:
-                images.append(prefix + row[0])
-                labels.append(int(row[7]))
-            gtFile.close()
-        return images, labels
-
-    def _get_data_test_list(self):
-        images = []
-        labels = []
-        prefix = os.path.join(self.data_folder, "GT-final_test.csv")
-        gtFile = open(prefix)
-        gtReader = csv.reader(gtFile, delimiter=";")
-        next(gtReader)
-        for row in gtReader:
-            images.append(self.data_folder + "/" + row[0])
-            labels.append(int(row[7]))
-        return images, labels
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, index):
-        image = Image.open(self.images[index])
-        image = self.transforms(image)
-        label = self.labels[index]
-        return image, label
 
 class Args:
     pass
@@ -403,7 +338,7 @@ def get_dataloader(opt, train=True, c=0, k=0):
 
     args = Args()
     args.dataset = opt.dataset
-    args.dataset_path = opt.data_root
+    args.dataset_path = opt.dataset_path
     args.img_size = (opt.input_height, opt.input_width, opt.input_channel)
 
     train_dataset_without_transform, \
@@ -415,25 +350,30 @@ def get_dataloader(opt, train=True, c=0, k=0):
 
     if train:
         dataset = train_dataset_without_transform
-        try:
-            train_transform = get_transform(opt, train, c=c, k=k)
-            if train_transform is not None:
-                logging.warning(' transform use original transform')
-        except:
-            logging.warning(' transform use NON-original transform')
-            train_transform = train_img_transform
-        dataset.transform = train_transform
+        train_transform = get_transform(opt, train, c=c, k=k)
+        dataset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=dataset,
+            poison_idx=np.zeros(len(dataset)),
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_transform,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+            init_with_prepro_backdoor=True,
+        )
     else:
         dataset = test_dataset_without_transform
-        try:
-            test_transform = get_transform(opt, train, c=c, k=k)
-            if test_transform is not None:
-                logging.info('WARNING : transform use original transform')
-        except:
-            logging.warning(' transform use NON-original transform')
-            test_transform = test_img_transform
-        dataset.transform = test_transform
-
+        test_transform = get_transform(opt, train, c=c, k=k)
+        dataset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=dataset,
+            poison_idx=np.zeros(len(dataset)),
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_transform,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+            init_with_prepro_backdoor=True,
+        )
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=True
     )
@@ -872,7 +812,7 @@ def train(opt):
     netM.requires_grad_(False)
 
     ### 5. training with backdoor modification simultaneously
-    for i in range(opt.n_iters):
+    for i in range(opt.epochs):
         logging.info(
             "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}:".format(
                 epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div
@@ -915,7 +855,7 @@ def train(opt):
         })
 
         epoch += 1
-        if epoch > opt.n_iters:
+        if epoch > opt.epochs:
             break
 
     ###6. save attack result
@@ -946,6 +886,9 @@ def train(opt):
         inputs_cross, patterns2, masks2 = create_cross(
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
+
+        inputs_bd, inputs_cross = inputs_bd.cpu(), inputs_cross.cpu()
+        targets_bd, targets1 =  targets_bd.cpu(), targets1.cpu()
 
         one_hot = np.zeros(bs)
         one_hot[:(num_bd + num_cross)] = 1
@@ -985,6 +928,8 @@ def train(opt):
 
             inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
 
+            inputs_bd = inputs_bd.cpu()
+
             test_bd_input.append(inputs_bd)
             test_bd_targets.append(targets_bd)
 
@@ -1002,7 +947,7 @@ def train(opt):
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
 
-            'data_path': opt.data_root,
+            'data_path': opt.dataset_path,
             'img_size': (opt.input_height, opt.input_width, opt.input_channel),
 
             'clean_data': opt.dataset,
@@ -1038,17 +983,14 @@ def get_arguments():
                         help='(Optional) should be time str + given unique identification str')
     parser.add_argument("--continue_training", action="store_true")
 
-    parser.add_argument("--data_root", type=str, )#default="data/")
+    parser.add_argument("--dataset_path", type=str, )#default="data/")
     parser.add_argument("--checkpoints", type=str, )#default="./record/inputAwareAttack/checkpoints/")
     parser.add_argument("--temps", type=str, )#default="./record/inputAwareAttack/temps")
     parser.add_argument("--save_path", type=str, )#default="./record/inputAwareAttack/")
     parser.add_argument("--device", type=str, )#default="cuda")
 
     parser.add_argument("--dataset", type=str, )#default="cifar10")
-    parser.add_argument("--input_height", type=int, )#default=None)
-    parser.add_argument("--input_width", type=int, )#default=None)
-    parser.add_argument("--input_channel", type=int, )#default=None)
-    parser.add_argument("--num_classes", type=int, )#default=10)
+
 
     parser.add_argument("--batchsize", type=int, )#default=128)
     parser.add_argument("--lr_G", type=float, )#default=1e-2)
@@ -1060,7 +1002,7 @@ def get_arguments():
     parser.add_argument("--schedulerG_lambda", type=float, )#default=0.1)
     parser.add_argument("--schedulerC_lambda", type=float, )#default=0.1)
     parser.add_argument("--schedulerM_lambda", type=float, )#default=0.1)
-    parser.add_argument("--n_iters", type=int, )#default=100)
+    parser.add_argument("--epochs", type=int, )#default=100)
     parser.add_argument("--lambda_div", type=float, )#default=1)
     parser.add_argument("--lambda_norm", type=float, )#default=100)
     parser.add_argument("--num_workers", type=float, )#default=4)
@@ -1089,12 +1031,11 @@ def main():
     defaults.update({k: v for k, v in opt.__dict__.items() if v is not None})
     opt.__dict__ = defaults
 
-    opt.dataset_path = opt.data_root
+    opt.dataset_path = opt.dataset_path
 
     opt.terminal_info = sys.argv
 
     opt.num_classes = get_num_classes(opt.dataset)
-
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
 

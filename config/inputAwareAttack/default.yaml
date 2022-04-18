@@ -1,5 +1,5 @@
 model: preactresnet18
-data_root: ../data/cifar10
+dataset_path: ../data/cifar10
 checkpoints: ../record/inputAwareAttack/checkpoints/
 temps: ../record/inputAwareAttack/temps
 device: cuda
@@ -7,7 +7,6 @@ dataset: cifar10
 input_height: None
 input_width: None
 input_channel: None
-num_classes: 10
 batchsize: 128
 lr_G: 0.01
 lr_C: 0.01
@@ -28,7 +27,7 @@ schedulerM_milestones: #[10, 20]
 schedulerG_lambda: 0.1
 schedulerC_lambda: 0.1
 schedulerM_lambda: 0.1
-n_iters: 100
+epochs: 100
 lambda_div: 1
 lambda_norm: 100
 num_workers: 4

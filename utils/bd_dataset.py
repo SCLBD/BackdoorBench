@@ -1,6 +1,14 @@
 '''
  This script is for prepro_cls_DatasetBD (preprocess classifcation dataset of backdoor, warpper)
     the main idea is to separate the transform from original clean dataset, do the backdoor modification first on raw image.
+
+    default for img:
+        [preprocess]:
+            raw img [-> np.array] [-> (add trigger)] -> big np.array
+        __getitem__:
+            img in self.data [-> PIL image] [-> transform] -> batch
+
+        "[...]" means optional
 '''
 
 import sys, logging
@@ -29,8 +37,10 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                     bd_label_pre_transform : Optional[Callable] = None,
                     ori_image_transform_in_loading : Optional[Callable] = None,
                     ori_label_transform_in_loading : Optional[Callable] = None,
-                    add_details_in_preprocess: Optional[bool] = True,
-                    init_with_prepro_backdoor: Optional[bool] = True,
+                    add_details_in_preprocess: bool = True,
+                    init_with_prepro_backdoor: bool = True,
+                    to_np_array_before_poison : bool = True,
+                    to_PIL_before_get_item : bool = True,
                  ):
         '''
         For analysis consideration, the original dataset will not be delete,
@@ -59,6 +69,9 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
 
         self.add_details_in_preprocess = add_details_in_preprocess
 
+        self.to_np_array_before_poison = to_np_array_before_poison
+        self.to_PIL_before_get_item = to_PIL_before_get_item
+
         if init_with_prepro_backdoor:
             assert len(poison_idx) == len(full_dataset_without_transform)
             self.prepro_backdoor()
@@ -79,7 +92,8 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
 
             img, label = content
 
-            img = np.array(img)
+            if self.to_np_array_before_poison:
+                img = np.array(img)
 
             '''
             img = self.bd_transform(img, target, original_index) if self.bd_transform is not None else img
@@ -89,6 +103,8 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
             if self.bd_image_pre_transform is not None and self.poison_idx[original_idx] == 1:
 
                 img = self.bd_image_pre_transform(img, label, original_idx)
+
+            img = np.array(img) # make sure both clean and bd converted to array
 
             original_label = deepcopy(label)
 
@@ -137,7 +153,8 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
         img  = self.data[item]
         label  = self.targets[item]
 
-        img = Image.fromarray(img.astype(np.uint8))
+        if self.to_PIL_before_get_item:
+            img = Image.fromarray(img.astype(np.uint8))
 
         if self.ori_image_transform_in_loading is not None:
             img = self.ori_image_transform_in_loading(img)
@@ -164,6 +181,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                chosen_index_array,
                inplace = True,
                memorize_original = True,
+               **kwargs, #allow more args, if inplace = False, then **kwargs will be passed to new prepro_cls_DatasetBD object.
                ):
         '''
 
@@ -195,6 +213,7 @@ class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
                 ori_label_transform_in_loading = self.ori_label_transform_in_loading,
                 add_details_in_preprocess = False,
                 init_with_prepro_backdoor = False,
+                **kwargs,
             )
             set_without_pre.data = self.data[chosen_index_array]
             set_without_pre.targets = self.targets[chosen_index_array]

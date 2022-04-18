@@ -2,6 +2,8 @@
 # idea : set the parameter in initialization, then when the object is called, it will use the add_trigger method to add trigger
 import numpy as np
 import torch
+from typing import Optional
+from torchvision.transforms import Resize, ToTensor, ToPILImage
 
 class AddPatchTrigger(object):
     '''
@@ -31,3 +33,16 @@ class AddPatchTrigger(object):
                 for i, (m, n) in enumerate(self.trigger_loc):
                     img[:, :, m, n] = self.trigger_ptn[i]
         return img
+
+class AddMaskPatchTrigger(object):
+    def __init__(self,
+                 trigger_array : np.ndarray,
+                 ):
+        self.trigger_array = trigger_array
+
+    def __call__(self, img, target = None, image_serial_id = None):
+        return self.add_trigger(img)
+
+    def add_trigger(self, img):
+        return img * (self.trigger_array == 0) + self.trigger_array * (self.trigger_array > 0)
+
