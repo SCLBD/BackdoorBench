@@ -873,6 +873,7 @@ def train(opt):
     netM.eval()
     netM.to(opt.device)
     for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dl1)), train_dl1, train_dl2):
+
         optimizerC.zero_grad()
 
         inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
@@ -887,21 +888,21 @@ def train(opt):
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
 
-        inputs_bd, inputs_cross = inputs_bd.cpu(), inputs_cross.cpu()
-        targets_bd, targets1 =  targets_bd.cpu(), targets1.cpu()
+        inputs_bd_cpu, inputs_cross_cpu = inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()
+        targets_bd_cpu, targets1_cpu =  targets_bd.detach().clone().cpu(), targets1.detach().clone().cpu()
 
         one_hot = np.zeros(bs)
         one_hot[:(num_bd + num_cross)] = 1
         one_hot_original_index.append(one_hot)
-        bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
-        bd_targets.append(torch.cat([targets_bd, targets1[num_bd: (num_bd + num_cross)]], dim=0))
+        bd_input.append(torch.cat([inputs_bd_cpu, inputs_cross_cpu], dim=0))
+        bd_targets.append(torch.cat([targets_bd_cpu, targets1_cpu[num_bd: (num_bd + num_cross)]], dim=0))
 
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
     train_poison_indicator = np.concatenate(one_hot_original_index)
     bd_train_original_index = np.where(train_poison_indicator == 1)[
         0] if train_poison_indicator is not None else None
-    logging.warning('Here the bd and cross samples are all saved in attack_result!!!!')
+
 
     test_dl1 = torch.utils.data.DataLoader(
         test_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
@@ -928,13 +929,15 @@ def train(opt):
 
             inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
 
-            inputs_bd = inputs_bd.cpu()
+            inputs_bd_cpu = inputs_bd.detach().clone().cpu()
+            targets_bd_cpu = targets_bd.detach().clone().cpu()
+            targets_cpu = targets.detach().clone().cpu()
 
-            test_bd_input.append(inputs_bd)
-            test_bd_targets.append(targets_bd)
+            test_bd_input.append(inputs_bd_cpu)
+            test_bd_targets.append(targets_bd_cpu)
 
             test_bd_poison_indicator.append(position_changed)
-            test_bd_origianl_targets.append(targets)
+            test_bd_origianl_targets.append(targets_cpu)
 
     bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()

@@ -765,8 +765,8 @@ def main():
         inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
 
         # no transform !
-        bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
-        bd_targets.append(torch.cat([targets_bd, targets[num_bd: (num_bd + num_cross)]], dim=0))
+        bd_input.append(torch.cat([inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()], dim=0))
+        bd_targets.append(torch.cat([targets_bd.detach().clone().cpu(), (targets.detach().clone().cpu())[num_bd: (num_bd + num_cross)]], dim=0))
 
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
@@ -818,8 +818,8 @@ def main():
 
 
             # no transform !
-            test_bd_input.append((inputs_bd))
-            test_bd_targets.append(targets_bd)
+            test_bd_input.append((inputs_bd.detach().clone().cpu()))
+            test_bd_targets.append(targets_bd.detach().clone().cpu())
 
     bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
