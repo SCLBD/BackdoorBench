@@ -7,19 +7,18 @@ Note that in default, only the poisoned part of backdoor dataset will be saved t
 
 '''
 import logging
-from pprint import pformat
-import numpy as np
 import torch
-from utils.nCHW_nHWC import *
 from utils.bd_dataset import prepro_cls_DatasetBD
 import numpy as np
 from copy import deepcopy
-from torchvision.transforms import Resize, ToTensor
+from torchvision.transforms import ToTensor, Resize,Compose
+from typing import Union
+from tqdm import tqdm
+from PIL import Image
 
 def summary_dict(input_dict):
     '''
     Input a dict, this func will do summary for it.
-    :param dict:
     :return:
     '''
     summary_dict_return = dict()
@@ -34,12 +33,33 @@ def summary_dict(input_dict):
             summary_dict_return[k] = v
     return  summary_dict_return
 
+def add_resize_totensor_for_prepro_cls_DatasetBD(given_data: prepro_cls_DatasetBD, resize_list: list):
+    resize_list = resize_list[:2]
+    resize_bd_totensor = Compose([
+        Resize(resize_list),
+        ToTensor(),
+        lambda x: torch.clamp(x, min=0, max=1),
+    ])
+    all_img_r_t = []
+    for img in tqdm(given_data.data, desc=f'resize and clamp'):
+        img_r_t = resize_bd_totensor(
+            Image.fromarray(img.astype(np.uint8)) if isinstance(img, np.ndarray) else img
+        )
+        all_img_r_t.append(img_r_t[None, ...])
+    all_img_r_t = torch.cat(all_img_r_t, dim=0)
+
+    return all_img_r_t.float().cpu(), \
+           torch.tensor(given_data.targets).long().cpu(), \
+           given_data.original_index, \
+           given_data.poison_indicator, \
+           given_data.original_targets
+
 def save_attack_result(
     model_name : str,
     num_classes : int,
     model : dict, # the state_dict
     data_path : str,
-    img_size : list,
+    img_size : Union[list, tuple],
     clean_data : str,
     bd_train : prepro_cls_DatasetBD, # dataset without transform
     bd_test : prepro_cls_DatasetBD, # dataset without transform
@@ -62,35 +82,17 @@ def save_attack_result(
     :param bd_test : torch.utils.data.Dataset, # dataset without transform
     :param save_path : str,
     '''
-    rs = Resize(img_size[:2])
-    toT = ToTensor()
-    def loop_through_cls_ds_without_transform(dataset_without_transform : prepro_cls_DatasetBD):
-        if dataset_without_transform.data.shape.__len__() > 1:
-            logging.info('data with same shape no need to resize.')
-            return torch.tensor(nHWC_to_nCHW(dataset_without_transform.data)).float().cpu(), \
-                   torch.tensor(dataset_without_transform.targets).long().cpu(), \
-                   dataset_without_transform.original_index, \
-                   dataset_without_transform.poison_indicator, \
-                   dataset_without_transform.original_targets
-        else:
-            logging.info('data with variant size, so do resize.')
-            x = torch.cat([rs(toT(x))[None,...] for x in dataset_without_transform.data])
-            return x.float().cpu(), \
-                torch.tensor(dataset_without_transform.targets).long().cpu(), \
-                   dataset_without_transform.original_index, \
-                   dataset_without_transform.poison_indicator, \
-                    dataset_without_transform.original_targets
 
     if bd_train is not None:
-        bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = loop_through_cls_ds_without_transform(bd_train)
+        bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = add_resize_totensor_for_prepro_cls_DatasetBD(bd_train, img_size)
         if bd_train_poison_indicator is not None:
             bd_train_x, bd_train_y = \
                 bd_train_x[np.where(bd_train_poison_indicator == 1)[0]], \
                 bd_train_y[np.where(bd_train_poison_indicator == 1)[0]],
-
     else:
         logging.info('bd_train is set to be None in saving process!')
-    bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = loop_through_cls_ds_without_transform(bd_test)
+
+    bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = add_resize_totensor_for_prepro_cls_DatasetBD(bd_test, img_size)
     bd_test_original_targets = torch.from_numpy(bd_test_original_targets) if bd_test_original_targets is not None else None
     
     save_dict = {
@@ -131,7 +133,6 @@ def save_attack_result(
     )
 
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
-from utils.aggregate_block.model_trainer_generate import generate_cls_model
 
 class Args:
     pass
@@ -192,8 +193,7 @@ def load_attack_result(
             add_details_in_preprocess=True,
         )
 
-        clean_train_x = torch.tensor(nHWC_to_nCHW(clean_train_ds.data)).float().cpu()
-        clean_train_y = torch.tensor(clean_train_ds.targets).long().cpu()
+        clean_train_x, clean_train_y, _,_,_ = add_resize_totensor_for_prepro_cls_DatasetBD(clean_train_ds,  clean_setting.img_size)
 
         clean_test_ds = prepro_cls_DatasetBD(
             test_dataset_without_transform,
@@ -205,8 +205,7 @@ def load_attack_result(
             add_details_in_preprocess=True,
         )
 
-        clean_test_x = torch.tensor(nHWC_to_nCHW(clean_test_ds.data)).float().cpu()
-        clean_test_y = torch.tensor(clean_test_ds.targets).long().cpu()
+        clean_test_x, clean_test_y, _, _, _ = add_resize_totensor_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
 
         if load_file['bd_train']['x'] is not None and load_file['bd_train']['y'] is not None:
 
