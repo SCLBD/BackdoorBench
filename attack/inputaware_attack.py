@@ -33,7 +33,7 @@ import argparse
 
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
-from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, get_dataset_denormalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.save_load_attack import summary_dict
@@ -859,6 +859,17 @@ def train(opt):
             break
 
     ###6. save attack result
+
+    train_dl1.dataset.ori_image_transform_in_loading = transforms.Compose(list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                                         train_dl1.dataset.ori_image_transform_in_loading.transforms)))
+    train_dl2.dataset.ori_image_transform_in_loading = transforms.Compose(list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                                         train_dl2.dataset.ori_image_transform_in_loading.transforms)))
+    for trans_t in train_dl1.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
+
+
     train_dl1 = torch.utils.data.DataLoader(
         train_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
     train_dl2 = torch.utils.data.DataLoader(
@@ -888,6 +899,9 @@ def train(opt):
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
 
+        inputs_bd = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_bd])
+        inputs_cross = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_cross])
+
         inputs_bd_cpu, inputs_cross_cpu = inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()
         targets_bd_cpu, targets1_cpu =  targets_bd.detach().clone().cpu(), targets1.detach().clone().cpu()
 
@@ -903,6 +917,14 @@ def train(opt):
     bd_train_original_index = np.where(train_poison_indicator == 1)[
         0] if train_poison_indicator is not None else None
 
+    test_dl1.dataset.ori_image_transform_in_loading = transforms.Compose(list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                                         test_dl1.dataset.ori_image_transform_in_loading.transforms)))
+    test_dl2.dataset.ori_image_transform_in_loading = transforms.Compose(list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                                         test_dl2.dataset.ori_image_transform_in_loading.transforms)))
+    for trans_t in test_dl1.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
 
     test_dl1 = torch.utils.data.DataLoader(
         test_dl1.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=False)
@@ -926,8 +948,9 @@ def train(opt):
             bs = inputs1.shape[0]
 
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
+            inputs_bd = torch.cat([denormalizer(img)[None, ...] *255 for img in inputs_bd])
 
-            inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
+            # inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
 
             inputs_bd_cpu = inputs_bd.detach().clone().cpu()
             targets_bd_cpu = targets_bd.detach().clone().cpu()
@@ -1041,6 +1064,7 @@ def main():
     opt.num_classes = get_num_classes(opt.dataset)
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
+    opt.dataset_path = f"{opt.dataset_path}/{opt.dataset}"
 
     if 'save_folder_name' not in opt:
         save_path = generate_save_folder(

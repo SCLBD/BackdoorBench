@@ -94,6 +94,33 @@ def get_dataset_normalization(dataset_name):
         raise Exception("Invalid Dataset")
     return dataset_normalization
 
+def get_dataset_denormalization(normalization : transforms.Normalize):
+
+    mean, std =  normalization.mean, normalization.std
+
+    if mean.__len__() == 1:
+        mean = - mean
+    else: # len > 1
+        mean = [-i for i in mean]
+
+    if std.__len__() == 1:
+        std = 1/std
+    else:  # len > 1
+        std = [1/i for i in std]
+
+    # copy from answer in
+    # https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821/3
+    # user: https://discuss.pytorch.org/u/svd3
+
+    invTrans = transforms.Compose([
+        transforms.Normalize(mean=[0., 0., 0.],
+            std=std),
+        transforms.Normalize(mean=mean,
+            std=[1., 1., 1.]),
+    ])
+
+    return invTrans
+
 def get_transform(dataset_name, input_height, input_width,train=True):
     # idea : given name, return the final implememnt transforms for the dataset
     transforms_list = []

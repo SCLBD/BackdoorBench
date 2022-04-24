@@ -1,5 +1,5 @@
 model: preactresnet18
-dataset_path: ../data/cifar10
+dataset_path: ../data
 checkpoints: ./wanet/checkpoints
 temps: ./temps 
 device: cuda 

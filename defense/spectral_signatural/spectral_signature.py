@@ -172,6 +172,8 @@ def spectral(arg,result):
     cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
     cur_examples = len(cur_indices)
     logging.info(f'Label, num ex: {lbl},{cur_examples}' )
+    if cur_examples < num_poisoned_left:
+        num_poisoned_left = int(cur_examples * 0.9)
     
     ### b. get the activation as representation for each data
     for iex in trange(cur_examples):
@@ -348,6 +350,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
@@ -404,7 +411,8 @@ if __name__ == '__main__':
         inputs, labels = inputs.to(args.device), labels.to(args.device)
         outputs = result_defense['model'](inputs)
         pre_label = torch.max(outputs,dim=1)[1]
-        asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+        asr_acc += torch.sum(pre_label == labels)
+    asr_acc = asr_acc/len(data_bd_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
@@ -426,7 +434,8 @@ if __name__ == '__main__':
         inputs, labels = inputs.to(args.device), labels.to(args.device)
         outputs = result_defense['model'](inputs)
         pre_label = torch.max(outputs,dim=1)[1]
-        clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+        clean_acc += torch.sum(pre_label == labels)
+    clean_acc = clean_acc/len(data_clean_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))

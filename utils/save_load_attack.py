@@ -26,9 +26,13 @@ def summary_dict(input_dict):
         if isinstance(v, dict):
             summary_dict_return[k] = summary_dict(v)
         elif isinstance(v, torch.Tensor) or isinstance(v, np.ndarray):
-            summary_dict_return[k] = v.shape
+            summary_dict_return[k] = {
+                'shape':v.shape,
+                'min':v.min(),
+                'max':v.max(),
+            }
         elif isinstance(v, list):
-            summary_dict_return[k] = v.__len__()
+            summary_dict_return[k] = {'len':v.__len__()}
         else:
             summary_dict_return[k] = v
     return  summary_dict_return

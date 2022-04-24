@@ -105,6 +105,7 @@ def main():
     args.num_classes = get_num_classes(args.dataset)
     args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
     args.img_size = (args.input_height, args.input_width, args.input_channel)
+    args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
     ### save path
     if 'save_folder_name' not in args:

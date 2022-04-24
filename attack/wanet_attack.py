@@ -46,8 +46,7 @@ from pprint import pformat
 
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.save_path_generate import generate_save_folder
-from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, dataset_and_transform_generate, get_dataset_denormalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.save_load_attack import summary_dict
 from utils.trainer_cls import Metric_Aggregator
@@ -601,6 +600,7 @@ def main():
 
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
+    opt.dataset_path = f"{opt.dataset_path}/{opt.dataset}"
 
     if 'save_folder_name' not in opt:
         save_path = generate_save_folder(
@@ -730,6 +730,10 @@ def main():
 
     train_dl = torch.utils.data.DataLoader(
         train_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    for trans_t in train_dl.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
 
     one_hot_original_index = []
     bd_input = []
@@ -752,7 +756,9 @@ def main():
         grid_temps2 = grid_temps.repeat(num_cross, 1, 1, 1) + ins / opt.input_height
         grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
-        inputs_bd = F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True)
+        inputs_bd = (F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True))
+        inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+
         if opt.attack_mode == "all2one":
             targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
         if opt.attack_mode == "all2all":
@@ -763,6 +769,7 @@ def main():
         one_hot_original_index.append(one_hot)
 
         inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
+        inputs_cross = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_cross])
 
         # no transform !
         bd_input.append(torch.cat([inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()], dim=0))
@@ -777,6 +784,10 @@ def main():
 
     test_dl = torch.utils.data.DataLoader(
         test_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    for trans_t in test_dl.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
 
     test_bd_input = []
     test_bd_targets = []
@@ -799,7 +810,9 @@ def main():
             grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
             grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
-            inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
+            inputs_bd = (F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True))
+            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+
             if opt.attack_mode == "all2one":
 
                 position_changed = (opt.target_label != targets) # since if label does not change, then cannot tell if the poison is effective or not.
