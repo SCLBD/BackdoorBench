@@ -173,7 +173,7 @@ def spectral(arg,result):
     cur_examples = len(cur_indices)
     logging.info(f'Label, num ex: {lbl},{cur_examples}' )
     if cur_examples < num_poisoned_left:
-        num_poisoned_left = cur_examples * 0.9
+        num_poisoned_left = int(cur_examples * 0.9)
     
     ### b. get the activation as representation for each data
     for iex in trange(cur_examples):

@@ -633,7 +633,7 @@ def nc(args,result,config):
     signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
     x_unlearn = x[idx_unlearn]
     for i in range(len(idx_unlearn)):
-        x_np = (x_unlearn[i] + torch.tensor(signal_mask).to(args.device)).cpu().numpy()
+        x_np = (x_unlearn[i] + torch.tensor(signal_mask)).cpu().numpy()
         x_np = np.clip(x_np.astype('uint8'), 0, 255)
         x_unlearn[i] = torch.tensor(x_np)
     x_new = torch.cat((x_clean,x_unlearn),dim = 0)
@@ -729,7 +729,7 @@ def nc(args,result,config):
         logging.info(f'Epoch{j}: clean_acc:{asr_acc} asr:{clean_acc} best_acc:{best_acc} best_asr{best_asr}')
 
     result = {}
-    result['model'] = model
+    result['model'] = model.to(args.device)
     return result       
 
 if __name__ == '__main__':
@@ -878,6 +878,6 @@ if __name__ == '__main__':
         'acc': clean_acc,
         'ra': robust_acc
     },
-    os.getcwd() + '/{save_path}/nc/defense_result.pt'
+    os.getcwd() + f'/{save_path}/nc/defense_result.pt'
     )
     
