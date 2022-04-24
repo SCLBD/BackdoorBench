@@ -368,6 +368,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
@@ -424,7 +429,8 @@ if __name__ == '__main__':
         inputs, labels = inputs.to(args.device), labels.to(args.device)
         outputs = result_defense['model'](inputs)
         pre_label = torch.max(outputs,dim=1)[1]
-        asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+        asr_acc += torch.sum(pre_label == labels)
+    asr_acc = asr_acc/len(data_bd_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
@@ -446,7 +452,8 @@ if __name__ == '__main__':
         inputs, labels = inputs.to(args.device), labels.to(args.device)
         outputs = result_defense['model'](inputs)
         pre_label = torch.max(outputs,dim=1)[1]
-        clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
+        clean_acc += torch.sum(pre_label == labels)
+    clean_acc = clean_acc/len(data_clean_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
@@ -476,51 +483,9 @@ if __name__ == '__main__':
                 inputs, labels = inputs.to(args.device), labels.to(args.device)
                 outputs = result_defense['model'](inputs)
                 pre_label = torch.max(outputs,dim=1)[1]
-                robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
-        else :
-            ori_label_un = result['clean_test']['y']
-            ori_label = [i for i in ori_label_un if i != 0]
-            y = torch.tensor(ori_label)
-            data_bd_test = torch.utils.data.TensorDataset(x,y)
-            data_bd_testset = prepro_cls_DatasetBD(
-                full_dataset_without_transform=data_bd_test,
-                poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-                bd_image_pre_transform=None,
-                bd_label_pre_transform=None,
-                ori_image_transform_in_loading=tran,
-                ori_label_transform_in_loading=None,
-                add_details_in_preprocess=False,
-            )
-            data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-
-            robust_acc = 0
-            for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-                inputs, labels = inputs.to(args.device), labels.to(args.device)
-                outputs = result_defense['model'](inputs)
-                pre_label = torch.max(outputs,dim=1)[1]
-                robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
-    else:
-        ori_label_un = result['clean_test']['y']
-        ori_label = [i for i in ori_label_un if i != 0]
-        y = torch.tensor(ori_label)
-        data_bd_test = torch.utils.data.TensorDataset(x,y)
-        data_bd_testset = prepro_cls_DatasetBD(
-            full_dataset_without_transform=data_bd_test,
-            poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
-            bd_image_pre_transform=None,
-            bd_label_pre_transform=None,
-            ori_image_transform_in_loading=tran,
-            ori_label_transform_in_loading=None,
-            add_details_in_preprocess=False,
-        )
-        data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-    
-        robust_acc = 0
-        for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-            inputs, labels = inputs.to(args.device), labels.to(args.device)
-            outputs = result_defense['model'](inputs)
-            pre_label = torch.max(outputs,dim=1)[1]
-            robust_acc += torch.sum(pre_label == labels)/len(data_bd_test)
+                robust_acc += torch.sum(pre_label == labels)
+            robust_acc = robust_acc/len(data_bd_test)
+        
 
     if not (os.path.exists(os.getcwd() + f'{save_path}/fp/')):
         os.makedirs(os.getcwd() + f'{save_path}/fp/')

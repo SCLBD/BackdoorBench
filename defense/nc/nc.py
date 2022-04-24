@@ -132,8 +132,8 @@ class RegressionModel(nn.Module):
     def forward(self, x):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
-        if self.normalizer:
-          pattern = self.normalizer(self.get_raw_pattern())
+        # if self.normalizer:
+        #   pattern = self.normalizer(self.get_raw_pattern())
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
@@ -747,6 +747,11 @@ if __name__ == '__main__':
         args.input_channel = 1
     elif args.dataset == "cifar10":
         args.num_classes = 10
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3

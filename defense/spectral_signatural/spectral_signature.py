@@ -350,6 +350,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
