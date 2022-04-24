@@ -39,11 +39,12 @@ def add_resize_totensor_for_prepro_cls_DatasetBD(given_data: prepro_cls_DatasetB
         Resize(resize_list),
         ToTensor(),
         lambda x: torch.clamp(x, min=0, max=1),
+        lambda x: (x * 255).to(torch.long),
     ])
     all_img_r_t = []
     for img in tqdm(given_data.data, desc=f'resize and clamp'):
         img_r_t = resize_bd_totensor(
-            Image.fromarray(img.astype(np.uint8)) if isinstance(img, np.ndarray) else img
+            Image.fromarray(img.astype(np.uint8))
         )
         all_img_r_t.append(img_r_t[None, ...])
     all_img_r_t = torch.cat(all_img_r_t, dim=0)
