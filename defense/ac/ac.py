@@ -219,7 +219,11 @@ def cluster_activations(
 
     for activation in separated_activations:
         # Apply dimensionality reduction
-        nb_activations = np.shape(activation)[1]
+        try :
+            nb_activations = np.shape(activation)[1]
+        except IndexError:
+            activation = activation.reshape(1,-1)
+            nb_activations = np.shape(activation)[1]
         if nb_activations > nb_dims & np.shape(activation)[0] > nb_dims:
             # TODO: address issue where if fewer samples than nb_dims this fails
             reduced_activations = reduce_dimensionality(activation, nb_dims=nb_dims, reduce=reduce)
