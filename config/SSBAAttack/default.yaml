@@ -15,5 +15,3 @@ sgd_momentum: 0.9
 wd: 0.0005
 attack: SSBA_replace
 epochs: 100
-attack_train_replace_imgs_path: ../resource/ssba/cifar10_ssba_train_b1.npy
-attack_test_replace_imgs_path: ../resource/ssba/cifar10_ssba_test_b1.npy

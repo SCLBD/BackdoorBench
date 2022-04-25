@@ -114,6 +114,14 @@ def main():
     args.img_size = (args.input_height, args.input_width, args.input_channel)
     args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
+    if ('attack_train_replace_imgs_path' not in args.__dict__) or (args.attack_train_replace_imgs_path is None):
+        args.attack_train_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_train_b1.npy"
+        print(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
+
+    if ('attack_test_replace_imgs_path' not in args.__dict__) or (args.attack_test_replace_imgs_path is None):
+        args.attack_test_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_test_b1.npy"
+        print(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
+
     ### save path
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(
@@ -145,11 +153,11 @@ def main():
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
+
     logging.info(pformat(args.__dict__))
 
     ### set the random seed
     fix_random(int(args.random_seed))
-
 
     ### 2. set the clean train data and clean test data
     train_dataset_without_transform, \
