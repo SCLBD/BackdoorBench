@@ -119,6 +119,7 @@ def get_args():
     return arg
 
 def segment_by_class(data , classes: np.ndarray, num_classes: int) -> List[np.ndarray]:
+    width = data.size()[1]
     by_class: List[List[int]] = [[] for _ in range(num_classes)]
 
     for indx, feature in enumerate(classes):
@@ -133,7 +134,7 @@ def segment_by_class(data , classes: np.ndarray, num_classes: int) -> List[np.nd
             by_class[assigned].append(data[indx].cpu().numpy())
         else:
             by_class[assigned].append(data[indx])
-    return [np.asarray(i) for i in by_class]
+    return [np.asarray(i) for i in by_class].reshape(-1,width)
 
 def measure_misclassification(
     classifier, x_test: np.ndarray, y_test: np.ndarray
