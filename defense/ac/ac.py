@@ -30,6 +30,7 @@ The update include:
     7. reintegrate the framework
     8. hook the activation of the neural network
     9. add some addtional backbone such as preactresnet18, resnet18 and vgg19
+    10. for data sets with many analogies, the classification bug existing in the original method is fixed
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -119,22 +120,39 @@ def get_args():
     return arg
 
 def segment_by_class(data , classes: np.ndarray, num_classes: int) -> List[np.ndarray]:
-    width = data.size()[1]
-    by_class: List[List[int]] = [[] for _ in range(num_classes)]
+    try:
+        width = data.size()[1]
+        by_class: List[List[int]] = [[] for _ in range(num_classes)]
 
-    for indx, feature in enumerate(classes):
-        if len(classes.shape) == 2 and classes.shape[1] > 1:
+        for indx, feature in enumerate(classes):
+            if len(classes.shape) == 2 and classes.shape[1] > 1:
 
-            assigned = np.argmax(feature)
+                assigned = np.argmax(feature)
 
-        else:
+            else:
 
-            assigned = int(feature)
-        if torch.is_tensor(data[indx]):
-            by_class[assigned].append(data[indx].cpu().numpy())
-        else:
-            by_class[assigned].append(data[indx])
-    return [np.asarray(i) for i in by_class].reshape(-1,width)
+                assigned = int(feature)
+            if torch.is_tensor(data[indx]):
+                by_class[assigned].append(data[indx].cpu().numpy())
+            else:
+                by_class[assigned].append(data[indx])
+        return [np.asarray(i).reshape(-1,width) for i in by_class]
+    except :
+        by_class: List[List[int]] = [[] for _ in range(num_classes)]
+
+        for indx, feature in enumerate(classes):
+            if len(classes.shape) == 2 and classes.shape[1] > 1:
+
+                assigned = np.argmax(feature)
+
+            else:
+
+                assigned = int(feature)
+            if torch.is_tensor(data[indx]):
+                by_class[assigned].append(data[indx].cpu().numpy())
+            else:
+                by_class[assigned].append(data[indx])
+        return [np.asarray(i) for i in by_class]
 
 def measure_misclassification(
     classifier, x_test: np.ndarray, y_test: np.ndarray
@@ -235,11 +253,11 @@ def cluster_activations(
         separated_reduced_activations.append(reduced_activations)
 
         # Get cluster assignments
-        if generator is not None and clusterer_new is not None:
+        if generator is not None and clusterer_new is not None and reduced_activations.shape[0] != 0:
             clusterer_new = clusterer_new.partial_fit(reduced_activations)
             # NOTE: this may cause earlier predictions to be less accurate
             clusters = clusterer_new.predict(reduced_activations)
-        elif reduced_activations.shape[0] != 1:
+        elif reduced_activations.shape[0] != 1 and reduced_activations.shape[0] != 0:
             clusters = clusterer.fit_predict(reduced_activations)
         else:
             clusters = 1
@@ -377,15 +395,16 @@ def ac(args,result):
         )
 
         for class_idx in range(num_classes):
-            activations_by_class[class_idx] = np.vstack(
-                [activations_by_class[class_idx], activations_by_class_i[class_idx]]
-            )
-            clusters_by_class[class_idx] = np.append(
-                clusters_by_class[class_idx], [clusters_by_class_i[class_idx]]
-            )
-            red_activations_by_class[class_idx] = np.vstack(
-                [red_activations_by_class[class_idx], red_activations_by_class_i[class_idx]]
-            )
+            if activations_by_class_i[class_idx].shape[0] != 0:
+                activations_by_class[class_idx] = np.vstack(
+                    [activations_by_class[class_idx], activations_by_class_i[class_idx]]
+                )
+                clusters_by_class[class_idx] = np.append(
+                    clusters_by_class[class_idx], [clusters_by_class_i[class_idx]]
+                )
+                red_activations_by_class[class_idx] = np.vstack(
+                    [red_activations_by_class[class_idx], red_activations_by_class_i[class_idx]]
+                )
 
     ### b. identify backdoor data according to classification results
     analyzer = ClusteringAnalyzer()
