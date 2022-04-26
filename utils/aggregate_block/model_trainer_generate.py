@@ -9,6 +9,10 @@ from torchvision.models.resnet import resnet18, resnet34
 from typing import Optional
 
 from utils.trainer_cls import ModelTrainerCLS
+try:
+    from torchvision.models.efficientnet import efficientnet_b0
+except:
+    logging.warning("efficientnet_b0 fails to import, plz update your torch and torchvision")
 
 #trainer is cls
 def generate_cls_model(
@@ -55,6 +59,8 @@ def generate_cls_model(
         net = models.wide_resnet50_2(num_classes= num_classes, **kwargs)
     elif model_name == 'mnasnet1_0':
         net = models.mnasnet1_0(num_classes= num_classes, **kwargs)
+    elif model_name == 'efficientnet_b0':
+        net = efficientnet_b0(num_classes= num_classes, **kwargs)
     else:
         raise SystemError('NO valid model match in function generate_cls_model!')
 
