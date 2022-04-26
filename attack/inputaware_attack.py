@@ -898,9 +898,10 @@ def train(opt):
         inputs_cross, patterns2, masks2 = create_cross(
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
-
-        inputs_bd = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_bd])
-        inputs_cross = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_cross])
+        if num_bd > 0:
+            inputs_bd = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_bd])
+        if num_cross > 0:
+            inputs_cross = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_cross])
 
         inputs_bd_cpu, inputs_cross_cpu = inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()
         targets_bd_cpu, targets1_cpu =  targets_bd.detach().clone().cpu(), targets1.detach().clone().cpu()

@@ -757,7 +757,8 @@ def main():
         grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
         inputs_bd = (F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True))
-        inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+        if num_bd > 0:
+            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
 
         if opt.attack_mode == "all2one":
             targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
@@ -769,7 +770,8 @@ def main():
         one_hot_original_index.append(one_hot)
 
         inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
-        inputs_cross = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_cross])
+        if num_cross > 0:
+            inputs_cross = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_cross])
 
         # no transform !
         bd_input.append(torch.cat([inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()], dim=0))
