@@ -33,6 +33,7 @@ The update include:
     5. new standard: robust accuracy
     6. use the PyTorch environment instead of TensorFlow
     7. add some addtional backbone such as resnet18 and vgg19
+    8. the poison ratio can also be preset when the data for each category is small
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
