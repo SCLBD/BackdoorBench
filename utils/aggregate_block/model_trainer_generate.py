@@ -13,6 +13,10 @@ try:
     from torchvision.models.efficientnet import efficientnet_b0
 except:
     logging.warning("efficientnet_b0 fails to import, plz update your torch and torchvision")
+try:
+    from torchvision.models import mobilenet_v3_large
+except:
+    logging.warning("mobilenet_v3_large fails to import, plz update your torch and torchvision")
 
 #trainer is cls
 def generate_cls_model(
@@ -53,6 +57,8 @@ def generate_cls_model(
         net = models.shufflenet_v2_x1_0(num_classes= num_classes, **kwargs)
     elif model_name == 'mobilenet_v2':
         net = models.mobilenet_v2(num_classes= num_classes, **kwargs)
+    elif model_name == 'mobilenet_v3_large':
+        net = models.mobilenet_v3_large(num_classes= num_classes, **kwargs)
     elif model_name == 'resnext50_32x4d':
         net = models.resnext50_32x4d(num_classes= num_classes, **kwargs)
     elif model_name == 'wide_resnet50_2':
