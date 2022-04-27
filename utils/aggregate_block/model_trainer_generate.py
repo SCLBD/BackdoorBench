@@ -10,9 +10,9 @@ from typing import Optional
 
 from utils.trainer_cls import ModelTrainerCLS
 try:
-    from torchvision.models.efficientnet import efficientnet_b0
+    from torchvision.models.efficientnet import efficientnet_b0, efficientnet_b3
 except:
-    logging.warning("efficientnet_b0 fails to import, plz update your torch and torchvision")
+    logging.warning("efficientnet_b0,b3 fails to import, plz update your torch and torchvision")
 try:
     from torchvision.models import mobilenet_v3_large
 except:
@@ -67,6 +67,8 @@ def generate_cls_model(
         net = models.mnasnet1_0(num_classes= num_classes, **kwargs)
     elif model_name == 'efficientnet_b0':
         net = efficientnet_b0(num_classes= num_classes, **kwargs)
+    elif model_name == 'efficientnet_b3':
+        net = efficientnet_b3(num_classes= num_classes, **kwargs)
     else:
         raise SystemError('NO valid model match in function generate_cls_model!')
 
