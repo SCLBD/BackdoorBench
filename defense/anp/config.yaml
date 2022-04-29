@@ -13,7 +13,7 @@ input_channel:
 epochs: 100
 batch_size: 256
 num_workers: 4
-lr: 0.01
+lr: 0.2
 
 poison_rate: 0.1
 target_type: 'all2one'
@@ -24,22 +24,12 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
-init_cost: 1.0e-3
-bs: 64
-atk_succ_threshold: 98.0
-early_stop: True
-early_stop_threshold: 99.0
-early_stop_patience: 25
-patience: 5
-cost_multiplier: 2
-total_label: 1.0e-7
-to_file: True
-n_times_test: 1
-use_norm: 1
-ratio: 1.0
-cleaning_ratio: 0.1
-unlearning_ratio: 0.2
-nc_epoch: 10
-
-
-
+ratio: 0.05 #for fair
+print_every: 500 
+nb_iter: 2000
+anp_eps: 0.4
+anp_steps: 1
+anp_alpha: 0.2
+pruning_by: 'threshold'
+pruning_max: 0.90 
+pruning_step: 0.05
