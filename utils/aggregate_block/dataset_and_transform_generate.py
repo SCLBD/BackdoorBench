@@ -135,6 +135,20 @@ def get_transform(dataset_name, input_height, input_width,train=True):
     transforms_list.append(get_dataset_normalization(dataset_name))
     return transforms.Compose(transforms_list)
 
+def get_transform_self(dataset_name, input_height, input_width,train=True):
+    # idea : given name, return the final implememnt transforms for the dataset during self-supervised learning
+    transforms_list = []
+    transforms_list.append(transforms.Resize((input_height, input_width)))
+    if train:
+        transforms_list.append(transforms.RandomCrop((input_height, input_width), padding=4))
+        transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))
+        transforms_list.append(transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8))
+        transforms_list.append(transforms.RandomGrayscale(p=0.2))
+
+    transforms_list.append(transforms.ToTensor())
+    transforms_list.append(get_dataset_normalization(dataset_name))
+    return transforms.Compose(transforms_list)
+
 def dataset_and_transform_generate(args):
     '''
     # idea : given args, return selected dataset, transforms for both train and test part of data.
