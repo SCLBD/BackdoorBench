@@ -231,6 +231,8 @@ year={2021}
 ## [Copyright](#copyright)
 
 <a href="#top">[Back to top]</a>
+  
+[LICENSE](./LICENSE)
 
 This repository is licensed by [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) and [Shenzhen Research Institute of Big Data](http://www.sribd.cn/en) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license. 
 
