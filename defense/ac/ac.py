@@ -296,6 +296,7 @@ def get_activations(name,model,x_batch):
     x_batch:
         each batch for tain data
     '''
+    model.eval()
     TOO_SMALL_ACTIVATIONS = 32
     assert name in ['preactresnet18', 'vgg19', 'resnet18']
     if name == 'preactresnet18':
@@ -490,6 +491,7 @@ def ac(args,result):
     best_asr = 0
     for j in range(args.epochs):
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
+            model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
@@ -499,6 +501,7 @@ def ac(args,result):
             optimizer.step()
         
         with torch.no_grad():
+            model.eval()
             asr_acc = 0
             for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
                 inputs, labels = inputs.to(args.device), labels.to(args.device)
@@ -598,6 +601,7 @@ if __name__ == '__main__':
     result_defense = ac(args,result)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

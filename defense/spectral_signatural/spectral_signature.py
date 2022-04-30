@@ -140,7 +140,6 @@ def spectral(arg,result):
     model = generate_cls_model(arg.model,arg.num_classes)
     model.load_state_dict(result['model'])
     model.to(arg.device)
-    model.eval()
 
     # Setting up the data and the model
     target_label = arg.target_label
@@ -176,6 +175,7 @@ def spectral(arg,result):
     if cur_examples < num_poisoned_left:
         num_poisoned_left = int(cur_examples * 0.9)
     
+    model.eval()
     ### b. get the activation as representation for each data
     for iex in trange(cur_examples):
         cur_im = cur_indices[iex]
@@ -287,8 +287,9 @@ def spectral(arg,result):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
     criterion = torch.nn.CrossEntropyLoss() 
     for j in range(arg.epochs):
-        model.train()
+        
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
+            model.train()
             inputs, labels = inputs.to(arg.device), labels.to(arg.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -392,6 +393,7 @@ if __name__ == '__main__':
     result_defense = spectral(args,result)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

@@ -220,6 +220,8 @@ def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, crit
     results = []
     nb_max = int(np.ceil(pruning_max))
     nb_step = int(np.ceil(pruning_step))
+    model_best = model
+    best_dis = -100
     for start in range(0, nb_max + 1, nb_step):
         i = start
         for i in range(start, start + nb_step):
@@ -231,13 +233,18 @@ def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, crit
             i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))
         results.append('{} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
             i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))
-    return results, model
+        if cl_acc - po_acc > best_dis:
+            model_best = model
+            best_dis = cl_acc - po_acc
+    return results, model_best
 
 
 def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader):
     results = []
     thresholds = np.arange(0, pruning_max + pruning_step, pruning_step)
     start = 0
+    model_best = model
+    best_dis = -100
     for threshold in thresholds:
         idx = start
         for idx in range(start, len(mask_values)):
@@ -253,7 +260,10 @@ def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, c
             start, layer_name, neuron_idx, threshold, po_loss, po_acc, cl_loss, cl_acc))
         results.append('{:.2f} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}\n'.format(
             start, layer_name, neuron_idx, threshold, po_loss, po_acc, cl_loss, cl_acc))
-    return results, model
+        if cl_acc - po_acc > best_dis:
+            model_best = model
+            best_dis = cl_acc - po_acc
+    return results, model_best
 
 
 
@@ -509,6 +519,7 @@ if __name__ == '__main__':
     result_defense = anp(args,result,config)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

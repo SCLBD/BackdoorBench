@@ -688,6 +688,7 @@ def nc(args,result,config):
     best_asr = 0
     for j in range(args.epochs):
         for i, (inputs,labels) in enumerate(trainloader):  # type: ignore
+            model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
@@ -697,6 +698,7 @@ def nc(args,result,config):
             optimizer.step()
         
         with torch.no_grad():
+            model.eval()
             asr_acc = 0
             for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
                 inputs, labels = inputs.to(args.device), labels.to(args.device)
@@ -726,7 +728,7 @@ def nc(args,result,config):
             },
             f'./{args.save_path}/nc/ckpt_best/defense_result.pt'
             )
-        logging.info(f'Epoch{j}: clean_acc:{asr_acc} asr:{clean_acc} best_acc:{best_acc} best_asr{best_asr}')
+        logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
     result = {}
     result['model'] = model.to(args.device)
@@ -791,6 +793,7 @@ if __name__ == '__main__':
     result_defense = nc(args,result,config)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

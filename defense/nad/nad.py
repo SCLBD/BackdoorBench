@@ -487,6 +487,7 @@ if __name__ == '__main__':
     result_defense = nad(args,result,config)
 
     ### 4. test the result and get ASR, ACC, RC
+    result['bd_test'].eval()
     result_defense['model'].to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
