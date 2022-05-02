@@ -31,7 +31,7 @@ def generate_single_target_attack_train_pidx(
     :param train: train or test phase (if test phase the pratio will be close to 1 no matter how you set)
     :return: one-hot array to indicate which of samples is selected
     '''
-
+    targets = np.array(targets)
     logging.info('Reminder: plz note that if p_num or pratio exceed the number of possible candidate samples\n then only maximum number of samples will be applied')
     logging.info('Reminder: priority p_num > pratio, and choosing fix number of sample is prefered if possible ')
     pidx = np.zeros(len(targets))
