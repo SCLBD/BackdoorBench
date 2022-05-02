@@ -181,7 +181,7 @@ def spectral(arg,result):
         cur_im = cur_indices[iex]
         x_batch = dataset[cur_im][0].unsqueeze(0).to(arg.device)
         y_batch = dataset[cur_im][1]
-        assert arg.model in ['preactresnet18', 'vgg19', 'resnet18']
+        assert arg.model in ['preactresnet18', 'vgg19', 'resnet18', 'mobilenet_v3_large', 'densenet161', 'efficientnet_b3']
         if arg.model == 'preactresnet18':
             inps,outs = [],[]
             def layer_hook(module, inp, out):
@@ -205,6 +205,31 @@ def spectral(arg,result):
             hook = model.layer4.register_forward_hook(layer_hook)
             _ = model(x_batch)
             batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+            hook.remove()
+        elif arg.model == 'mobilenet_v3_large':
+            inps,outs = [],[]
+            def layer_hook(module, inp, out):
+                outs.append(out.data)
+            hook = model.avgpool.register_forward_hook(layer_hook)
+            _ = model(x_batch)
+            activations = outs[0].view(outs[0].size(0), -1)
+            hook.remove()
+        elif arg.model == 'densenet161':
+            inps,outs = [],[]
+            def layer_hook(module, inp, out):
+                outs.append(out.data)
+            hook = model.features.register_forward_hook(layer_hook)
+            _ = model(x_batch)
+            outs[0] = torch.nn.functional.relu(outs[0])
+            activations = outs[0].view(outs[0].size(0), -1)
+            hook.remove()
+        elif arg.model == 'efficientnet_b3':
+            inps,outs = [],[]
+            def layer_hook(module, inp, out):
+                outs.append(out.data)
+            hook = model.avgpool.register_forward_hook(layer_hook)
+            _ = model(x_batch)
+            activations = outs[0].view(outs[0].size(0), -1)
             hook.remove()
         
         if iex==0:

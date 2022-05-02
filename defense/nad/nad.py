@@ -247,6 +247,62 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
 
             at_loss = at3_loss + cls_loss
+        
+        if arg.model == 'mobilenet_v3_large':
+            outputs_s = snet(inputs)
+            features_out = list(snet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_s = modelout(inputs)
+            # activation3_s = features.view(features.size(0), -1)
+
+            output_t = tnet(inputs)
+            features_out = list(tnet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_t = modelout(inputs)
+            # activation3_t = features.view(features.size(0), -1)
+
+            cls_loss = criterionCls(outputs_s, labels)
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+
+            at_loss = at3_loss + cls_loss
+
+        if arg.model == 'densenet161':
+            outputs_s = snet(inputs)
+            features_out = list(snet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_s = modelout(inputs)
+            # activation3_s = features.view(features.size(0), -1)
+
+            output_t = tnet(inputs)
+            features_out = list(tnet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_t = modelout(inputs)
+            # activation3_t = features.view(features.size(0), -1)
+
+            cls_loss = criterionCls(outputs_s, labels)
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+
+            at_loss = at3_loss + cls_loss
+
+        if arg.model == 'efficientnet_b3':
+            outputs_s = snet(inputs)
+            features_out = list(snet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_s = modelout(inputs)
+            # activation3_s = features.view(features.size(0), -1)
+
+            output_t = tnet(inputs)
+            features_out = list(tnet.children())[:-1]
+            modelout = nn.Sequential(*features_out).to(arg.device)
+            activation3_t = modelout(inputs)
+            # activation3_t = features.view(features.size(0), -1)
+
+            cls_loss = criterionCls(outputs_s, labels)
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+
+            at_loss = at3_loss + cls_loss
+
+
 
         optimizer.zero_grad()
         at_loss.backward()
