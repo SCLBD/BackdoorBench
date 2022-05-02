@@ -30,6 +30,7 @@ The update include:
     7. reintegrate the framework
     8. hook the activation of the neural network
     9. add some addtional backbone such as preactresnet18, resnet18 and vgg19
+    10. for data sets with many analogies, the classification bug existing in the original method is fixed
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -119,21 +120,39 @@ def get_args():
     return arg
 
 def segment_by_class(data , classes: np.ndarray, num_classes: int) -> List[np.ndarray]:
-    by_class: List[List[int]] = [[] for _ in range(num_classes)]
+    try:
+        width = data.size()[1]
+        by_class: List[List[int]] = [[] for _ in range(num_classes)]
 
-    for indx, feature in enumerate(classes):
-        if len(classes.shape) == 2 and classes.shape[1] > 1:
+        for indx, feature in enumerate(classes):
+            if len(classes.shape) == 2 and classes.shape[1] > 1:
 
-            assigned = np.argmax(feature)
+                assigned = np.argmax(feature)
 
-        else:
+            else:
 
-            assigned = int(feature)
-        if torch.is_tensor(data[indx]):
-            by_class[assigned].append(data[indx].cpu().numpy())
-        else:
-            by_class[assigned].append(data[indx])
-    return [np.asarray(i) for i in by_class]
+                assigned = int(feature)
+            if torch.is_tensor(data[indx]):
+                by_class[assigned].append(data[indx].cpu().numpy())
+            else:
+                by_class[assigned].append(data[indx])
+        return [np.asarray(i).reshape(-1,width) for i in by_class]
+    except :
+        by_class: List[List[int]] = [[] for _ in range(num_classes)]
+
+        for indx, feature in enumerate(classes):
+            if len(classes.shape) == 2 and classes.shape[1] > 1:
+
+                assigned = np.argmax(feature)
+
+            else:
+
+                assigned = int(feature)
+            if torch.is_tensor(data[indx]):
+                by_class[assigned].append(data[indx].cpu().numpy())
+            else:
+                by_class[assigned].append(data[indx])
+        return [np.asarray(i) for i in by_class]
 
 def measure_misclassification(
     classifier, x_test: np.ndarray, y_test: np.ndarray
@@ -219,7 +238,11 @@ def cluster_activations(
 
     for activation in separated_activations:
         # Apply dimensionality reduction
-        nb_activations = np.shape(activation)[1]
+        try :
+            nb_activations = np.shape(activation)[1]
+        except IndexError:
+            activation = activation.reshape(1,-1)
+            nb_activations = np.shape(activation)[1]
         if nb_activations > nb_dims & np.shape(activation)[0] > nb_dims:
             # TODO: address issue where if fewer samples than nb_dims this fails
             reduced_activations = reduce_dimensionality(activation, nb_dims=nb_dims, reduce=reduce)
@@ -230,11 +253,11 @@ def cluster_activations(
         separated_reduced_activations.append(reduced_activations)
 
         # Get cluster assignments
-        if generator is not None and clusterer_new is not None:
+        if generator is not None and clusterer_new is not None and reduced_activations.shape[0] != 0:
             clusterer_new = clusterer_new.partial_fit(reduced_activations)
             # NOTE: this may cause earlier predictions to be less accurate
             clusters = clusterer_new.predict(reduced_activations)
-        elif reduced_activations.shape[0] != 1:
+        elif reduced_activations.shape[0] != 1 and reduced_activations.shape[0] != 0:
             clusters = clusterer.fit_predict(reduced_activations)
         else:
             clusters = 1
@@ -273,6 +296,7 @@ def get_activations(name,model,x_batch):
     x_batch:
         each batch for tain data
     '''
+    model.eval()
     TOO_SMALL_ACTIVATIONS = 32
     assert name in ['preactresnet18', 'vgg19', 'resnet18']
     if name == 'preactresnet18':
@@ -372,15 +396,16 @@ def ac(args,result):
         )
 
         for class_idx in range(num_classes):
-            activations_by_class[class_idx] = np.vstack(
-                [activations_by_class[class_idx], activations_by_class_i[class_idx]]
-            )
-            clusters_by_class[class_idx] = np.append(
-                clusters_by_class[class_idx], [clusters_by_class_i[class_idx]]
-            )
-            red_activations_by_class[class_idx] = np.vstack(
-                [red_activations_by_class[class_idx], red_activations_by_class_i[class_idx]]
-            )
+            if activations_by_class_i[class_idx].shape[0] != 0:
+                activations_by_class[class_idx] = np.vstack(
+                    [activations_by_class[class_idx], activations_by_class_i[class_idx]]
+                )
+                clusters_by_class[class_idx] = np.append(
+                    clusters_by_class[class_idx], [clusters_by_class_i[class_idx]]
+                )
+                red_activations_by_class[class_idx] = np.vstack(
+                    [red_activations_by_class[class_idx], red_activations_by_class_i[class_idx]]
+                )
 
     ### b. identify backdoor data according to classification results
     analyzer = ClusteringAnalyzer()
@@ -466,6 +491,7 @@ def ac(args,result):
     best_asr = 0
     for j in range(args.epochs):
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
+            model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
@@ -475,6 +501,7 @@ def ac(args,result):
             optimizer.step()
         
         with torch.no_grad():
+            model.eval()
             asr_acc = 0
             for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
                 inputs, labels = inputs.to(args.device), labels.to(args.device)
@@ -532,6 +559,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
@@ -569,6 +601,7 @@ if __name__ == '__main__':
     result_defense = ac(args,result)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

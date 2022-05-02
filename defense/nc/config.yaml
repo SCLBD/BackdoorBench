@@ -1,0 +1,45 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'preactresnet18'
+seed: 0
+index: 
+
+init_cost: 1.0e-3
+bs: 64
+atk_succ_threshold: 98.0
+early_stop: True
+early_stop_threshold: 99.0
+early_stop_patience: 25
+patience: 5
+cost_multiplier: 2
+total_label: 1.0e-7
+to_file: True
+n_times_test: 1
+use_norm: 1
+ratio: 1.0
+cleaning_ratio: 0.1
+unlearning_ratio: 0.2
+nc_epoch: 10
+
+
+

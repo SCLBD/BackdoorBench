@@ -46,11 +46,11 @@ from pprint import pformat
 
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.save_path_generate import generate_save_folder
-from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape
-from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
+from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, dataset_and_transform_generate, get_dataset_denormalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.save_load_attack import summary_dict
 from utils.trainer_cls import Metric_Aggregator
+from utils.bd_dataset import prepro_cls_DatasetBD
 
 agg = Metric_Aggregator()
 
@@ -77,14 +77,7 @@ class Denormalizer:
         self.denormalizer = self._get_denormalizer(opt)
 
     def _get_denormalizer(self, opt):
-        if opt.dataset == "cifar10":
-            denormalizer = Denormalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        elif opt.dataset == "mnist":
-            denormalizer = Denormalize(opt, [0.5], [0.5])
-        elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-            denormalizer = None
-        else:
-            raise Exception("Invalid dataset")
+        denormalizer = Denormalize(opt, get_dataset_normalization(opt.dataset).mean, get_dataset_normalization(opt.dataset).std)
         return denormalizer
 
     def __call__(self, x):
@@ -181,14 +174,8 @@ def get_transform(opt, train=True, pretensor_transform=False):
                 transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))
 
     transforms_list.append(transforms.ToTensor())
-    if opt.dataset == "cifar10":
-        transforms_list.append(transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]))
-    elif opt.dataset == "mnist":
-        transforms_list.append(transforms.Normalize([0.5], [0.5]))
-    elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-        pass
-    else:
-        raise Exception("Invalid Dataset")
+    transforms_list.append(get_dataset_normalization(opt.dataset))
+
     return transforms.Compose(transforms_list)
 
 
@@ -224,7 +211,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
 
     args = Args()
     args.dataset = opt.dataset
-    args.dataset_path = opt.data_root
+    args.dataset_path = opt.dataset_path
     args.img_size = (opt.input_height, opt.input_width, opt.input_channel)
 
     train_dataset_without_transform, \
@@ -236,22 +223,31 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
 
     if train:
         dataset = train_dataset_without_transform
-        try:
-            train_transform = get_transform(opt, train, pretensor_transform)
-            if train_transform is not None:
-                logging.info('WARNING : transform use original transform')
-        except:
-            train_transform = test_img_transform
-        dataset.transform = train_transform
+        train_transform = get_transform(opt, train, pretensor_transform)
+        # dataset.transform = train_transform
+        dataset = prepro_cls_DatasetBD(
+            full_dataset_without_transform=dataset,
+            poison_idx=np.zeros(len(dataset)),
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_transform,
+            ori_label_transform_in_loading=None,
+            add_details_in_preprocess=False,
+            init_with_prepro_backdoor=True,
+        )
     else:
         dataset = test_dataset_without_transform
-        try:
-            test_transform = get_transform(opt, train, pretensor_transform)
-            if test_transform is not None:
-                logging.info('WARNING : transform use original transform')
-        except:
-            test_transform = test_img_transform
-        dataset.transform = test_transform
+        test_transform = get_transform(opt, train, pretensor_transform)
+        dataset = prepro_cls_DatasetBD(
+            full_dataset_without_transform = dataset,
+            poison_idx = np.zeros(len(dataset)),
+            bd_image_pre_transform = None,
+            bd_label_pre_transform = None,
+            ori_image_transform_in_loading = test_transform,
+            ori_label_transform_in_loading = None,
+            add_details_in_preprocess = False,
+            init_with_prepro_backdoor = True,
+        )
 
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=True)
     return dataloader
@@ -267,7 +263,7 @@ def get_arguments():
                         help='(Optional) should be time str + given unique identification str')
 
     parser.add_argument('--random_seed', type=int)
-    parser.add_argument("--data_root", type=str, )  # default="/home/ubuntu/temps/")
+    parser.add_argument("--dataset_path", type=str, )  # default="/home/ubuntu/temps/")
     parser.add_argument("--checkpoints", type=str, )  # default="./checkpoints")
     parser.add_argument("--temps", type=str, )  # default="./temps")
     parser.add_argument("--device", type=str, )  # default="cuda")
@@ -280,7 +276,7 @@ def get_arguments():
     parser.add_argument("--lr_C", type=float, )  # default=1e-2)
     parser.add_argument("--schedulerC_milestones", type=list, )  # default=[100, 200, 300, 400])
     parser.add_argument("--schedulerC_lambda", type=float, )  # default=0.1)
-    parser.add_argument("--n_iters", type=int, )  # default=1000)
+    parser.add_argument("--epochs", type=int, )  # default=1000)
     parser.add_argument("--num_workers", type=float, )  # default=6)
 
     parser.add_argument("--target_label", type=int, )  # default=0)
@@ -596,7 +592,7 @@ def main():
     defaults.update({k: v for k, v in opt.__dict__.items() if v is not None})
     opt.__dict__ = defaults
 
-    opt.dataset_path = opt.data_root
+    opt.dataset_path = opt.dataset_path
 
     opt.terminal_info = sys.argv
 
@@ -604,6 +600,7 @@ def main():
 
     opt.input_height, opt.input_width, opt.input_channel = get_input_shape(opt.dataset)
     opt.img_size = (opt.input_height, opt.input_width, opt.input_channel)
+    opt.dataset_path = f"{opt.dataset_path}/{opt.dataset}"
 
     if 'save_folder_name' not in opt:
         save_path = generate_save_folder(
@@ -701,7 +698,7 @@ def main():
     logging.warning(f"acc_cross and best_cross_acc may be 0 if no cross sample are used !!!!")
 
     ### 5. training with backdoor modification simultaneously
-    for epoch in range(epoch_current, opt.n_iters):
+    for epoch in range(epoch_current, opt.epochs):
         logging.info("Epoch {}:".format(epoch + 1))
         train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
         best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, acc_cross = eval(
@@ -733,6 +730,10 @@ def main():
 
     train_dl = torch.utils.data.DataLoader(
         train_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    for trans_t in train_dl.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
 
     one_hot_original_index = []
     bd_input = []
@@ -755,7 +756,10 @@ def main():
         grid_temps2 = grid_temps.repeat(num_cross, 1, 1, 1) + ins / opt.input_height
         grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
-        inputs_bd = F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True)
+        inputs_bd = (F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True))
+        if num_bd > 0:
+            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+
         if opt.attack_mode == "all2one":
             targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
         if opt.attack_mode == "all2all":
@@ -766,10 +770,12 @@ def main():
         one_hot_original_index.append(one_hot)
 
         inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
+        if num_cross > 0:
+            inputs_cross = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_cross])
 
         # no transform !
-        bd_input.append(torch.cat([inputs_bd, inputs_cross], dim=0))
-        bd_targets.append(torch.cat([targets_bd, targets[num_bd: (num_bd + num_cross)]], dim=0))
+        bd_input.append(torch.cat([inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()], dim=0))
+        bd_targets.append(torch.cat([targets_bd.detach().clone().cpu(), (targets.detach().clone().cpu())[num_bd: (num_bd + num_cross)]], dim=0))
 
     bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
     bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
@@ -780,6 +786,10 @@ def main():
 
     test_dl = torch.utils.data.DataLoader(
         test_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    for trans_t in test_dl.dataset.ori_image_transform_in_loading.transforms:
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
 
     test_bd_input = []
     test_bd_targets = []
@@ -802,7 +812,9 @@ def main():
             grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
             grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
-            inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
+            inputs_bd = (F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True))
+            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+
             if opt.attack_mode == "all2one":
 
                 position_changed = (opt.target_label != targets) # since if label does not change, then cannot tell if the poison is effective or not.
@@ -821,8 +833,8 @@ def main():
 
 
             # no transform !
-            test_bd_input.append((inputs_bd))
-            test_bd_targets.append(targets_bd)
+            test_bd_input.append((inputs_bd.detach().clone().cpu()))
+            test_bd_targets.append(targets_bd.detach().clone().cpu())
 
     bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
     bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
@@ -835,7 +847,7 @@ def main():
             'num_classes': opt.num_classes,
             'model': netC.cpu().state_dict(),
 
-            'data_path': opt.data_root,
+            'data_path': opt.dataset_path,
             'img_size': (opt.input_height, opt.input_width, opt.input_channel),
 
             'clean_data': opt.dataset,

@@ -5,6 +5,7 @@ The original license is placed at the end of this file.
 
 This file provide implementation of pre-activation ResNet.
 Please note that this is different from default ResNet in pytorch, even thought the structure of file is quite similar.
+And to adapt different image size, we replace the Avgpool2d with its adaptive version.
 """
 import torch
 import torch.nn as nn
@@ -80,7 +81,7 @@ class PreActResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.avgpool = nn.AvgPool2d(4)
+        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.linear = nn.Linear(512 * block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):

@@ -1,5 +1,5 @@
 model: preactresnet18
-data_root: ../data/cifar10
+dataset_path: ../data
 checkpoints: ./wanet/checkpoints
 temps: ./temps 
 device: cuda 
@@ -13,7 +13,7 @@ schedulerC_milestones:
   - 300
   - 400
 schedulerC_lambda: 0.1
-n_iters: 1000
+epochs: 1000
 num_workers: 6
 target_label: 0
 pratio: 0.1

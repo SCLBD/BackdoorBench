@@ -368,6 +368,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
@@ -404,6 +409,7 @@ if __name__ == '__main__':
     result_defense = fp(args,result,config)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']

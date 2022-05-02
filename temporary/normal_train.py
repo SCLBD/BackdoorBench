@@ -1,14 +1,5 @@
 '''
-this script is for badnet attack
-
-basic structure:
-1. config args, save_path, fix random seed
-2. set the clean train data and clean test data
-3. set the attack img transform and label transform
-4. set the backdoor attack data and backdoor test data
-5. set the device, model, criterion, optimizer, training schedule.
-6. attack or use the model to do finetune with 5% clean data
-7. save the attack result for defense
+This script is for normal training process, no any attack is applied
 '''
 
 import sys, yaml, os
@@ -30,12 +21,8 @@ from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
 from torch.utils.data import DataLoader
-from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
-from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
-from copy import deepcopy
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
-from utils.save_load_attack import save_attack_result
 
 
 
@@ -47,25 +34,17 @@ def add_args(parser):
     # Training settings
 
     parser.add_argument('--device', type = str)
-    parser.add_argument('--attack', type = str, )
-    parser.add_argument('--yaml_path', type=str, default='../config/BadNetsAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='./default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
     # only all2one can be use for clean-label
-    parser.add_argument('--attack_label_trans', type=str,
-                        help='which type of label modification in backdoor attack'
-                        )
-    parser.add_argument('--pratio', type=float,
-                        help='the poison rate '
-                        )
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--dataset', type=str,
                         help='which dataset to use'
                         )
     parser.add_argument('--dataset_path', type=str)
-    parser.add_argument('--attack_target', type=int,
-                        help='target class in all2one attack')
+
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--lr', type=float)
     parser.add_argument('--steplr_stepsize', type=int)
@@ -101,6 +80,8 @@ def main():
 
     args.terminal_info = sys.argv
 
+    args.attack = 'None'
+
     args.num_classes = get_num_classes(args.dataset)
     args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
     args.img_size = (args.input_height, args.input_width, args.input_channel)
@@ -120,7 +101,6 @@ def main():
     args.save_path = save_path
 
     torch.save(args.__dict__, save_path + '/info.pickle')
-
 
     ### set the logger
     logFormatter = logging.Formatter(
@@ -143,7 +123,6 @@ def main():
     ### set the random seed
     fix_random(int(args.random_seed))
 
-
     ### 2. set the clean train data and clean test data
     train_dataset_without_transform, \
                 train_img_transform, \
@@ -151,9 +130,6 @@ def main():
     test_dataset_without_transform, \
                 test_img_transform, \
                 test_label_transform = dataset_and_transform_generate(args)
-
-
-
 
     benign_train_dl = DataLoader(
         prepro_cls_DatasetBD(
@@ -185,78 +161,6 @@ def main():
         drop_last=False,
     )
 
-
-
-    ### 3. set the attack img transform and label transform
-    train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
-    ### get the backdoor transform on label
-    bd_label_transform = bd_attack_label_trans_generate(args)
-
-
-    ### 4. set the backdoor attack data and backdoor test data
-    train_pidx = generate_pidx_from_label_transform(
-        benign_train_dl.dataset.targets,
-        label_transform=bd_label_transform,
-        train=True,
-        pratio= args.pratio if 'pratio' in args.__dict__ else None,
-        p_num= args.p_num if 'p_num' in args.__dict__ else None,
-    )
-    torch.save(train_pidx,
-        args.save_path + '/train_pidex_list.pickle',
-    )
-
-    ### generate train dataset for backdoor attack
-    adv_train_ds = prepro_cls_DatasetBD(
-        deepcopy(train_dataset_without_transform),
-        poison_idx= train_pidx,
-        bd_image_pre_transform=train_bd_img_transform,
-        bd_label_pre_transform=bd_label_transform,
-        ori_image_transform_in_loading=train_img_transform,
-        ori_label_transform_in_loading=train_label_transfrom,
-        add_details_in_preprocess=True,
-        to_np_array_before_poison=False,
-    )
-
-    adv_train_dl = DataLoader(
-        dataset = adv_train_ds,
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
-    )
-
-    ### decide which img to poison in ASR Test
-    test_pidx = generate_pidx_from_label_transform(
-        benign_test_dl.dataset.targets,
-        label_transform=bd_label_transform,
-        train=False,
-    )
-
-    ### generate test dataset for ASR
-    adv_test_dataset = prepro_cls_DatasetBD(
-        deepcopy(test_dataset_without_transform),
-        poison_idx=test_pidx,
-        bd_image_pre_transform=test_bd_img_transform,
-        bd_label_pre_transform=bd_label_transform,
-        ori_image_transform_in_loading=test_img_transform,
-        ori_label_transform_in_loading=test_label_transform,
-        add_details_in_preprocess=True,
-        to_np_array_before_poison=False,
-    )
-
-    # delete the samples that do not used for ASR test (those non-poisoned samples)
-    adv_test_dataset.subset(
-        np.where(test_pidx == 1)[0]
-    )
-
-    adv_test_dl = DataLoader(
-        dataset = adv_test_dataset,
-        batch_size= args.batch_size,
-        shuffle= False,
-        drop_last= False,
-    )
-
-
-    ### 5. set the device, model, criterion, optimizer, training schedule.
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     net  = generate_cls_model(
@@ -269,80 +173,22 @@ def main():
         args.attack
     )
 
-
-
     criterion = argparser_criterion(args)
 
     optimizer, scheduler = argparser_opt_scheduler(net, args)
 
-
-
-    ### 6. attack or use the model to do finetune with 5% clean data
-    if 'load_path' not in args.__dict__:
-
-        trainer.train_with_test_each_epoch(
-            train_data = adv_train_dl,
-            test_data = benign_test_dl,
-            adv_test_data = adv_test_dl,
-            end_epoch_num = args.epochs,
-            criterion = criterion,
-            optimizer = optimizer,
-            scheduler = scheduler,
-            device = device,
-            frequency_save = args.frequency_save,
-            save_folder_path = save_path,
-            save_prefix = 'attack',
-            continue_training_path = None,
-        )
-
-    else:
-
-        if 'recover' not in args.__dict__ or args.recover == False :
-
-            print('finetune so use less data, 5% of benign train data')
-
-            benign_train_dl.dataset.subset(
-                np.random.choice(
-                    np.arange(
-                        len(benign_train_dl.dataset)),
-                    size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
-                    replace=False,
-                )
-            )
-
-            torch.save(
-                list(benign_train_dl.dataset.original_index),
-                args.save_path + '/finetune_idx_list.pt',
-            )
-
-            trainer.train_with_test_each_epoch(
-                train_data=benign_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
-                end_epoch_num=args.epochs,
-                criterion=criterion,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                device=device,
-                frequency_save=args.frequency_save,
-                save_folder_path=save_path,
-                save_prefix='finetune',
-                continue_training_path=args.load_path,
-                only_load_model=True,
-            )
-
-
-    ### 7. save model, data, and other information that defense process may need
-    save_attack_result(
-        model_name = args.model,
-        num_classes = args.num_classes,
-        model = trainer.model.cpu().state_dict(),
-        data_path = args.dataset_path,
-        img_size = args.img_size,
-        clean_data = args.dataset,
-        bd_train = adv_train_ds,
-        bd_test = adv_test_dataset,
-        save_path = save_path,
+    trainer.train_with_test_each_epoch_v2(
+        train_data=benign_train_dl,
+        test_dataloader_dict={'benign_test_dl':benign_test_dl},
+        end_epoch_num=args.epochs,
+        criterion=criterion,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        device=device,
+        frequency_save=args.frequency_save,
+        save_folder_path=save_path,
+        save_prefix='attack',
+        continue_training_path=None,
     )
 
 if __name__ == '__main__':

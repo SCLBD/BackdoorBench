@@ -24,6 +24,12 @@ def get_num_classes(dataset_name : str) -> int:
         num_classes = 43
     elif dataset_name == "celeba":
         num_classes = 8
+    elif dataset_name == 'cifar100':
+        num_classes = 100
+    elif dataset_name == 'tiny':
+        num_classes = 200
+    elif dataset_name == 'imagenet':
+        num_classes = 1000
     else:
         raise Exception("Invalid Dataset")
     return num_classes
@@ -47,6 +53,18 @@ def get_input_shape(dataset_name : str) -> Tuple[int, int, int]:
         input_height = 64
         input_width = 64
         input_channel = 3
+    elif dataset_name == 'cifar100':
+        input_height = 32
+        input_width = 32
+        input_channel = 3
+    elif dataset_name == 'tiny':
+        input_height = 64
+        input_width = 64
+        input_channel = 3
+    elif dataset_name == 'imagenet':
+        input_height = 224
+        input_width = 224
+        input_channel = 3
     else:
         raise Exception("Invalid Dataset")
     return input_height, input_width, input_channel
@@ -64,7 +82,7 @@ def get_dataset_normalization(dataset_name):
     elif dataset_name == 'tiny':
         dataset_normalization = (transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]))
     elif dataset_name == "gtsrb" or dataset_name == "celeba":
-        dataset_normalization = lambda x : x
+        dataset_normalization = transforms.Normalize([0, 0, 0], [1, 1, 1])
     elif dataset_name == 'imagenet':
         dataset_normalization = (
             transforms.Normalize(
@@ -76,6 +94,33 @@ def get_dataset_normalization(dataset_name):
         raise Exception("Invalid Dataset")
     return dataset_normalization
 
+def get_dataset_denormalization(normalization : transforms.Normalize):
+
+    mean, std =  normalization.mean, normalization.std
+
+    if mean.__len__() == 1:
+        mean = - mean
+    else: # len > 1
+        mean = [-i for i in mean]
+
+    if std.__len__() == 1:
+        std = 1/std
+    else:  # len > 1
+        std = [1/i for i in std]
+
+    # copy from answer in
+    # https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821/3
+    # user: https://discuss.pytorch.org/u/svd3
+
+    invTrans = transforms.Compose([
+        transforms.Normalize(mean=[0., 0., 0.],
+            std=std),
+        transforms.Normalize(mean=mean,
+            std=[1., 1., 1.]),
+    ])
+
+    return invTrans
+
 def get_transform(dataset_name, input_height, input_width,train=True):
     # idea : given name, return the final implememnt transforms for the dataset
     transforms_list = []
@@ -85,6 +130,20 @@ def get_transform(dataset_name, input_height, input_width,train=True):
         # transforms_list.append(transforms.RandomRotation(10))
         if dataset_name == "cifar10":
             transforms_list.append(transforms.RandomHorizontalFlip())
+
+    transforms_list.append(transforms.ToTensor())
+    transforms_list.append(get_dataset_normalization(dataset_name))
+    return transforms.Compose(transforms_list)
+
+def get_transform_self(dataset_name, input_height, input_width,train=True):
+    # idea : given name, return the final implememnt transforms for the dataset during self-supervised learning
+    transforms_list = []
+    transforms_list.append(transforms.Resize((input_height, input_width)))
+    if train:
+        transforms_list.append(transforms.RandomCrop((input_height, input_width), padding=4))
+        transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))
+        transforms_list.append(transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8))
+        transforms_list.append(transforms.RandomGrayscale(p=0.2))
 
     transforms_list.append(transforms.ToTensor())
     transforms_list.append(get_dataset_normalization(dataset_name))

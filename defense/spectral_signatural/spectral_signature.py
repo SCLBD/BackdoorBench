@@ -33,6 +33,7 @@ The update include:
     5. new standard: robust accuracy
     6. use the PyTorch environment instead of TensorFlow
     7. add some addtional backbone such as resnet18 and vgg19
+    8. the poison ratio can also be preset when the data for each category is small
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -139,7 +140,6 @@ def spectral(arg,result):
     model = generate_cls_model(arg.model,arg.num_classes)
     model.load_state_dict(result['model'])
     model.to(arg.device)
-    model.eval()
 
     # Setting up the data and the model
     target_label = arg.target_label
@@ -172,7 +172,10 @@ def spectral(arg,result):
     cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
     cur_examples = len(cur_indices)
     logging.info(f'Label, num ex: {lbl},{cur_examples}' )
+    if cur_examples < num_poisoned_left:
+        num_poisoned_left = int(cur_examples * 0.9)
     
+    model.eval()
     ### b. get the activation as representation for each data
     for iex in trange(cur_examples):
         cur_im = cur_indices[iex]
@@ -284,8 +287,9 @@ def spectral(arg,result):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
     criterion = torch.nn.CrossEntropyLoss() 
     for j in range(arg.epochs):
-        model.train()
+        
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
+            model.train()
             inputs, labels = inputs.to(arg.device), labels.to(arg.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -348,6 +352,11 @@ if __name__ == '__main__':
         args.input_height = 32
         args.input_width = 32
         args.input_channel = 3
+    elif args.dataset == "cifar100":
+        args.num_classes = 100
+        args.input_height = 32
+        args.input_width = 32
+        args.input_channel = 3
     elif args.dataset == "gtsrb":
         args.num_classes = 43
         args.input_height = 32
@@ -384,6 +393,7 @@ if __name__ == '__main__':
     result_defense = spectral(args,result)
 
     ### 4. test the result and get ASR, ACC, RC 
+    result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
     y = result['bd_test']['y']
