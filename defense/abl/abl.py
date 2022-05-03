@@ -176,9 +176,10 @@ def train(args, result):
 
     logging.info('----------- Data Initialization --------------')
 
-    tf_compose = transforms.Compose([
-        transforms.ToTensor()
-    ])
+    # tf_compose = transforms.Compose([
+    #     transforms.ToTensor()
+    # ])
+    tf_compose = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = torch.tensor(nCHW_to_nHWC(result['bd_train']['x'].detach().numpy()))
     y = result['bd_train']['y']
     data_set = torch.utils.data.TensorDataset(x,y)
@@ -546,21 +547,25 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    tf_compose_finetuning = transforms.Compose([
-        # transforms.ToPILImage(),
-        transforms.Resize((opt.input_height, opt.input_width)),
-        transforms.RandomCrop((opt.input_height, opt.input_width), padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        Cutout(1, 3),
-        transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
-    ])
+    # tf_compose_finetuning = transforms.Compose([
+    #     # transforms.ToPILImage(),
+    #     transforms.Resize((opt.input_height, opt.input_width)),
+    #     transforms.RandomCrop((opt.input_height, opt.input_width), padding=4),
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ToTensor(),
+    #     Cutout(1, 3),
+    #     transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
+    # ])
 
-    tf_compose_unlearning = transforms.Compose([
-        # transforms.ToPILImage(),
-        transforms.Resize((opt.input_height, opt.input_width)),
-        transforms.ToTensor()
-    ])
+    tf_compose_finetuning = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
+
+    # tf_compose_unlearning = transforms.Compose([
+    #     # transforms.ToPILImage(),
+    #     transforms.Resize((opt.input_height, opt.input_width)),
+    #     transforms.ToTensor()
+    # ])
+
+    tf_compose_unlearning = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     # poisoned_data_tf = Dataset_npy(full_dataset=isolate_poisoned_data, transform=tf_compose_unlearning)
     poisoned_data_tf =  prepro_cls_DatasetBD(
         full_dataset_without_transform=isolate_poisoned_data,
