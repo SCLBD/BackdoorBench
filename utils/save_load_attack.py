@@ -7,11 +7,14 @@ Note that in default, only the poisoned part of backdoor dataset will be saved t
 
 '''
 import logging
-import torch
+
+
+import torch, os
 from utils.bd_dataset import prepro_cls_DatasetBD
 import numpy as np
 from copy import deepcopy
 from torchvision.transforms import ToTensor, Resize,Compose
+from pprint import pformat
 from typing import Union
 from tqdm import tqdm
 from PIL import Image
@@ -32,32 +35,57 @@ def summary_dict(input_dict):
                 'max':v.max(),
             }
         elif isinstance(v, list):
-            summary_dict_return[k] = {'len':v.__len__()}
+            summary_dict_return[k] = {
+                'len':v.__len__(),
+                'first ten':v[:10],
+                'last ten':v[-10:],
+            }
         else:
             summary_dict_return[k] = v
     return  summary_dict_return
 
-def add_resize_totensor_for_prepro_cls_DatasetBD(given_data: prepro_cls_DatasetBD, resize_list: list):
+def add_resize_and_subset_for_prepro_cls_DatasetBD(
+        given_data: prepro_cls_DatasetBD,
+        resize_list: list,
+        only_bd: bool = False,
+):
     resize_list = resize_list[:2]
+
     resize_bd_totensor = Compose([
         Resize(resize_list),
-        ToTensor(),
-        lambda x: torch.clamp(x, min=0, max=1),
-        lambda x: (x * 255).to(torch.long),
+        # ToTensor(),
+        # lambda x: torch.clamp(x, min=0, max=1),
+        # lambda x: (x * 255).to(torch.long),
     ])
-    all_img_r_t = []
-    for img in tqdm(given_data.data, desc=f'resize and clamp'):
-        img_r_t = resize_bd_totensor(
-            Image.fromarray(img.astype(np.uint8))
-        )
-        all_img_r_t.append(img_r_t[None, ...])
-    all_img_r_t = torch.cat(all_img_r_t, dim=0)
 
-    return all_img_r_t.float().cpu(), \
-           torch.tensor(given_data.targets).long().cpu(), \
+    all_img_r_t = []
+
+    if only_bd:
+        given_data.subset(np.where(np.array(given_data.poison_indicator) == 1)[0]) # only bd samples remain
+
+    for img in tqdm(given_data.data, desc=f'resize'):
+        img_r_t = resize_bd_totensor(
+            img#Image.fromarray(img.astype(np.uint8))
+        )
+        all_img_r_t.append(img_r_t)
+        #all_img_r_t.append(img_r_t[None, ...])
+    # all_img_r_t = torch.cat(all_img_r_t, dim=0)
+
+    return all_img_r_t, \
+           given_data.targets, \
            given_data.original_index, \
            given_data.poison_indicator, \
            given_data.original_targets
+
+def sample_pil_imgs(pil_image_list, save_folder, num = 10,):
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    select_index = np.random.choice(
+        len(pil_image_list),
+        num,
+    )
+    for ii in select_index:
+        pil_image_list[ii].save(f"{save_folder}/{ii}.png")
 
 def save_attack_result(
     model_name : str,
@@ -89,16 +117,11 @@ def save_attack_result(
     '''
 
     if bd_train is not None:
-        bd_train_x, bd_train_y, _, bd_train_poison_indicator, _  = add_resize_totensor_for_prepro_cls_DatasetBD(bd_train, img_size)
-        if bd_train_poison_indicator is not None:
-            bd_train_x, bd_train_y = \
-                bd_train_x[np.where(bd_train_poison_indicator == 1)[0]], \
-                bd_train_y[np.where(bd_train_poison_indicator == 1)[0]],
+        bd_train_x, bd_train_y, bd_train_original_index, bd_train_poison_indicator, bd_train_original_targets  = add_resize_and_subset_for_prepro_cls_DatasetBD(bd_train, img_size, only_bd=True)
     else:
         logging.info('bd_train is set to be None in saving process!')
 
-    bd_test_x, bd_test_y, bd_test_original_index, _, bd_test_original_targets  = add_resize_totensor_for_prepro_cls_DatasetBD(bd_test, img_size)
-    bd_test_original_targets = torch.from_numpy(bd_test_original_targets) if bd_test_original_targets is not None else None
+    bd_test_x, bd_test_y, bd_test_original_index, bd_test_poison_indicator, bd_test_original_targets  = add_resize_and_subset_for_prepro_cls_DatasetBD(bd_test, img_size, only_bd=True)
     
     save_dict = {
             'model_name': model_name,
@@ -114,7 +137,7 @@ def save_attack_result(
             'bd_train': ({
                 'x': bd_train_x,
                 'y': bd_train_y,
-                'original_index' : np.where(bd_train_poison_indicator == 1)[0] if bd_train_poison_indicator is not None else None,
+                'original_index' : bd_train_original_index,
             } if bd_train is not None else {
                 'x': None,
                 'y': None,
@@ -130,7 +153,10 @@ def save_attack_result(
         }
     
     logging.info(f"saving...")
-    logging.info(f"location : {save_path}/attack_result.pt, content summary :{summary_dict(save_dict)}")
+    logging.info(f"location : {save_path}/attack_result.pt, content summary :{pformat(summary_dict(save_dict))}")
+
+    sample_pil_imgs(bd_train_x, f"{save_path}/save_bd_train_samples")
+    sample_pil_imgs(bd_test_x, f"{save_path}/save_bd_test_samples")
     
     torch.save(
         save_dict,
@@ -198,7 +224,7 @@ def load_attack_result(
             add_details_in_preprocess=True,
         )
 
-        clean_train_x, clean_train_y, _,_,_ = add_resize_totensor_for_prepro_cls_DatasetBD(clean_train_ds,  clean_setting.img_size)
+        clean_train_x, clean_train_y, _, _, _ = add_resize_and_subset_for_prepro_cls_DatasetBD(clean_train_ds,  clean_setting.img_size)
 
         clean_test_ds = prepro_cls_DatasetBD(
             test_dataset_without_transform,
@@ -210,29 +236,18 @@ def load_attack_result(
             add_details_in_preprocess=True,
         )
 
-        clean_test_x, clean_test_y, _, _, _ = add_resize_totensor_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
+        clean_test_x, clean_test_y, _, _, _ = add_resize_and_subset_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
 
-        if load_file['bd_train']['x'] is not None and load_file['bd_train']['y'] is not None:
-
-            if load_file['bd_train']['original_index'] is not None:
+        if (load_file['bd_train']['x'] is not None) and (load_file['bd_train']['y'] is not None) and (load_file['bd_train']['original_index'] is not None):
                 bd_train_x = deepcopy(clean_train_x)
-                bd_train_x[load_file['bd_train']['original_index']] = load_file['bd_train']['x']
-
                 bd_train_y = deepcopy(clean_train_y)
-                bd_train_y[load_file['bd_train']['original_index']] = load_file['bd_train']['y']
-            else:
-                bd_train_x = load_file['bd_train']['x']
-                bd_train_y = load_file['bd_train']['y']
-                logging.warning(f"load_file['bd_train']['original_index'] is None")
+                for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
+                    bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
+                    bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
         else:
             bd_train_x = None
             bd_train_y = None
             logging.info('bd_train is None !')
-
-        if load_file['bd_test'].get('original_index') is None:
-            logging.warning(f"load_file['bd_test'] has no original_index, return None instead")
-        if load_file['bd_test'].get('original_targets') is None:
-            logging.warning(f"load_file['bd_test'].get('original_targets') is None")
             
         load_dict = {
                 'model_name': load_file['model_name'],
@@ -262,10 +277,10 @@ def load_attack_result(
                 },
             }
         logging.info(f"loading...")
-        logging.info(f"location : {save_path}, content summary :{summary_dict(load_dict)}")
+        logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_dict))}")
         return load_dict
     
     else:
         logging.info(f"loading...")
-        logging.info(f"location : {save_path}, content summary :{summary_dict(load_file)}")
+        logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_file))}")
         return load_file

@@ -40,7 +40,7 @@ from copy import deepcopy
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 from utils.save_load_attack import save_attack_result
-
+from utils.log_assist import get_git_info
 
 
 def add_args(parser):
@@ -156,6 +156,11 @@ def main():
 
     logging.info(pformat(args.__dict__))
 
+    try:
+        logging.info(pformat(get_git_info()))
+    except:
+        logging.info('Getting git info fails.')
+
     ### set the random seed
     fix_random(int(args.random_seed))
 
@@ -228,7 +233,7 @@ def main():
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
-        to_np_array_before_poison=False,
+        
     )
 
     adv_train_dl = DataLoader(
@@ -254,7 +259,7 @@ def main():
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
-        to_np_array_before_poison=False,
+        
     )
 
     # delete the samples that do not used for ASR test (those non-poisoned samples)
