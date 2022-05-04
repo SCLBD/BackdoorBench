@@ -12,10 +12,29 @@ from typing import *
 
 from copy import deepcopy
 
+class xy_iter(torch.utils.data.dataset.Dataset):
+    def __init__(self,
+             x : Sequence,
+             y : Sequence,
+             transform
+         ):
+        assert len(x) == len(y)
+        self.data = x
+        self.targets = y
+        self.transform = transform
+    def __getitem__(self, item):
+        img = self.data[item]
+        label = self.targets[item]
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, label
+    def __len__(self):
+        return len(self.targets)
+
 class prepro_cls_DatasetBD(torch.utils.data.dataset.Dataset):
 
     def __init__(self,
-                 full_dataset_without_transform: torch.utils.data.dataset.Dataset,
+                 full_dataset_without_transform: Sequence,
                  poison_idx: Sequence,  # one-hot to determine which image may take bd_transform
                  add_details_in_preprocess: Optional[bool] = True,
 

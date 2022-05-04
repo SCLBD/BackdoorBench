@@ -37,9 +37,13 @@ from utils.aggregate_block.dataset_and_transform_generate import get_num_classes
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.save_load_attack import summary_dict
-from utils.trainer_cls import Metric_Aggregator
-from utils.bd_dataset import prepro_cls_DatasetBD
+from utils.trainer_cls import Metric_Aggregator, ModelTrainerCLS
+from utils.bd_dataset import prepro_cls_DatasetBD, xy_iter
+from utils.save_load_attack import save_attack_result, sample_pil_imgs
 
+from copy import deepcopy
+from torchvision.transforms import ToPILImage
+to_pil = ToPILImage()
 
 agg = Metric_Aggregator()
 
@@ -359,7 +363,6 @@ def get_dataloader(opt, train=True, c=0, k=0):
             ori_image_transform_in_loading=train_transform,
             ori_label_transform_in_loading=None,
             add_details_in_preprocess=False,
-            init_with_prepro_backdoor=True,
         )
     else:
         dataset = test_dataset_without_transform
@@ -372,7 +375,6 @@ def get_dataloader(opt, train=True, c=0, k=0):
             ori_image_transform_in_loading=test_transform,
             ori_label_transform_in_loading=None,
             add_details_in_preprocess=False,
-            init_with_prepro_backdoor=True,
         )
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=True
@@ -574,42 +576,93 @@ def eval(
     netC.eval()
     netG.eval()
     logging.info(" Eval:")
-    total = 0.0
 
-    total_correct_clean = 0.0
-    total_correct_bd = 0.0
-    total_correct_cross = 0.0
 
-    for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(test_dl1)), test_dl1, test_dl2):
+    # set shuffle here = False, since other place need randomness to generate cross sample.
+    test_dl1 = torch.utils.data.DataLoader(test_dl1.dataset, batch_size=opt.batchsize,
+                                                      num_workers=opt.num_workers,
+                                                      shuffle=False)
+
+    transforms_reversible = transforms.Compose(
+        list(
+            filter(
+                lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                deepcopy(test_dl1.dataset.ori_image_transform_in_loading.transforms)
+            )
+        )
+    )
+    # get denormalizer
+    for trans_t in deepcopy(test_dl1.dataset.ori_image_transform_in_loading.transforms):
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
+
+    # Notice that due to the fact that we need random sequence to get cross samples
+    # So we set the reversible_test_dl2 with shuffle = True
+    reversible_test_ds1 = deepcopy(test_dl1.dataset)
+    reversible_test_ds1.ori_image_transform_in_loading = transforms_reversible
+    reversible_test_dl1 = torch.utils.data.DataLoader(reversible_test_ds1, batch_size=opt.batchsize, num_workers=opt.num_workers,
+                                                     shuffle=False)
+
+    reversible_test_ds2 = deepcopy(test_dl1.dataset)
+    reversible_test_ds2.ori_image_transform_in_loading = transforms_reversible
+    reversible_test_dl2 = torch.utils.data.DataLoader(reversible_test_ds2, batch_size=opt.batchsize,
+                                                      num_workers=opt.num_workers,
+                                                      shuffle=True)
+
+    x_poison, y_poison = [], []
+    x_cross, y_cross = [], []
+
+    for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(reversible_test_dl1)), reversible_test_dl1, reversible_test_dl2):
         with torch.no_grad():
             inputs1, targets1 = inputs1.to(opt.device), targets1.to(opt.device)
             inputs2, targets2 = inputs2.to(opt.device), targets2.to(opt.device)
             bs = inputs1.shape[0]
 
-            preds_clean = netC(inputs1)
-            correct_clean = torch.sum(torch.argmax(preds_clean, 1) == targets1)
-            total_correct_clean += correct_clean
-
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
 
-            preds_bd = netC(inputs_bd)
-            correct_bd = torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
-            total_correct_bd += correct_bd
-
             inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
-            preds_cross = netC(inputs_cross)
-            correct_cross = torch.sum(torch.argmax(preds_cross, 1) == targets1)
-            total_correct_cross += correct_cross
 
-            total += bs
-            avg_acc_clean = total_correct_clean  / total
-            avg_acc_cross = total_correct_cross  / total
-            avg_acc_bd = total_correct_bd  / total
+            x_poison += ([to_pil(denormalizer(t_img)) for (t_img) in inputs_bd.detach().clone().cpu()])
+            y_poison += targets_bd.detach().clone().cpu().tolist()
 
-            infor_string = "Clean Accuracy: {:.3f} | Backdoor Accuracy: {:.3f} | Cross Accuracy: {:3f}".format(
-                avg_acc_clean, avg_acc_bd, avg_acc_cross
-            )
-            progress_bar(batch_idx, len(test_dl1), infor_string)
+            x_cross += ([to_pil(denormalizer(t_img)) for t_img in inputs_cross.detach().clone().cpu()])
+            y_cross += (targets.detach().clone().cpu().tolist())
+
+    poison_test_ds = xy_iter(x_poison, y_poison, deepcopy(test_dl1.dataset.ori_image_transform_in_loading))
+    poison_test_dl = torch.utils.data.DataLoader(poison_test_ds, batch_size=opt.batchsize, num_workers=opt.num_workers,
+                                                 shuffle=False)
+
+    cross_test_ds = xy_iter(x_cross, y_cross, deepcopy(test_dl1.dataset.ori_image_transform_in_loading))
+    cross_test_dl = torch.utils.data.DataLoader(cross_test_ds, batch_size=opt.batchsize, num_workers=opt.num_workers,
+                                                shuffle=False)
+
+    trainer = ModelTrainerCLS(netC)
+    trainer.criterion = torch.nn.CrossEntropyLoss()
+
+    if epoch == 1 or epoch % (opt.epochs//10) == ((opt.epochs//10)-1):
+        sample_pil_imgs(test_dl1.dataset.data, f"{opt.save_path}/test_dl_{epoch}_samples")
+        sample_pil_imgs(poison_test_dl.dataset.data, f"{opt.save_path}/poison_test_dl_{epoch}_samples")
+        sample_pil_imgs(cross_test_dl.dataset.data, f"{opt.save_path}/cross_test_dl_{epoch}_samples")
+
+    clean_test_metric = trainer.test(
+        test_dl1, device=opt.device
+    )
+    avg_acc_clean = clean_test_metric['test_correct'] / clean_test_metric['test_total']
+
+    poison_test_metric = trainer.test(
+        poison_test_dl, device=opt.device
+    )
+    avg_acc_bd = poison_test_metric['test_correct'] / poison_test_metric['test_total']
+
+    cross_test_metric = trainer.test(
+        cross_test_dl, device=opt.device
+    )
+    avg_acc_cross = cross_test_metric['test_correct'] / cross_test_metric['test_total']
+
+    logging.info(
+            f"epoch:{epoch}, acc_clean:{avg_acc_clean},  acc_bd:{avg_acc_bd},  acc_cross:{avg_acc_cross}"
+        )
 
     logging.info(" Saving!!")
 
@@ -627,6 +680,7 @@ def eval(
         "epoch": epoch,
         "opt": opt,
     }
+
     ckpt_folder = os.path.join(opt.checkpoints, opt.dataset, opt.attack_mode)
     if not os.path.exists(ckpt_folder):
         os.makedirs(ckpt_folder)
@@ -875,6 +929,7 @@ def train(opt):
     train_dl2 = torch.utils.data.DataLoader(
         train_dl2.dataset, batch_size=opt.batchsize, num_workers=opt.num_workers, shuffle=True) # true since only the first one decide the order.
     one_hot_original_index = []
+    original_targets = []
     bd_input = []
     bd_targets = []
     netC.eval()
@@ -899,9 +954,9 @@ def train(opt):
             inputs1[num_bd : num_bd + num_cross], inputs2[num_bd : num_bd + num_cross], netG, netM, opt
         )
         if num_bd > 0:
-            inputs_bd = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_bd])
+            inputs_bd = torch.cat([denormalizer(img)[None, ...] for img in inputs_bd])
         if num_cross > 0:
-            inputs_cross = torch.cat([denormalizer(img)[None, ...]*255 for img in inputs_cross])
+            inputs_cross = torch.cat([denormalizer(img)[None, ...] for img in inputs_cross])
 
         inputs_bd_cpu, inputs_cross_cpu = inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()
         targets_bd_cpu, targets1_cpu =  targets_bd.detach().clone().cpu(), targets1.detach().clone().cpu()
@@ -909,14 +964,38 @@ def train(opt):
         one_hot = np.zeros(bs)
         one_hot[:(num_bd + num_cross)] = 1
         one_hot_original_index.append(one_hot)
+        original_targets += ((targets1.detach().clone().cpu())[: (num_bd + num_cross)]).tolist()
         bd_input.append(torch.cat([inputs_bd_cpu, inputs_cross_cpu], dim=0))
         bd_targets.append(torch.cat([targets_bd_cpu, targets1_cpu[num_bd: (num_bd + num_cross)]], dim=0))
 
-    bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
-    bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
+    bd_train_x = [to_pil(t_img) for t_img in torch.cat(bd_input, dim=0).float().cpu()]
+    bd_train_y = torch.cat(bd_targets, dim=0).long().cpu().numpy()
     train_poison_indicator = np.concatenate(one_hot_original_index)
     bd_train_original_index = np.where(train_poison_indicator == 1)[
         0] if train_poison_indicator is not None else None
+
+    bd_train_for_save = prepro_cls_DatasetBD(
+        full_dataset_without_transform=list(zip(bd_train_x, bd_train_y)),
+        poison_idx=np.ones_like(bd_train_y),
+        add_details_in_preprocess=True,
+        clean_image_pre_transform=None,
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        end_pre_process=None,
+        ori_image_transform_in_loading=None,
+        ori_label_transform_in_loading=None,
+    )
+    bd_train_for_save.original_targets = np.array(original_targets)
+    bd_train_for_save.original_index = np.array(bd_train_original_index)
+    bd_train_for_save.dataset = None
+
+    print(
+        # bd_train_for_save.data,
+        bd_train_for_save.poison_indicator,
+        bd_train_for_save.original_index,
+        bd_train_for_save.original_targets,
+        bd_train_for_save.targets,
+    )
 
     test_dl1.dataset.ori_image_transform_in_loading = transforms.Compose(list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
                                          test_dl1.dataset.ori_image_transform_in_loading.transforms)))
@@ -949,7 +1028,7 @@ def train(opt):
             bs = inputs1.shape[0]
 
             inputs_bd, targets_bd, _, _,  position_changed, targets = create_bd(inputs1, targets1, netG, netM, opt, 'test')
-            inputs_bd = torch.cat([denormalizer(img)[None, ...] *255 for img in inputs_bd])
+            inputs_bd = torch.cat([denormalizer(img)[None, ...]  for img in inputs_bd])
 
             # inputs_cross, _, _ = create_cross(inputs1, inputs2, netG, netM, opt)
 
@@ -963,42 +1042,77 @@ def train(opt):
             test_bd_poison_indicator.append(position_changed)
             test_bd_origianl_targets.append(targets_cpu)
 
-    bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
-    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
+    bd_test_x = [to_pil(t_img) for t_img in torch.cat(test_bd_input, dim=0).float().cpu()]
+    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu().numpy()
     test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim=0).long().cpu().numpy())[0]
     test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
     test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
-    final_save_dict = {
-            'model_name': opt.model,
-            'num_classes': opt.num_classes,
-            'model': netC.cpu().state_dict(),
-
-            'data_path': opt.dataset_path,
-            'img_size': (opt.input_height, opt.input_width, opt.input_channel),
-
-            'clean_data': opt.dataset,
-
-            'bd_train': ({
-                'x': bd_train_x,
-                'y': bd_train_y,
-                'original_index': bd_train_original_index ,
-            }),
-
-            'bd_test': {
-                'x': bd_test_x,
-                'y': bd_test_y,
-                'original_index': test_bd_origianl_index,
-                'original_targets': test_bd_origianl_targets,
-            },
-        }
-
-    logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
-    torch.save(
-        final_save_dict,
-
-        f'{opt.save_path}/attack_result.pt',
+    bd_test_for_save = prepro_cls_DatasetBD(
+        full_dataset_without_transform=list(zip(bd_test_x, bd_test_y)),
+        poison_idx=np.ones_like(bd_test_y),
+        add_details_in_preprocess=True,
+        clean_image_pre_transform=None,
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        end_pre_process=None,
+        ori_image_transform_in_loading=None,
+        ori_label_transform_in_loading=None,
     )
+    bd_test_for_save.dataset = None
+    bd_test_for_save.original_index = np.array(test_bd_origianl_index)
+    bd_test_for_save.original_targets = np.array(test_bd_origianl_targets)
+
+    print(
+        # bd_test_for_save.data,
+        bd_test_for_save.poison_indicator,
+        bd_test_for_save.original_index,
+        bd_test_for_save.original_targets,
+        bd_test_for_save.targets,
+    )
+
+    save_attack_result(
+        model_name=opt.model,
+        num_classes=opt.num_classes,
+        model=netC.cpu().state_dict(),
+        data_path=opt.dataset_path,
+        img_size=(opt.input_height, opt.input_width, opt.input_channel),
+        clean_data=opt.dataset,
+        bd_train=bd_train_for_save,
+        bd_test=bd_test_for_save,
+        save_path=f'{opt.save_path}',
+    )
+
+    # final_save_dict = {
+    #         'model_name': opt.model,
+    #         'num_classes': opt.num_classes,
+    #         'model': netC.cpu().state_dict(),
+    #
+    #         'data_path': opt.dataset_path,
+    #         'img_size': (opt.input_height, opt.input_width, opt.input_channel),
+    #
+    #         'clean_data': opt.dataset,
+    #
+    #         'bd_train': ({
+    #             'x': bd_train_x,
+    #             'y': bd_train_y,
+    #             'original_index': bd_train_original_index ,
+    #         }),
+    #
+    #         'bd_test': {
+    #             'x': bd_test_x,
+    #             'y': bd_test_y,
+    #             'original_index': test_bd_origianl_index,
+    #             'original_targets': test_bd_origianl_targets,
+    #         },
+    #     }
+    #
+    # logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
+    # torch.save(
+    #     final_save_dict,
+    #
+    #     f'{opt.save_path}/attack_result.pt',
+    # )
 
 def get_arguments():
     parser = argparse.ArgumentParser()
