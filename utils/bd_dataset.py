@@ -18,7 +18,7 @@ class xy_iter(torch.utils.data.dataset.Dataset):
              y : Sequence,
              transform
          ):
-        assert len(self.data) == len(self.targets)
+        assert len(x) == len(y)
         self.data = x
         self.targets = y
         self.transform = transform
