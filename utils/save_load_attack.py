@@ -77,13 +77,15 @@ def add_resize_and_subset_for_prepro_cls_DatasetBD(
            given_data.poison_indicator, \
            given_data.original_targets
 
-def sample_pil_imgs(pil_image_list, save_folder, num = 10,):
+def sample_pil_imgs(pil_image_list, save_folder, num = 5,):
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
+
     select_index = np.random.choice(
         len(pil_image_list),
         num,
-    )
+    ).tolist() + np.arange(num).tolist() + np.arange(len(pil_image_list) - num, len(pil_image_list)).tolist()
+
     for ii in select_index:
         pil_image_list[ii].save(f"{save_folder}/{ii}.png")
 

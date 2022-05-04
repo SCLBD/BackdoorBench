@@ -43,14 +43,18 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from pprint import pformat
+from copy import deepcopy
+from torchvision.transforms import ToPILImage
+to_pil = ToPILImage()
 
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.save_path_generate import generate_save_folder
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, dataset_and_transform_generate, get_dataset_denormalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.save_load_attack import summary_dict
-from utils.trainer_cls import Metric_Aggregator
-from utils.bd_dataset import prepro_cls_DatasetBD
+from utils.trainer_cls import Metric_Aggregator, ModelTrainerCLS
+from utils.bd_dataset import prepro_cls_DatasetBD, xy_iter
+from utils.save_load_attack import save_attack_result, sample_pil_imgs
 
 agg = Metric_Aggregator()
 
@@ -233,7 +237,6 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
             ori_image_transform_in_loading=train_transform,
             ori_label_transform_in_loading=None,
             add_details_in_preprocess=False,
-            init_with_prepro_backdoor=True,
         )
     else:
         dataset = test_dataset_without_transform
@@ -246,10 +249,10 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
             ori_image_transform_in_loading = test_transform,
             ori_label_transform_in_loading = None,
             add_details_in_preprocess = False,
-            init_with_prepro_backdoor = True,
         )
 
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=train)
+
     return dataloader
 
 
@@ -471,7 +474,7 @@ def eval(
         netC,
         optimizerC,
         schedulerC,
-        test_dl,
+        test_dls,
         noise_grid,
         identity_grid,
         best_clean_acc,
@@ -481,67 +484,91 @@ def eval(
         epoch,
         opt,
 ):
-    logging.info(" Eval:")
-    netC.eval()
+    (test_dl, poison_test_dl, cross_test_dl) = test_dls
+    trainer = ModelTrainerCLS(netC)
+    trainer.criterion = torch.nn.CrossEntropyLoss()
 
-    total_sample = 0
-    total_clean_correct = 0
-    total_bd_correct = 0
-    total_cross_correct = 0
-    total_ae_loss = 0
+    clean_test_metric = trainer.test(
+        test_dl, device=opt.device
+    )
+    acc_clean = clean_test_metric['test_correct'] / clean_test_metric['test_total']
 
-    criterion_BCE = torch.nn.BCELoss()
+    poison_test_metric = trainer.test(
+        poison_test_dl, device=opt.device
+    )
+    acc_bd = poison_test_metric['test_correct'] / poison_test_metric['test_total']
 
-    for batch_idx, (inputs, targets) in enumerate(test_dl):
-        with torch.no_grad():
-            inputs, targets = inputs.to(opt.device), targets.to(opt.device)
-            bs = inputs.shape[0]
-            total_sample += bs
+    if opt.cross_ratio and cross_test_dl is not None:
+        cross_test_metric = trainer.test(
+            cross_test_dl, device=opt.device
+        )
+        acc_cross = cross_test_metric['test_correct'] / cross_test_metric['test_total']
+        logging.info(f"epoch:{epoch}, acc_clean:{acc_clean}, best_clean_acc:{best_clean_acc}, acc_bd:{acc_bd}, best_bd_acc:{best_bd_acc}, acc_cross:{acc_cross}, best_cross_acc:{best_cross_acc}")
+    else:
+        logging.info(
+            f"epoch:{epoch}, acc_clean:{acc_clean}, best_clean_acc:{best_clean_acc}, acc_bd:{acc_bd}, best_bd_acc:{best_bd_acc}")
 
-            # Evaluate Clean
-            preds_clean = netC(inputs)
-            total_clean_correct += torch.sum(torch.argmax(preds_clean, 1) == targets)
-
-            # Evaluate Backdoor
-            grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
-            grid_temps = torch.clamp(grid_temps, -1, 1)
-
-            ins = torch.rand(bs, opt.input_height, opt.input_height, 2).to(opt.device) * 2 - 1
-            grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
-            grid_temps2 = torch.clamp(grid_temps2, -1, 1)
-
-            inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
-            if opt.attack_mode == "all2one":
-                position_changed = (
-                            opt.target_label != targets)  # since if label does not change, then cannot tell if the poison is effective or not.
-                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
-                inputs_bd = inputs_bd[position_changed]
-            if opt.attack_mode == "all2all":
-                targets_bd = torch.remainder(targets, opt.num_classes)
-            preds_bd = netC(inputs_bd)
-            total_bd_correct += torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
-
-            acc_clean = total_clean_correct  / total_sample
-            acc_bd = total_bd_correct  / total_sample
-
-            # Evaluate cross
-            if opt.cross_ratio:
-                inputs_cross = F.grid_sample(inputs, grid_temps2, align_corners=True)
-                preds_cross = netC(inputs_cross)
-                total_cross_correct += torch.sum(torch.argmax(preds_cross, 1) == targets)
-
-                acc_cross = total_cross_correct  / total_sample
-
-                info_string = (
-                    "Clean Acc: {:.4f} - Best: {:.4f} | Bd Acc: {:.4f} - Best: {:.4f} | Cross: {:.4f}".format(
-                        acc_clean, best_clean_acc, acc_bd, best_bd_acc, acc_cross, best_cross_acc
-                    )
-                )
-            else:
-                info_string = "Clean Acc: {:.4f} - Best: {:.4f} | Bd Acc: {:.4f} - Best: {:.4f}".format(
-                    acc_clean, best_clean_acc, acc_bd, best_bd_acc
-                )
-            progress_bar(batch_idx, len(test_dl), info_string)
+    # logging.info(" Eval:")
+    # netC.eval()
+    #
+    # total_sample = 0
+    # total_clean_correct = 0
+    # total_bd_correct = 0
+    # total_cross_correct = 0
+    # total_ae_loss = 0
+    #
+    # criterion_BCE = torch.nn.BCELoss()
+    #
+    # for batch_idx, (inputs, targets) in enumerate(test_dl):
+    #     with torch.no_grad():
+    #         inputs, targets = inputs.to(opt.device), targets.to(opt.device)
+    #         bs = inputs.shape[0]
+    #         total_sample += bs
+    #
+    #         # Evaluate Clean
+    #         preds_clean = netC(inputs)
+    #         total_clean_correct += torch.sum(torch.argmax(preds_clean, 1) == targets)
+    #
+    #         # Evaluate Backdoor
+    #         grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
+    #         grid_temps = torch.clamp(grid_temps, -1, 1)
+    #
+    #         ins = torch.rand(bs, opt.input_height, opt.input_height, 2).to(opt.device) * 2 - 1
+    #         grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
+    #         grid_temps2 = torch.clamp(grid_temps2, -1, 1)
+    #
+    #         inputs_bd = F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True)
+    #         if opt.attack_mode == "all2one":
+    #             position_changed = (
+    #                         opt.target_label != targets)  # since if label does not change, then cannot tell if the poison is effective or not.
+    #             targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+    #             inputs_bd = inputs_bd[position_changed]
+    #         if opt.attack_mode == "all2all":
+    #             targets_bd = torch.remainder(targets, opt.num_classes)
+    #         preds_bd = netC(inputs_bd)
+    #         total_bd_correct += torch.sum(torch.argmax(preds_bd, 1) == targets_bd)
+    #
+    #         acc_clean = total_clean_correct  / total_sample
+    #         acc_bd = total_bd_correct  / total_sample
+    #
+    #         # Evaluate cross
+    #         if opt.cross_ratio:
+    #             inputs_cross = F.grid_sample(inputs, grid_temps2, align_corners=True)
+    #             preds_cross = netC(inputs_cross)
+    #             total_cross_correct += torch.sum(torch.argmax(preds_cross, 1) == targets)
+    #
+    #             acc_cross = total_cross_correct  / total_sample
+    #
+    #             info_string = (
+    #                 "Clean Acc: {:.4f} - Best: {:.4f} | Bd Acc: {:.4f} - Best: {:.4f} | Cross: {:.4f}".format(
+    #                     acc_clean, best_clean_acc, acc_bd, best_bd_acc, acc_cross, best_cross_acc
+    #                 )
+    #             )
+    #         else:
+    #             info_string = "Clean Acc: {:.4f} - Best: {:.4f} | Bd Acc: {:.4f} - Best: {:.4f}".format(
+    #                 acc_clean, best_clean_acc, acc_bd, best_bd_acc
+    #             )
+    #         progress_bar(batch_idx, len(test_dl), info_string)
 
     # tensorboard
     if not epoch % 1:
@@ -570,9 +597,9 @@ def eval(
         torch.save(state_dict, opt.ckpt_path)
         with open(os.path.join(opt.ckpt_folder, "results.txt"), "w+") as f:
             results_dict = {
-                "clean_acc": best_clean_acc.item(),
-                "bd_acc": best_bd_acc.item(),
-                "cross_acc": best_cross_acc.item(),
+                "clean_acc": best_clean_acc,
+                "bd_acc": best_bd_acc,
+                "cross_acc": best_cross_acc,
             }
             json.dump(results_dict, f, indent=2)
 
@@ -580,7 +607,6 @@ def eval(
         return best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, acc_cross
     else:
         return best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, 0
-
 
 def main():
 
@@ -695,6 +721,79 @@ def main():
 
     logging.info(pformat(opt.__dict__))#set here since the opt change once.
 
+    ### generate the dataloaders for eval
+
+    # filter out transformation that not reversible
+    transforms_reversible = transforms.Compose(
+        list(
+            filter(
+                lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                deepcopy(test_dl.dataset.ori_image_transform_in_loading.transforms)
+            )
+        )
+    )
+    # get denormalizer
+    for trans_t in deepcopy(test_dl.dataset.ori_image_transform_in_loading.transforms):
+        if isinstance(trans_t, transforms.Normalize):
+            denormalizer = get_dataset_denormalization(trans_t)
+            logging.info(f"{denormalizer}")
+
+    reversible_test_ds = deepcopy(test_dl.dataset)
+    reversible_test_ds.ori_image_transform_in_loading = transforms_reversible
+
+    reversible_test_dl = torch.utils.data.DataLoader(reversible_test_ds, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+
+    x_poison, y_poison = [], []
+    if opt.cross_ratio:
+        x_cross, y_cross = [], []
+
+    for batch_idx, (inputs, targets) in enumerate(reversible_test_dl):
+        with torch.no_grad():
+            inputs, targets = inputs.to(opt.device), targets.to(opt.device)
+            bs = inputs.shape[0]
+
+            # Evaluate Backdoor
+            grid_temps = (identity_grid + opt.s * noise_grid / opt.input_height) * opt.grid_rescale
+            grid_temps = torch.clamp(grid_temps, -1, 1)
+
+            ins = torch.rand(bs, opt.input_height, opt.input_height, 2).to(opt.device) * 2 - 1
+            grid_temps2 = grid_temps.repeat(bs, 1, 1, 1) + ins / opt.input_height
+            grid_temps2 = torch.clamp(grid_temps2, -1, 1)
+
+            inputs_bd = denormalizer(F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True))
+
+            if opt.attack_mode == "all2one":
+                position_changed = (
+                            opt.target_label != targets)  # since if label does not change, then cannot tell if the poison is effective or not.
+                targets_bd = (torch.ones_like(targets) * opt.target_label)[position_changed]
+                inputs_bd = inputs_bd[position_changed]
+            if opt.attack_mode == "all2all":
+                targets_bd = torch.remainder(targets, opt.num_classes)
+
+            x_poison += ([to_pil(t_img) for t_img in inputs_bd.detach().clone().cpu()])
+            y_poison += targets_bd.detach().clone().cpu().tolist()
+
+            # Evaluate cross
+            if opt.cross_ratio:
+                inputs_cross = denormalizer(F.grid_sample(inputs, grid_temps2, align_corners=True))
+                x_cross +=  ([to_pil(t_img) for t_img in inputs_cross.detach().clone().cpu()])
+                y_cross += (targets.detach().clone().cpu().tolist())
+
+    poison_test_ds = xy_iter(x_poison, y_poison, deepcopy(test_dl.dataset.ori_image_transform_in_loading))
+    poison_test_dl = torch.utils.data.DataLoader(poison_test_ds, batch_size=opt.bs, num_workers=opt.num_workers,
+                                                 shuffle=False)
+    if opt.cross_ratio:
+        cross_test_ds = xy_iter(x_cross, y_cross, deepcopy(test_dl.dataset.ori_image_transform_in_loading))
+        cross_test_dl = torch.utils.data.DataLoader(cross_test_ds, batch_size=opt.bs, num_workers=opt.num_workers,
+                                                    shuffle=False)
+    else:
+        cross_test_dl = None
+
+    test_dls = (test_dl, poison_test_dl, cross_test_dl)
+    sample_pil_imgs(test_dl.dataset.data, f"{save_path}/test_dl_samples")
+    sample_pil_imgs(poison_test_dl.dataset.data, f"{save_path}/poison_test_dl_samples")
+    sample_pil_imgs(cross_test_dl.dataset.data, f"{save_path}/cross_test_dl_samples")
+
     logging.warning(f"acc_cross and best_cross_acc may be 0 if no cross sample are used !!!!")
 
     ### 5. training with backdoor modification simultaneously
@@ -705,7 +804,7 @@ def main():
             netC,
             optimizerC,
             schedulerC,
-            test_dl,
+            test_dls,
             noise_grid,
             identity_grid,
             best_clean_acc,
@@ -730,6 +829,9 @@ def main():
 
     train_dl = torch.utils.data.DataLoader(
         train_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    train_dl.dataset.ori_image_transform_in_loading = transforms.Compose(
+        list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                    train_dl.dataset.ori_image_transform_in_loading.transforms)))
     for trans_t in train_dl.dataset.ori_image_transform_in_loading.transforms:
         if isinstance(trans_t, transforms.Normalize):
             denormalizer = get_dataset_denormalization(trans_t)
@@ -738,6 +840,7 @@ def main():
     one_hot_original_index = []
     bd_input = []
     bd_targets = []
+    original_targets = []
 
     netC.eval()
     netC.to(opt.device)
@@ -758,7 +861,7 @@ def main():
 
         inputs_bd = (F.grid_sample(inputs[:num_bd], grid_temps.repeat(num_bd, 1, 1, 1), align_corners=True))
         if num_bd > 0:
-            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+            inputs_bd = torch.cat([denormalizer(img)[None,...] for img in inputs_bd])
 
         if opt.attack_mode == "all2one":
             targets_bd = torch.ones_like(targets[:num_bd]) * opt.target_label
@@ -771,21 +874,48 @@ def main():
 
         inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
         if num_cross > 0:
-            inputs_cross = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_cross])
+            inputs_cross = torch.cat([denormalizer(img)[None,...] for img in inputs_cross])
 
         # no transform !
+        original_targets += ((targets.detach().clone().cpu())[: (num_bd + num_cross)]).tolist()
         bd_input.append(torch.cat([inputs_bd.detach().clone().cpu(), inputs_cross.detach().clone().cpu()], dim=0))
         bd_targets.append(torch.cat([targets_bd.detach().clone().cpu(), (targets.detach().clone().cpu())[num_bd: (num_bd + num_cross)]], dim=0))
 
-    bd_train_x = torch.cat(bd_input, dim=0).float().cpu()
-    bd_train_y = torch.cat(bd_targets, dim=0).long().cpu()
+    bd_train_x = [to_pil(t_img) for t_img in torch.cat(bd_input, dim=0).float().cpu()]
+    bd_train_y = torch.cat(bd_targets, dim=0).long().cpu().numpy()
     train_poison_indicator = np.concatenate(one_hot_original_index)
     bd_train_original_index = np.where(train_poison_indicator == 1)[
                     0] if train_poison_indicator is not None else None
     logging.warning('Here the bd and cross samples are all saved in attack_result!!!!')
 
+    bd_train_for_save = prepro_cls_DatasetBD(
+        full_dataset_without_transform = list(zip(bd_train_x, bd_train_y)),
+        poison_idx = np.ones_like(bd_train_y),
+        add_details_in_preprocess = True,
+        clean_image_pre_transform = None,
+        bd_image_pre_transform = None,
+        bd_label_pre_transform = None,
+        end_pre_process = None,
+        ori_image_transform_in_loading = None,
+        ori_label_transform_in_loading = None,
+    )
+    bd_train_for_save.original_targets = np.array(original_targets)
+    bd_train_for_save.original_index = np.array(bd_train_original_index)
+    bd_train_for_save.dataset = None
+
+    print(
+        # bd_train_for_save.data,
+        bd_train_for_save.poison_indicator,
+        bd_train_for_save.original_index,
+        bd_train_for_save.original_targets,
+        bd_train_for_save.targets,
+    )
+
     test_dl = torch.utils.data.DataLoader(
         test_dl.dataset, batch_size=opt.bs, num_workers=opt.num_workers, shuffle=False)
+    test_dl.dataset.ori_image_transform_in_loading = transforms.Compose(
+        list(filter(lambda x: isinstance(x, (transforms.Normalize, transforms.Resize, transforms.ToTensor)),
+                    test_dl.dataset.ori_image_transform_in_loading.transforms)))
     for trans_t in test_dl.dataset.ori_image_transform_in_loading.transforms:
         if isinstance(trans_t, transforms.Normalize):
             denormalizer = get_dataset_denormalization(trans_t)
@@ -813,7 +943,7 @@ def main():
             grid_temps2 = torch.clamp(grid_temps2, -1, 1)
 
             inputs_bd = (F.grid_sample(inputs, grid_temps.repeat(bs, 1, 1, 1), align_corners=True))
-            inputs_bd = torch.cat([denormalizer(img)[None,...]*255 for img in inputs_bd])
+            inputs_bd = torch.cat([denormalizer(img)[None,...] for img in inputs_bd])
 
             if opt.attack_mode == "all2one":
 
@@ -836,42 +966,77 @@ def main():
             test_bd_input.append((inputs_bd.detach().clone().cpu()))
             test_bd_targets.append(targets_bd.detach().clone().cpu())
 
-    bd_test_x = torch.cat(test_bd_input, dim=0).float().cpu()
-    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu()
+    bd_test_x = [to_pil(t_img) for t_img in torch.cat(test_bd_input, dim=0).float().cpu()]
+    bd_test_y = torch.cat(test_bd_targets, dim=0).long().cpu().numpy()
     test_bd_origianl_index = np.where(torch.cat(test_bd_poison_indicator, dim = 0).long().cpu().numpy())[0]
     test_bd_origianl_targets = torch.cat(test_bd_origianl_targets, dim=0).long().cpu()
     test_bd_origianl_targets = test_bd_origianl_targets[test_bd_origianl_index]
 
-    final_save_dict = {
-            'model_name': opt.model,
-            'num_classes': opt.num_classes,
-            'model': netC.cpu().state_dict(),
-
-            'data_path': opt.dataset_path,
-            'img_size': (opt.input_height, opt.input_width, opt.input_channel),
-
-            'clean_data': opt.dataset,
-
-            'bd_train': ({
-                'x': bd_train_x,
-                'y': bd_train_y,
-                'original_index': bd_train_original_index,
-            }),
-
-            'bd_test': {
-                'x': bd_test_x,
-                'y': bd_test_y,
-                'original_index': test_bd_origianl_index,
-                'original_targets': test_bd_origianl_targets,
-            },
-        }
-
-    logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
-
-    torch.save(
-        final_save_dict,
-        f'{save_path}/attack_result.pt',
+    bd_test_for_save = prepro_cls_DatasetBD(
+        full_dataset_without_transform=list(zip(bd_test_x, bd_test_y)),
+        poison_idx=np.ones_like(bd_test_y),
+        add_details_in_preprocess=True,
+        clean_image_pre_transform=None,
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        end_pre_process=None,
+        ori_image_transform_in_loading=None,
+        ori_label_transform_in_loading=None,
     )
+    bd_test_for_save.dataset = None
+    bd_test_for_save.original_index = np.array(test_bd_origianl_index)
+    bd_test_for_save.original_targets = np.array(test_bd_origianl_targets)
+
+    print(
+        # bd_test_for_save.data,
+        bd_test_for_save.poison_indicator,
+        bd_test_for_save.original_index,
+        bd_test_for_save.original_targets,
+        bd_test_for_save.targets,
+    )
+
+    save_attack_result(
+        model_name = opt.model,
+        num_classes = opt.num_classes,
+        model = netC.cpu().state_dict(),
+        data_path = opt.dataset_path,
+        img_size = (opt.input_height, opt.input_width, opt.input_channel),
+        clean_data = opt.dataset,
+        bd_train = bd_train_for_save,
+        bd_test = bd_test_for_save,
+        save_path = f'{save_path}',
+    )
+
+    # final_save_dict = {
+    #         'model_name': opt.model,
+    #         'num_classes': opt.num_classes,
+    #         'model': netC.cpu().state_dict(),
+    #
+    #         'data_path': opt.dataset_path,
+    #         'img_size': (opt.input_height, opt.input_width, opt.input_channel),
+    #
+    #         'clean_data': opt.dataset,
+    #
+    #         'bd_train': ({
+    #             'x': bd_train_x,
+    #             'y': bd_train_y,
+    #             'original_index': bd_train_original_index,
+    #         }),
+    #
+    #         'bd_test': {
+    #             'x': bd_test_x,
+    #             'y': bd_test_y,
+    #             'original_index': test_bd_origianl_index,
+    #             'original_targets': test_bd_origianl_targets,
+    #         },
+    #     }
+    #
+    # logging.info(f"save dict summary : {summary_dict(final_save_dict)}")
+    #
+    # torch.save(
+    #     final_save_dict,
+    #     f'{save_path}/attack_result.pt',
+    # )
 
     torch.save(opt.__dict__, save_path + '/info.pickle')
 
