@@ -408,7 +408,7 @@ def nad(arg, result, config):
     ran_idx = choose_index(args, data_all_length) 
     log_index = os.getcwd() + args.log + 'index.txt'
     np.savetxt(log_index,ran_idx, fmt='%d')
-    data_clean_train = list(zip(x[ran_idx],y[ran_idx]))
+    data_clean_train = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
     data_clean_trainset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_train,
         poison_idx=np.zeros(len(data_clean_train)),  # one-hot to determine which image may take bd_transform

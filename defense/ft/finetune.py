@@ -216,7 +216,7 @@ def ft(args,result,config):
     ran_idx = choose_index(args, data_all_length) 
     log_index = os.getcwd() + args.log + 'index.txt'
     np.savetxt(log_index, ran_idx, fmt='%d')
-    data_set = list(zip(x[ran_idx],y[ran_idx]))
+    data_set = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_set,
         poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform

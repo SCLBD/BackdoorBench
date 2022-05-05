@@ -212,7 +212,7 @@ def spectral(arg,result):
                 outs.append(out.data)
             hook = model.avgpool.register_forward_hook(layer_hook)
             _ = model(x_batch)
-            activations = outs[0].view(outs[0].size(0), -1)
+            batch_grads = outs[0].view(outs[0].size(0), -1)
             hook.remove()
         elif arg.model == 'densenet161':
             inps,outs = [],[]
@@ -221,7 +221,7 @@ def spectral(arg,result):
             hook = model.features.register_forward_hook(layer_hook)
             _ = model(x_batch)
             outs[0] = torch.nn.functional.relu(outs[0])
-            activations = outs[0].view(outs[0].size(0), -1)
+            batch_grads = outs[0].view(outs[0].size(0), -1)
             hook.remove()
         elif arg.model == 'efficientnet_b3':
             inps,outs = [],[]
@@ -229,7 +229,7 @@ def spectral(arg,result):
                 outs.append(out.data)
             hook = model.avgpool.register_forward_hook(layer_hook)
             _ = model(x_batch)
-            activations = outs[0].view(outs[0].size(0), -1)
+            batch_grads = outs[0].view(outs[0].size(0), -1)
             hook.remove()
         
         if iex==0:

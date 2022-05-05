@@ -156,9 +156,9 @@ def fp(args, result , config):
     criterion = nn.CrossEntropyLoss()
     # Prepare dataloader and check initial acc_clean and acc_bd
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_train']['x'].detach().numpy()))
+    x = result['bd_train']['x']
     y = result['bd_train']['y']
-    data_set = torch.utils.data.TensorDataset(x,y)
+    data_set = list(zip(x,y))
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_set,
         poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
@@ -171,9 +171,9 @@ def fp(args, result , config):
     data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     trainloader = data_loader
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     y = result['bd_test']['y']
-    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_test = list(zip(x,y))
     data_bd_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_bd_test,
         poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
@@ -185,9 +185,9 @@ def fp(args, result , config):
     )
     data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    x = result['clean_test']['x']
     y = result['clean_test']['y']
-    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_test = list(zip(x,y))
     data_clean_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_test,
         poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
@@ -411,9 +411,9 @@ if __name__ == '__main__':
     ### 4. test the result and get ASR, ACC, RC 
     result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     y = result['bd_test']['y']
-    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_test = list(zip(x,y))
     data_bd_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_bd_test,
         poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
@@ -434,9 +434,9 @@ if __name__ == '__main__':
     asr_acc = asr_acc/len(data_bd_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    x = result['clean_test']['x']
     y = result['clean_test']['y']
-    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_test = list(zip(x,y))
     data_clean_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_test,
         poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
@@ -457,7 +457,7 @@ if __name__ == '__main__':
     clean_acc = clean_acc/len(data_clean_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     robust_acc = -1
     if 'original_targets' in result['bd_test']:
         y_ori = result['bd_test']['original_targets']
@@ -467,7 +467,7 @@ if __name__ == '__main__':
                 y = y_ori[y_idx]
             else :
                 y = y_ori
-            data_bd_test = torch.utils.data.TensorDataset(x,y)
+            data_bd_test = list(zip(x,y))
             data_bd_testset = prepro_cls_DatasetBD(
                 full_dataset_without_transform=data_bd_test,
                 poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
