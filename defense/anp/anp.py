@@ -187,12 +187,12 @@ def get_anp_network(
         net = PreActResNet18(num_classes = num_classes, **kwargs)
     elif model_name == 'vgg19':
         net = anp_model.vgg_anp.vgg19_bn(num_classes = num_classes,  **kwargs)
-    # elif model_name == 'densenet161':
-    #     net = models.densenet161(num_classes= num_classes, **kwargs)
-    # elif model_name == 'mobilenet_v3_large':
-    #     net = models.mobilenet_v3_large(num_classes= num_classes, **kwargs)
-    # elif model_name == 'efficientnet_b3':
-    #     net = efficientnet_b3(num_classes= num_classes, **kwargs)
+    elif model_name == 'densenet161':
+        net = anp_model.den_anp.densenet161(num_classes= num_classes, **kwargs)
+    elif model_name == 'mobilenet_v3_large':
+        net = anp_model.mobilenet_anp.mobilenet_v3_large(num_classes= num_classes, **kwargs)
+    elif model_name == 'efficientnet_b3':
+        net = anp_model.eff_anp.efficientnet_b3(num_classes= num_classes, **kwargs)
     else:
         raise SystemError('NO valid model match in function generate_cls_model!')
 
