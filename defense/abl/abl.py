@@ -591,7 +591,6 @@ def train_unlearning(opt, result, model_ascent, isolate_poisoned_data, isolate_o
         ori_image_transform_in_loading=tf_compose_finetuning,
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
-        init_with_prepro_backdoor=True,
     )
     isolate_other_data_loader = torch.utils.data.DataLoader(dataset=isolate_other_data_tf,
                                               batch_size=opt.batch_size,
