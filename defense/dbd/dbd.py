@@ -24,7 +24,6 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from torchaudio import transforms
 
 import yaml
 
@@ -236,11 +235,11 @@ def dbd(args,result):
         torch.save(saved_dict, ckpt_path)
         logger.info("Save the latest model to {}".format(ckpt_path))
         
-        ckpt_path = os.path.join(
-            os.getcwd() + args.checkpoint_save, "epoch{}.pt".format(epoch + resumed_epoch + 1)
-        )
-        torch.save(saved_dict, ckpt_path)
-        logger.info("Save the model in saved epoch to {}".format(ckpt_path))
+        # ckpt_path = os.path.join(
+        #     os.getcwd() + args.checkpoint_save, "epoch{}.pt".format(epoch + resumed_epoch + 1)
+        # )
+        # torch.save(saved_dict, ckpt_path)
+        # logger.info("Save the model in saved epoch to {}".format(ckpt_path))
 
     ####self
     # parser = argparse.ArgumentParser()
