@@ -543,7 +543,7 @@ if __name__ == '__main__':
     result_defense = nad(args,result,config)
 
     ### 4. test the result and get ASR, ACC, RC
-    result['bd_test'].eval()
+    result_defense['model'].eval()
     result_defense['model'].to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']

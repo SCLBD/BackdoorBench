@@ -794,6 +794,7 @@ if __name__ == '__main__':
 
     ### 4. test the result and get ASR, ACC, RC 
     result_defense['model'].eval()
+    result_defense['model'].to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']
     y = result['bd_test']['y']
