@@ -46,6 +46,7 @@ def add_args(parser):
     """
     # Training settings
 
+    parser.add_argument('--amp', type=lambda x: str(x) in ['True','true','1'])
     parser.add_argument('--device', type = str)
     parser.add_argument('--attack', type = str, )
     parser.add_argument('--yaml_path', type=str, default='../config/BadNetsAttack/default.yaml',
@@ -267,7 +268,8 @@ def main():
 
     trainer = generate_cls_trainer(
         net,
-        args.attack
+        args.attack,
+        args.amp,
     )
 
 
