@@ -277,9 +277,9 @@ class Recorder:
 def train(opt, result, init_mask, init_pattern):
 
     tran = get_transform(opt.dataset, *([opt.input_height,opt.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_train']['x'].detach().numpy()))
+    x = result['bd_train']['x']
     y = result['bd_train']['y']
-    data_bd_train = torch.utils.data.TensorDataset(x,y)
+    data_bd_train = list(zip(x,y))
     data_bd_trainset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_bd_train,
         poison_idx=np.zeros(len(data_bd_train)),  # one-hot to determine which image may take bd_transform
@@ -512,24 +512,24 @@ def get_args():
     parser.add_argument('--result_file', type=str, help='the location of result')
 
     #set the parameter for the ac defense
-    parser.add_argument("--init_cost", type=float, default=1e-3)
-    parser.add_argument("--bs", type=int, default=64)
-    parser.add_argument("--atk_succ_threshold", type=float, default=98.0)
-    parser.add_argument("--early_stop", type=bool, default=True)
-    parser.add_argument("--early_stop_threshold", type=float, default=99.0)
-    parser.add_argument("--early_stop_patience", type=int, default=25)
-    parser.add_argument("--patience", type=int, default=5)
-    parser.add_argument("--cost_multiplier", type=float, default=2)
+    parser.add_argument("--init_cost", type=float)
+    parser.add_argument("--bs", type=int)
+    parser.add_argument("--atk_succ_threshold", type=float)
+    parser.add_argument("--early_stop", type=bool)
+    parser.add_argument("--early_stop_threshold", type=float)
+    parser.add_argument("--early_stop_patience", type=int)
+    parser.add_argument("--patience", type=int)
+    parser.add_argument("--cost_multiplier", type=float)
     parser.add_argument("--total_label", type=int)
-    parser.add_argument("--EPSILON", type=float, default=1e-7)
-    parser.add_argument("--to_file", type=bool, default=True)
-    parser.add_argument("--n_times_test", type=int, default=10)
-    parser.add_argument("--use_norm", type=int, default=1)
+    parser.add_argument("--EPSILON", type=float)
+    parser.add_argument("--to_file", type=bool)
+    parser.add_argument("--n_times_test", type=int)
+    parser.add_argument("--use_norm", type=int)
     parser.add_argument("--k", type=int)
-    parser.add_argument('--ratio', type=float, default=1.0, help='ratio of training data')
-    parser.add_argument('--cleaning_ratio', type=float, default=0.1, help='ratio of cleaning data')
-    parser.add_argument('--unlearning_ratio', type=float, default=0.2, help='ratio of unlearning data')
-    parser.add_argument('--nc_epoch', type=int, default=20, help='the epoch for neural cleanse')
+    parser.add_argument('--ratio', type=float,  help='ratio of training data')
+    parser.add_argument('--cleaning_ratio', type=float,  help='ratio of cleaning data')
+    parser.add_argument('--unlearning_ratio', type=float, help='ratio of unlearning data')
+    parser.add_argument('--nc_epoch', type=int,  help='the epoch for neural cleanse')
 
 
     arg = parser.parse_args()
@@ -616,9 +616,9 @@ def nc(args,result,config):
     model.load_state_dict(result['model'])
     model.to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_train']['x'].detach().numpy()))
+    x = result['clean_train']['x']
     y = result['clean_train']['y']
-    data_all_length = y.size()[0]
+    data_all_length = len(y)
     args.ratio = args.cleaning_ratio + args.unlearning_ratio
     ran_idx = choose_index(args, data_all_length) 
     log_index = os.getcwd() + args.log + 'index.txt'
@@ -655,9 +655,9 @@ def nc(args,result,config):
     criterion = torch.nn.CrossEntropyLoss() 
     
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     y = result['bd_test']['y']
-    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_test = list(zip(x,y))
     data_bd_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_bd_test,
         poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
@@ -670,9 +670,9 @@ def nc(args,result,config):
     data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    x = result['clean_test']['x']
     y = result['clean_test']['y']
-    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_test = list(zip(x,y))
     data_clean_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_test,
         poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
@@ -795,9 +795,9 @@ if __name__ == '__main__':
     ### 4. test the result and get ASR, ACC, RC 
     result_defense['model'].eval()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     y = result['bd_test']['y']
-    data_bd_test = torch.utils.data.TensorDataset(x,y)
+    data_bd_test = list(zip(x,y))
     data_bd_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_bd_test,
         poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
@@ -818,9 +818,9 @@ if __name__ == '__main__':
     asr_acc = asr_acc/len(data_bd_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['clean_test']['x'].detach().numpy()))
+    x = result['clean_test']['x']
     y = result['clean_test']['y']
-    data_clean_test = torch.utils.data.TensorDataset(x,y)
+    data_clean_test = list(zip(x,y))
     data_clean_testset = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_test,
         poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
@@ -841,17 +841,17 @@ if __name__ == '__main__':
     clean_acc = clean_acc/len(data_clean_test)
 
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
-    x = torch.tensor(nCHW_to_nHWC(result['bd_test']['x'].detach().numpy()))
+    x = result['bd_test']['x']
     robust_acc = -1
     if 'original_targets' in result['bd_test']:
         y_ori = result['bd_test']['original_targets']
         if y_ori is not None:
-            if len(y_ori) != x.size(0):
+            if len(y_ori) != len(x):
                 y_idx = result['bd_test']['original_index']
                 y = y_ori[y_idx]
             else :
                 y = y_ori
-            data_bd_test = torch.utils.data.TensorDataset(x,y)
+            data_bd_test = list(zip(x,y))
             data_bd_testset = prepro_cls_DatasetBD(
                 full_dataset_without_transform=data_bd_test,
                 poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
