@@ -123,7 +123,11 @@ class ModelTrainerCLS():
 
         logging.info(f'All setting done, train from epoch {self.start_epochs} batch {self.start_batch} to epoch {self.end_epochs}')
         logging.info(
-            pformat(f"self.amp:{self.amp},self.criterion:{self.criterion},self.optimizer:{self.optimizer},self.scheduler:{self.scheduler.state_dict()},self.scaler:{self.scaler.state_dict()})")
+            pformat(f"self.amp:{self.amp}," +
+                    f"self.criterion:{self.criterion}," +
+                    f"self.optimizer:{self.optimizer}," +
+                    f"self.scheduler:{self.scheduler.state_dict() if self.scheduler is not None else None}," +
+                    f"self.scaler:{self.scaler.state_dict() if self.scaler is not None else None})")
         )
     def get_model_params(self):
         return self.model.cpu().state_dict()
@@ -307,7 +311,12 @@ class ModelTrainerCLS():
             batch_loss.append(self.train_one_batch(x, labels, device))
         one_epoch_loss = sum(batch_loss) / len(batch_loss)
         if self.scheduler is not None:
-            self.scheduler.step()
+            if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                # here since ReduceLROnPlateau need the train loss to decide next step setting.
+                self.scheduler.step(one_epoch_loss)
+            else:
+                self.scheduler.step()
+
         endTime = time()
 
         logging.info(f"one epoch training part done, use time = {endTime - startTime} s")
