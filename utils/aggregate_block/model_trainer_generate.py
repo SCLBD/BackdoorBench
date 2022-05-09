@@ -77,6 +77,7 @@ def generate_cls_model(
 def generate_cls_trainer(
         model,
         attack_name : Optional[str] = None,
+        amp : bool = False,
 ):
     '''
     # idea: The warpper of model, which use to receive training settings.
@@ -89,6 +90,7 @@ def generate_cls_trainer(
 
     trainer = ModelTrainerCLS(
         model=model,
+        amp=amp,
     )
 
     return trainer

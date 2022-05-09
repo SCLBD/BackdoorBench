@@ -1,3 +1,4 @@
+amp: False
 device: cuda:0
 client_optimizer: sgd
 dataset: cifar10

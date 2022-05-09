@@ -24,15 +24,13 @@ from torch.utils.data import DataLoader
 from utils.aggregate_block.model_trainer_generate import generate_cls_model, generate_cls_trainer
 from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler, argparser_criterion
 
-
-
 def add_args(parser):
     """
     parser : argparse.ArgumentParser
     return a parser added with args required by fit
     """
     # Training settings
-
+    parser.add_argument('--amp', type=lambda x: str(x) in ['True', 'true', '1'])
     parser.add_argument('--device', type = str)
     parser.add_argument('--yaml_path', type=str, default='./default.yaml',
                         help='path for yaml file provide additional default attributes')
@@ -170,7 +168,8 @@ def main():
 
     trainer = generate_cls_trainer(
         net,
-        args.attack
+        args.attack,
+        args.amp,
     )
 
     criterion = argparser_criterion(args)

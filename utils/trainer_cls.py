@@ -9,6 +9,7 @@ from typing import *
 import numpy as np
 import torch
 import pandas as pd
+from time import time
 
 
 def last_and_valid_max(col:pd.Series):
@@ -67,8 +68,9 @@ class Metric_Aggregator(object):
         return self.df.apply(last_and_valid_max)
 
 class ModelTrainerCLS():
-    def __init__(self, model):
+    def __init__(self, model, amp = False):
         self.model = model
+        self.amp = amp
 
     def init_or_continue_train(self,
                                train_data,
@@ -104,6 +106,7 @@ class ModelTrainerCLS():
         self.criterion = criterion
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp)
 
         if continue_training_path is not None:
             start_epoch, start_batch = self.load_from_path(continue_training_path, device, only_load_model)
@@ -119,7 +122,13 @@ class ModelTrainerCLS():
             self.start_batch = 0
 
         logging.info(f'All setting done, train from epoch {self.start_epochs} batch {self.start_batch} to epoch {self.end_epochs}')
-
+        logging.info(
+            pformat(f"self.amp:{self.amp}," +
+                    f"self.criterion:{self.criterion}," +
+                    f"self.optimizer:{self.optimizer}," +
+                    f"self.scheduler:{self.scheduler.state_dict() if self.scheduler is not None else None}," +
+                    f"self.scaler:{self.scaler.state_dict() if self.scaler is not None else None})")
+        )
     def get_model_params(self):
         return self.model.cpu().state_dict()
 
@@ -149,6 +158,7 @@ class ModelTrainerCLS():
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler is not None else None,
             'criterion_state_dict': self.criterion.state_dict(),
+            "scaler": self.scaler.state_dict(),
         } \
             if only_model_state_dict == False else self.get_model_params()
 
@@ -210,6 +220,11 @@ class ModelTrainerCLS():
                 self.criterion.load_state_dict(
                     load_dict['criterion_state_dict']
                 )
+                if 'scaler' in load_dict:
+                    self.scaler.load_state_dict(
+                        load_dict["scaler"]
+                    )
+                    logging.info(f'load scaler done. scaler={load_dict["scaler"]}')
                 logging.info('all state load successful')
                 return load_dict['epoch_num_when_save'], load_dict['batch_num_when_save']
             else:
@@ -275,12 +290,14 @@ class ModelTrainerCLS():
         self.model.to(device)
 
         x, labels = x.to(device), labels.to(device)
-        self.model.zero_grad()
-        log_probs = self.model(x)
-        loss = self.criterion(log_probs, labels.long())
-        loss.backward()
 
-        self.optimizer.step()
+        with torch.cuda.amp.autocast(enabled=self.amp):
+            log_probs = self.model(x)
+            loss = self.criterion(log_probs, labels.long())
+        self.scaler.scale(loss).backward()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+        self.optimizer.zero_grad()
 
         batch_loss = (loss.item())
 
@@ -288,14 +305,21 @@ class ModelTrainerCLS():
 
 
     def train_one_epoch(self, train_data, device):
-
+        startTime = time()
         batch_loss = []
         for batch_idx, (x, labels, *additional_info) in enumerate(train_data):
             batch_loss.append(self.train_one_batch(x, labels, device))
         one_epoch_loss = sum(batch_loss) / len(batch_loss)
-
         if self.scheduler is not None:
-            self.scheduler.step()
+            if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                # here since ReduceLROnPlateau need the train loss to decide next step setting.
+                self.scheduler.step(one_epoch_loss)
+            else:
+                self.scheduler.step()
+
+        endTime = time()
+
+        logging.info(f"one epoch training part done, use time = {endTime - startTime} s")
 
         return one_epoch_loss
 
