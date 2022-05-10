@@ -55,6 +55,7 @@ from utils.save_load_attack import summary_dict
 from utils.trainer_cls import Metric_Aggregator, ModelTrainerCLS
 from utils.bd_dataset import prepro_cls_DatasetBD, xy_iter
 from utils.save_load_attack import save_attack_result, sample_pil_imgs
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler
 
 agg = Metric_Aggregator()
 
@@ -276,9 +277,13 @@ def get_arguments():
     parser.add_argument("--attack_mode", type=str, )  # default="all2one")
 
     parser.add_argument("--bs", type=int, )  # default=128)
-    parser.add_argument("--lr_C", type=float, )  # default=1e-2)
-    parser.add_argument("--schedulerC_milestones", type=list, )  # default=[100, 200, 300, 400])
-    parser.add_argument("--schedulerC_lambda", type=float, )  # default=0.1)
+    parser.add_argument("--lr", type=float, )  # default=1e-2)
+    parser.add_argument("--lr_scheduler", type=str, )
+    parser.add_argument('--client_optimizer', type = str)
+    parser.add_argument('--sgd_momentum', type = str)
+    parser.add_argument('--wd', type=str)
+    parser.add_argument("--steplr_milestones", type=list, )  # default=[100, 200, 300, 400])
+    parser.add_argument("--steplr_gamma", type=float, )  # default=0.1)
     parser.add_argument("--epochs", type=int, )  # default=1000)
     parser.add_argument("--num_workers", type=float, )  # default=6)
 
@@ -305,11 +310,20 @@ def get_model(opt):
     netC.to(opt.device)
     logging.warning(f'actually model use = {opt.model}')
 
-    # Optimizer
-    optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
+    # args_opt = Args()
+    # args_opt.__dict__ = {
+    #     "client_optimizer" : opt.client_optimizer,
+    #     "lr" : opt.lr,
+    #     "lr_scheduler" : opt.lr_scheduler,
+    #     "sgd_momentum" : opt.sgd_momentum,
+    #     "wd" : opt.wd,
+    # }
+    optimizerC, schedulerC = argparser_opt_scheduler(netC, args = opt)
 
-    # Scheduler
-    schedulerC = torch.optim.lr_scheduler.MultiStepLR(optimizerC, opt.schedulerC_milestones, opt.schedulerC_lambda)
+    # Optimizer
+    # optimizerC = torch.optim.SGD(netC.parameters(), opt.lr, momentum=0.9, weight_decay=5e-4)
+    # # Scheduler
+    # schedulerC = torch.optim.lr_scheduler.MultiStepLR(optimizerC, opt.schedulerC_milestones, opt.schedulerC_lambda)
 
     return netC, optimizerC, schedulerC
 
