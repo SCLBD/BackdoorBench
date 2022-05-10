@@ -15,6 +15,6 @@ attack: sig
 sig_delta: 40
 sig_f: 6
 dataset: tiny
-lr: 0.1
+lr: 0.01
 lr_scheduler: ReduceLROnPlateau
 epochs: 200

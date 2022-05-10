@@ -44,6 +44,6 @@ attack: fix_patch
 #  - 255
 patch_mask_path: ../resource/badnet/bottom_right_3by3_white.npy
 dataset: tiny
-lr: 0.1
+lr: 0.01
 lr_scheduler: ReduceLROnPlateau
 epochs: 200

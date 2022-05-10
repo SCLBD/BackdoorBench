@@ -17,6 +17,6 @@ attack_trigger_img_path: ../resource/blended/hello_kitty.jpeg
 attack_train_blended_alpha: 0.2
 attack_test_blended_alpha: 0.2
 dataset: tiny
-lr: 0.1
+lr: 0.01
 lr_scheduler: ReduceLROnPlateau
 epochs: 200
