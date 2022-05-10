@@ -31,7 +31,7 @@ import kornia.augmentation as A
 import json
 import shutil
 import argparse
-
+from utils.log_assist import get_git_info
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
@@ -734,6 +734,10 @@ def main():
         tf_writer = SummaryWriter(log_dir=opt.log_dir)
 
     logging.info(pformat(opt.__dict__))#set here since the opt change once.
+    try:
+        logging.info(pformat(get_git_info()))
+    except:
+        logging.info('Getting git info fails.')
 
     ### generate the dataloaders for eval
 

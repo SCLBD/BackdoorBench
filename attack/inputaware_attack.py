@@ -30,7 +30,7 @@ os.getcwd()
 from pprint import pformat
 import shutil
 import argparse
-
+from utils.log_assist import get_git_info
 from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, get_dataset_denormalization
@@ -850,6 +850,10 @@ def train(opt):
     test_dl2 = get_dataloader(opt, train=False)
 
     logging.info(pformat(opt.__dict__)) #set here since the opt change at beginning of this function
+    try:
+        logging.info(pformat(get_git_info()))
+    except:
+        logging.info('Getting git info fails.')
     ### 4. clean train 25 epochs
     if epoch == 1:
         netM.train()
