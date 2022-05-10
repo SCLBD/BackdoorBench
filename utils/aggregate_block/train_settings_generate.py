@@ -70,6 +70,9 @@ def argparser_opt_scheduler(model, args):
     elif args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
+            **({
+                'factor':args.ReduceLROnPlateau_factor
+               } if 'ReduceLROnPlateau_factor' in args.__dict__ else {})
         )
     else:
         scheduler = None
