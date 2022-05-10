@@ -216,12 +216,11 @@ def pruning(net, neuron):
     net.load_state_dict(state_dict)
 
 
-def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader):
+def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_dis):
     results = []
     nb_max = int(np.ceil(pruning_max))
     nb_step = int(np.ceil(pruning_step))
-    model_best = model
-    best_dis = -100
+    model_best = copy.deepcopy(model)
     for start in range(0, nb_max + 1, nb_step):
         i = start
         for i in range(start, start + nb_step):
@@ -234,17 +233,16 @@ def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, crit
         results.append('{} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
             i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))
         if cl_acc - po_acc > best_dis:
-            model_best = model
+            model_best = copy.deepcopy(model)
             best_dis = cl_acc - po_acc
     return results, model_best
 
 
-def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader):
+def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_dis):
     results = []
     thresholds = np.arange(0, pruning_max + pruning_step, pruning_step)
     start = 0
-    model_best = model
-    best_dis = -100
+    model_best = copy.deepcopy(model)
     for threshold in thresholds:
         idx = start
         for idx in range(start, len(mask_values)):
@@ -261,7 +259,7 @@ def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, c
         results.append('{:.2f} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}\n'.format(
             start, layer_name, neuron_idx, threshold, po_loss, po_acc, cl_loss, cl_acc))
         if cl_acc - po_acc > best_dis:
-            model_best = model
+            model_best = copy.deepcopy(model)
             best_dis = cl_acc - po_acc
     return results, model_best
 
@@ -440,15 +438,16 @@ def anp(args,result,config):
     cl_loss, cl_acc = test(args, model=net_prune, criterion=criterion, data_loader=clean_test_loader)
     po_loss, po_acc = test(args, model=net_prune, criterion=criterion, data_loader=poison_test_loader)
     logging.info('0 \t None     \t None     \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(po_loss, po_acc, cl_loss, cl_acc))
+    best_dis = cl_acc - po_acc
     if args.pruning_by == 'threshold':
         results, model_pru = evaluate_by_threshold(
             args, net_prune, mask_values, pruning_max=args.pruning_max, pruning_step=args.pruning_step,
-            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader
+            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_dis = best_dis
         )
     else:
         results, model_pru = evaluate_by_number(
             args, net_prune, mask_values, pruning_max=args.pruning_max, pruning_step=args.pruning_step,
-            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader
+            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_dis = best_dis
         )
     file_name = os.path.join(os.getcwd() + args.checkpoint_save, 'pruning_by_{}.txt'.format(args.pruning_by))
     with open(file_name, "w") as f:
@@ -520,6 +519,7 @@ if __name__ == '__main__':
 
     ### 4. test the result and get ASR, ACC, RC 
     result_defense['model'].eval()
+    result_defense['model'].to(args.device)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']
     y = result['bd_test']['y']
