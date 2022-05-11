@@ -188,7 +188,7 @@ def vgg19(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VGG
     return _vgg('vgg19', 'E', False, pretrained, progress, **kwargs)
 
 
-def vgg19_bn(pretrained: bool = False, progress: bool = True, norm_layer = None, **kwargs: Any) -> VGG:
+def vgg19_bn(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VGG:
     r"""VGG 19-layer model (configuration 'E') with batch normalization
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
@@ -197,4 +197,4 @@ def vgg19_bn(pretrained: bool = False, progress: bool = True, norm_layer = None,
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _vgg('vgg19_bn', 'E', True, pretrained, progress, norm_layer **kwargs)
+    return _vgg('vgg19_bn', 'E', True, pretrained, progress, **kwargs)
