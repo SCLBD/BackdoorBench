@@ -542,8 +542,8 @@ def ac(args,result):
                 pre_label = torch.max(outputs,dim=1)[1]
                 clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
         
-        if not (os.path.exists(os.getcwd() + f'{args.save_path}/ac/ckpt_best/')):
-            os.makedirs(os.getcwd() + f'{args.save_path}/ac/ckpt_best/')
+        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}/')):
+            os.makedirs(os.getcwd() + f'{args.checkpoint_save}/')
         if best_acc < clean_acc:
             best_acc = clean_acc
             best_asr = asr_acc
@@ -554,7 +554,7 @@ def ac(args,result):
                 'asr': asr_acc,
                 'acc': clean_acc
             },
-            f'./{args.save_path}/ac/ckpt_best/defense_result.pt'
+            f'./{args.checkpoint_save}/defense_result.pt'
             )
         logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 

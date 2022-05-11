@@ -464,8 +464,8 @@ def nad(arg, result, config):
         test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
 
         # remember best precision and save checkpoint
-        if not (os.path.exists(os.getcwd() + f'{args.save_path}/nad/ckpt_best/')):
-            os.makedirs(os.getcwd() + f'{args.save_path}/nad/ckpt_best/')
+        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}')):
+            os.makedirs(os.getcwd() + f'{args.checkpoint_save}')
         if best_acc < test_acc_cl:
             best_acc = test_acc_cl
             best_asr = test_acc_bd
@@ -476,8 +476,9 @@ def nad(arg, result, config):
                 'asr': test_acc_bd,
                 'acc': test_acc_cl
             },
-            f'./{args.save_path}/nad/ckpt_best/defense_result.pt'
+            f'./{args.checkpoint_save}defense_result.pt'
             )
+
         logging.info(f'Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd} best_acc:{best_acc} best_asr{best_asr}')
     result = {}
     result['model'] = nets['snet']
