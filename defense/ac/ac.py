@@ -97,17 +97,18 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr')
 
-    parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
     parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
     parser.add_argument('--target_label', type=int)
-    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
-
+  
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+
+    parser.add_argument('--yaml_path', type=str, default="./defense/ac/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
     parser.add_argument('--nb_dims', type=int, help='train epoch')
@@ -479,7 +480,10 @@ def ac(args,result):
     data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100)
     criterion = torch.nn.CrossEntropyLoss() 
     
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
@@ -515,16 +519,22 @@ def ac(args,result):
     best_acc = 0
     best_asr = 0
     for j in range(args.epochs):
+        batch_loss = []
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
             model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            batch_loss.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-        
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler.step()
         with torch.no_grad():
             model.eval()
             asr_acc = 0
@@ -542,8 +552,8 @@ def ac(args,result):
                 pre_label = torch.max(outputs,dim=1)[1]
                 clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
         
-        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}/')):
-            os.makedirs(os.getcwd() + f'{args.checkpoint_save}/')
+        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}')):
+            os.makedirs(os.getcwd() + f'{args.checkpoint_save}')
         if best_acc < clean_acc:
             best_acc = clean_acc
             best_asr = asr_acc
@@ -554,7 +564,7 @@ def ac(args,result):
                 'asr': asr_acc,
                 'acc': clean_acc
             },
-            f'./{args.checkpoint_save}/defense_result.pt'
+            f'./{args.checkpoint_save}defense_result.pt'
             )
         logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
@@ -563,14 +573,12 @@ def ac(args,result):
     result['dataset'] = data_set_o
     return result       
 
-   
-
 
 if __name__ == '__main__':
     
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/ac/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
