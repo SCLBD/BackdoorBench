@@ -545,7 +545,10 @@ def train_step(
 
         tf_writer.add_scalars("Loss/lambda_div_{}".format(opt.lambda_div), {"CE": loss_ce, "Div": loss_div}, epoch)
 
-    schedulerC.step()
+    if opt.C_lr_scheduler == "ReduceLROnPlateau":
+        schedulerC.step(loss_ce)
+    else:
+        schedulerC.step()
     schedulerG.step()
 
     #agg
@@ -801,7 +804,12 @@ def train(opt):
     netG = Generator(opt).to(opt.device)
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
     optimizerG = torch.optim.Adam(netG.parameters(), opt.lr_G, betas=(0.5, 0.9))
-    schedulerC = torch.optim.lr_scheduler.MultiStepLR(optimizerC, opt.schedulerC_milestones, opt.schedulerC_lambda)
+
+    if opt.C_lr_scheduler == "ReduceLROnPlateau":
+        schedulerC = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizerC)
+    else:
+        schedulerC = torch.optim.lr_scheduler.MultiStepLR(optimizerC, opt.schedulerC_milestones, opt.schedulerC_lambda)
+
     schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizerG, opt.schedulerG_milestones, opt.schedulerG_lambda)
 
     netM = Generator(opt, out_channels=1).to(opt.device)
@@ -857,7 +865,7 @@ def train(opt):
     ### 4. clean train 25 epochs
     if epoch == 1:
         netM.train()
-        for i in range(25):
+        for i in range(0):
             logging.info(
                 "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}  - lambda_norm: {}:".format(
                     epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div, opt.lambda_norm
@@ -1141,6 +1149,9 @@ def get_arguments():
     parser.add_argument("--lr_G", type=float, )#default=1e-2)
     parser.add_argument("--lr_C", type=float, )#default=1e-2)
     parser.add_argument("--lr_M", type=float, )#default=1e-2)
+
+    parser.add_argument('--C_lr_scheduler', type = str)
+
     parser.add_argument("--schedulerG_milestones", type=list, )#default=[200, 300, 400, 500])
     parser.add_argument("--schedulerC_milestones", type=list, )#default=[100, 200, 300, 400])
     parser.add_argument("--schedulerM_milestones", type=list, )#default=[10, 20])
