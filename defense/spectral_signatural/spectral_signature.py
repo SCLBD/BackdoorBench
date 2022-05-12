@@ -92,17 +92,18 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr')
 
-    parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
     parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
     parser.add_argument('--target_label', type=int)
-    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+
+    parser.add_argument('--yaml_path', type=str, default="./defense/spectral_signatural/config.yaml", help='the path of yaml')
 
     #set the parameter for the spectral defense
     parser.add_argument('--poison_rate_test', type=float)
@@ -309,18 +310,27 @@ def spectral(arg,result):
     best_acc = 0
     best_asr = 0
     optimizer = torch.optim.SGD(model.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100)
     criterion = torch.nn.CrossEntropyLoss() 
     for j in range(arg.epochs):
-        
+        batch_loss = []
         for i, (inputs,labels) in enumerate(data_loader_sie):  # type: ignore
             model.train()
             inputs, labels = inputs.to(arg.device), labels.to(arg.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            batch_loss.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler.step()
         
         with torch.no_grad():
             model.eval()
@@ -365,7 +375,7 @@ def spectral(arg,result):
 if __name__ == '__main__':
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/spectral_signatural/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
