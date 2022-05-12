@@ -120,8 +120,8 @@ def spectral(arg,result):
         datefmt='%Y-%m-%d:%H:%M:%S',
     )
     logger = logging.getLogger()
-    if args.log is not None and args.log != '':
-        fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    if arg.log is not None and arg.log != '':
+        fileHandler = logging.FileHandler(os.getcwd() + arg.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
         fileHandler = logging.FileHandler(os.getcwd() + './log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
@@ -132,9 +132,9 @@ def spectral(arg,result):
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
-    logging.info(pformat(args.__dict__))
+    logging.info(pformat(arg.__dict__))
 
-    fix_random(args.seed)
+    fix_random(arg.seed)
 
     ### a. prepare the model and dataset
     model = generate_cls_model(arg.model,arg.num_classes)
@@ -276,7 +276,7 @@ def spectral(arg,result):
     dataset_left = dataset
     data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=arg.batch_size, num_workers=arg.num_workers, shuffle=True)
     
-    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    tran = get_transform(arg.dataset, *([arg.input_height,arg.input_width]) , train = False)
     x = result['bd_test']['x']
     y = result['bd_test']['y']
     data_bd_test = list(zip(x,y))
@@ -289,9 +289,9 @@ def spectral(arg,result):
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
     )
-    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=arg.batch_size, num_workers=arg.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
-    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    tran = get_transform(arg.dataset, *([arg.input_height,arg.input_width]) , train = False)
     x = result['clean_test']['x']
     y = result['clean_test']['y']
     data_clean_test = list(zip(x,y))
@@ -304,7 +304,7 @@ def spectral(arg,result):
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
     )
-    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=arg.batch_size, num_workers=arg.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
     best_acc = 0
     best_asr = 0
@@ -326,7 +326,7 @@ def spectral(arg,result):
             model.eval()
             asr_acc = 0
             for i, (inputs,labels) in enumerate(data_bd_loader):  # type: ignore
-                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                inputs, labels = inputs.to(arg.device), labels.to(arg.device)
                 outputs = model(inputs)
                 pre_label = torch.max(outputs,dim=1)[1]
                 asr_acc += torch.sum(pre_label == labels)/len(data_bd_test)
@@ -334,25 +334,27 @@ def spectral(arg,result):
             
             clean_acc = 0
             for i, (inputs,labels) in enumerate(data_clean_loader):  # type: ignore
-                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                inputs, labels = inputs.to(arg.device), labels.to(arg.device)
                 outputs = model(inputs)
                 pre_label = torch.max(outputs,dim=1)[1]
                 clean_acc += torch.sum(pre_label == labels)/len(data_clean_test)
         
-        
+        if not (os.path.exists(os.getcwd() + f'{arg.checkpoint_save}')):
+            os.makedirs(os.getcwd() + f'{arg.checkpoint_save}')
         if best_acc < clean_acc:
             best_acc = clean_acc
             best_asr = asr_acc
             torch.save(
             {
-                'model_name':args.model,
+                'model_name':arg.model,
                 'model': model.cpu().state_dict(),
                 'asr': asr_acc,
                 'acc': clean_acc
             },
-            os.getcwd() + f'{args.checkpoint_save}/defense_result.pt'
+            f'./{arg.checkpoint_save}defense_result.pt'
             )
             model.to(arg.device)
+    
         logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
     result = {}
