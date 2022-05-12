@@ -61,17 +61,18 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr')
 
-    parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
     parser.add_argument('--target_type', type=str, help='all2one, all2all, cleanLabel') 
     parser.add_argument('--target_label', type=int)
-    parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+
+    parser.add_argument('--yaml_path', type=str, default="./defense/ft/config.yaml", help='the path of yaml')
 
     #set the parameter for the ft defense
     parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
@@ -82,14 +83,15 @@ def get_args():
     return arg
 
 def fine_tuning(arg, model, optimizer, scheduler, criterion, epoch, trainloader, testloader_cl = None, testloader_bd = None):
-    model.train()
 
     total_clean, total_clean_correct, train_loss = 0, 0, 0
-
+    batch_loss = []
     for i, (inputs, labels) in enumerate(trainloader):
+        model.train()
         inputs, labels = inputs.to(arg.device), labels.to(arg.device)
         outputs = model(inputs)
         loss = criterion(outputs, labels)
+        batch_loss.append(loss.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -101,6 +103,7 @@ def fine_tuning(arg, model, optimizer, scheduler, criterion, epoch, trainloader,
         #progress_bar(i, len(trainloader), 'Epoch: %d | Loss: %.3f | Training Acc: %.3f%% (%d/%d)' % (epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
         print('Epoch:{} | Loss: {:.3f} | Training Acc: {:.3f}%({}/{})'.format(epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
         logging.info('Epoch:{} | Loss: {:.3f} | Training Acc: {:.3f}%({}/{})'.format(epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
+        model.eval()
         if testloader_cl is not None:
             total_clean_test, total_clean_correct_test, test_loss = 0, 0, 0
             for i, (inputs, labels) in enumerate(testloader_cl):
@@ -130,7 +133,11 @@ def fine_tuning(arg, model, optimizer, scheduler, criterion, epoch, trainloader,
                 #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
             print('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
             logging.info('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
-    scheduler.step()
+    one_epoch_loss = sum(batch_loss)/len(batch_loss)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler.step(one_epoch_loss)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler.step()
     return model
 
 def train_epoch(arg, trainloader, model, optimizer, scheduler, criterion, epoch):
@@ -207,7 +214,10 @@ def ft(args,result,config):
     model.load_state_dict(result['model'])
     model.to(args.device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100) 
     criterion = nn.CrossEntropyLoss()
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
     x = result['clean_train']['x']
@@ -240,7 +250,7 @@ def ft(args,result,config):
 if __name__ == '__main__':
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/ft/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
