@@ -1,2 +1,0 @@
-url: https://www.dropbox.com/s/1540n3245twezg8/cifar_resnet_no_defense_latest_model.pt?dl=0
-md5sum: a642e9c38b31609d9f5f4087aa1f4e1d

@@ -1,2 +1,0 @@
-url: https://www.dropbox.com/s/46jrsuf7scpdb5w/cifar_resnet_dbd_latest_model.pt?dl=0
-md5sum: bbc2d74167b0d876a8ffa8ff3eae9f16
