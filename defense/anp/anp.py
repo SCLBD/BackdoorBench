@@ -235,6 +235,7 @@ def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, crit
         if cl_acc - po_acc > best_dis:
             model_best = copy.deepcopy(model)
             best_dis = cl_acc - po_acc
+            logging.info('update model best')
     return results, model_best
 
 
@@ -261,6 +262,7 @@ def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, c
         if cl_acc - po_acc > best_dis:
             model_best = copy.deepcopy(model)
             best_dis = cl_acc - po_acc
+            logging.info('update model best')
     return results, model_best
 
 
