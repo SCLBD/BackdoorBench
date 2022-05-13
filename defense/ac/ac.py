@@ -477,7 +477,7 @@ def ac(args,result):
 
     ### c. retrain the model with filtered data
     data_set_o.subset([i for i,v in enumerate(is_clean_lst) if v==1])
-    data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
+    data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True)
     
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     if args.lr_scheduler == 'ReduceLROnPlateau':
