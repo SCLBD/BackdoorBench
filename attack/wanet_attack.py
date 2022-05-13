@@ -460,7 +460,11 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
         )
         tf_writer.add_image("Images", grid, global_step=epoch)
 
-    schedulerC.step()
+    if isinstance(schedulerC, torch.optim.lr_scheduler.ReduceLROnPlateau):
+        schedulerC.step(loss.item())
+    else:
+        schedulerC.step()
+
     if num_cross:
         # logging.info(f'End train epoch {epoch} : avg_acc_clean : {avg_acc_clean}, avg_acc_bd : {avg_acc_bd}, avg_acc_cross : {avg_acc_cross} ')
         logging.info(f'End train epoch {epoch}')
