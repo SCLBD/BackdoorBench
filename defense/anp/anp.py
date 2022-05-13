@@ -1,12 +1,22 @@
 '''
-This file implements the defense method called finetuning (ft), which is a standard fine-tuning that uses clean data to finetune the model.
+This file is modified based on the following source:
+link : https://github.com/csdongxian/ANP_backdoor.
+The defense method is called anp.
 
+The update include:
+    1. data preprocess and dataset setting
+    2. model setting
+    3. args and config
+    4. save process
+    5. new standard: robust accuracy
+    6. reconstruct some backbone vgg19 and add some backbone such as densenet161 efficientnet mobilenet
+    7. save best model which gets the minimum of asr minus acc
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
-    3. ft defense:
-        a. get some clean data
-        b. retrain the backdoor model
+    3. anp defense:
+        a. train the mask of old model
+        b. prune the model depend on the mask
     4. test the result and get ASR, ACC, RC 
 '''
 
@@ -31,19 +41,15 @@ from collections import OrderedDict
 from torch.utils.data import DataLoader, RandomSampler
 
 from defense.anp import anp_model
-#from utils import args
 from utils.choose_index import choose_index
 from utils.aggregate_block.fix_random import fix_random 
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
-#from utils.input_aware_utils import progress_bar
 from utils.nCHW_nHWC import nCHW_to_nHWC
 from utils.save_load_attack import load_attack_result
 import yaml
 from pprint import pprint, pformat
-
-# mask step
 
 def load_state_dict(net, orig_state_dict):
     if 'state_dict' in orig_state_dict.keys():
@@ -198,8 +204,6 @@ def get_anp_network(
 
     return net
 
-# prune
-
 def read_data(file_name):
     tempt = pd.read_csv(file_name, sep='\s+', skiprows=1, header=None)
     layer = tempt.iloc[:, 1]
@@ -308,20 +312,9 @@ def get_args():
     parser.add_argument('--anp_steps', type=int)
     parser.add_argument('--anp_alpha', type=float)
 
-    # parser.add_argument('--arch', type=str, default='resnet18',
-    #                 choices=['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'MobileNetV2', 'vgg19_bn'])
-    # parser.add_argument('--checkpoint', type=str, required=True, help='The checkpoint to be pruned')
-    # parser.add_argument('--widen-factor', type=int, default=1, help='widen_factor for WideResNet')
-    # parser.add_argument('--batch-size', type=int, default=128, help='the batch size for dataloader')
-    # parser.add_argument('--lr', type=float, default=0.2, help='the learning rate for mask optimization')
-    # parser.add_argument('--data-dir', type=str, default='../data', help='dir to the dataset')
-    # parser.add_argument('--val-frac', type=float, default=0.01, help='The fraction of the validate set')
-    # parser.add_argument('--output-dir', type=str, default='logs/models/')
-
     parser.add_argument('--pruning_by', type=str, default='threshold', choices=['number', 'threshold'])
     parser.add_argument('--pruning_max', type=float, default=0.90, help='the maximum number/threshold for pruning')
     parser.add_argument('--pruning_step', type=float, default=0.05, help='the step size for evaluating the pruning')
-    # parser.add_argument('--mask-file', type=str, required=True, help='The text file containing the mask values')
 
     arg = parser.parse_args()
 
@@ -329,12 +322,13 @@ def get_args():
     return arg
 
 def anp(args,result,config):
+
+    ### set logger
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d:%H:%M:%S',
     )
     logger = logging.getLogger()
-    # logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
     if args.log is not None and args.log != '':
         fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
@@ -351,6 +345,7 @@ def anp(args,result,config):
 
     fix_random(args.seed)
 
+    # a. train the mask of old model
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
     x = result['clean_train']['x']
     y = result['clean_train']['y']
@@ -402,7 +397,6 @@ def anp(args,result,config):
     )
     clean_test_loader = DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
-    # state_dict = torch.load(args.checkpoint, map_location=args.device)
     state_dict = result['model']
     net = get_anp_network(args.model, num_classes=args.num_classes, norm_layer=anp_model.NoisyBatchNorm2d)
     load_state_dict(net, orig_state_dict=state_dict)
@@ -430,6 +424,7 @@ def anp(args,result,config):
             cl_test_loss, cl_test_acc))
     save_mask_scores(net.state_dict(), os.path.join(os.getcwd() + args.checkpoint_save, 'mask_values.txt'))
 
+    # b. prune the model depend on the mask
     net_prune = generate_cls_model(args.model,args.num_classes)
     net_prune.load_state_dict(result['model'])
     net_prune.to(args.device)
