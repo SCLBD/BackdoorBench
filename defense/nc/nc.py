@@ -132,8 +132,6 @@ class RegressionModel(nn.Module):
     def forward(self, x):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
-        # if self.normalizer:
-        #   pattern = self.normalizer(self.get_raw_pattern())
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
@@ -146,36 +144,11 @@ class RegressionModel(nn.Module):
         return pattern / (2 + self._EPSILON) + 0.5
 
     def _get_classifier(self, opt):
-        # if opt.dataset == "mnist":
-        #     classifier = NetC_MNIST()
-        # elif opt.dataset == "cifar10":
-        #     classifier = PreActResNet18()
-        # elif opt.dataset == "gtsrb":
-        #     classifier = PreActResNet18(num_classes=43)
-        # elif opt.dataset == "celeba":
-        #     classifier = ResNet18()
-        # else:
-        #     raise Exception("Invalid Dataset")
-        # if opt.classifier == 'preactresnet18':
-        #     classifier = PreActResNet18()
-        #     if opt.dataset == "gtsrb":
-        #         classifier = PreActResNet18(num_classes=43)
-        #     if opt.dataset == "cifar100":
-        #         classifier = PreActResNet18(num_classes=100)
-        # else:
-        #     classifier = CIFAR10Module(opt).model
-        # Load pretrained classifie
-        # ckpt_path = os.path.join(
-        #     opt.checkpoints, opt.dataset, "{}_{}_morph.pth.tar".format(opt.dataset, opt.attack_mode)
-        # )
-
-        # state_dict = torch.load(ckpt_path)
-        # classifier.load_state_dict(state_dict["netC"])
+       
         classifier = generate_cls_model(args.model,args.num_classes)
         classifier.load_state_dict(self.result['model'])
         classifier.to(args.device)
-        # checkpoint = torch.load(opt.checkpoint_load)
-        # classifier.load_state_dict(checkpoint['model'])
+        
         for param in classifier.parameters():
             param.requires_grad = False
         classifier.eval()
@@ -499,6 +472,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -510,6 +484,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/nc/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
     parser.add_argument("--init_cost", type=float)
@@ -651,7 +626,10 @@ def nc(args,result,config):
     trainloader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
   
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100) 
     criterion = torch.nn.CrossEntropyLoss() 
     
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
@@ -687,15 +665,22 @@ def nc(args,result,config):
     best_acc = 0
     best_asr = 0
     for j in range(args.epochs):
+        batch_loss = []
         for i, (inputs,labels) in enumerate(trainloader):  # type: ignore
             model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            batch_loss.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler.step()
         
         with torch.no_grad():
             model.eval()
@@ -738,7 +723,7 @@ if __name__ == '__main__':
     
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/nc/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream)
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

@@ -65,6 +65,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -76,6 +77,10 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/fp/config.yaml", help='the path of yaml')
+
+    #set the parameter for the fp defense
+    parser.add_argument('--acc_ratio', type=float, help='the tolerance ration of the clean accuracy')
 
     arg = parser.parse_args()
 
@@ -215,6 +220,12 @@ def fp(args, result , config):
         hook = netC.features.register_forward_hook(forward_hook)
     if args.model == 'resnet18':
         hook = netC.layer4.register_forward_hook(forward_hook)
+    if args.model == 'densenet161':
+        hook = netC.features.register_forward_hook(forward_hook)
+    if args.model == 'mobilenet_v3_large':
+        hook = netC.features.register_forward_hook(forward_hook)
+    if args.model == 'efficientnet_b3':
+        hook = netC.features.register_forward_hook(forward_hook)
 
     # Forwarding all the validation set
     print("Forwarding all the validation dataset:")
@@ -239,10 +250,23 @@ def fp(args, result , config):
     if args.model == 'resnet18':
         addtional_dim = 1
         pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+    if args.model == 'densenet161':
+        addtional_dim = 1
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+    if args.model == 'mobilenet_v3_large':
+        addtional_dim = 1
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+    if args.model == 'efficientnet_b3':
+        addtional_dim = 1
+        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
     
+
     ### c. according to the sorting results, prune and test the accuracy
     acc_dis = 0
+    prune_result = []
+    # densenet_flag = False
     # Pruning times - no-tuning after pruning a channel!!!
+    # Re-assigning weight to the pruned net
     for index in range(int(pruning_mask.shape[0])):
         net_pruned = copy.deepcopy(netC)
         num_pruned = index
@@ -255,12 +279,30 @@ def fp(args, result , config):
             net_pruned.layer4[1].conv2 = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
-            net_pruned.linear = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, 10)
+            net_pruned.linear = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, args.num_classes)
+            for name, module in net_pruned._modules.items():
+                if "layer4" == name:
+                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
+                    module[1].ind = pruning_mask
+                elif "linear" == name:
+                    module.weight.data = netC.linear.weight.data[:, pruning_mask_li]
+                    module.bias.data = netC.linear.bias.data
+                else:
+                    continue
         if args.model == 'vgg19':
             net_pruned.features[34] = nn.Conv2d(
                 pruning_mask.shape[0], pruning_mask.shape[0] - num_pruned, (3, 3), stride=1, padding=1, bias=False
             )
             net_pruned.classifier[0] = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, 4096)
+            for name, module in net_pruned._modules.items():
+                if "features" == name:  
+                    module[34].weight.data = netC.features[34].weight.data[pruning_mask]
+                    module[34].ind = pruning_mask
+                elif "classifier" == name:
+                    module[0].weight.data = netC.classifier[0].weight.data[:, pruning_mask_li]
+                    module[0].bias.data = netC.classifier[0].bias.data
+                else:
+                    continue
         if args.model == 'resnet18':
             net_pruned.layer4[0].conv1 = nn.Conv2d(
                 256, pruning_mask.shape[0] - num_pruned, (3, 3), stride=(2, 2), padding=1, bias=False
@@ -285,28 +327,7 @@ def fp(args, result , config):
             net_pruned.layer4[1].bn2 = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
         
             net_pruned.fc = nn.Linear(pruning_mask.shape[0] - num_pruned, 10)
-
-        # Re-assigning weight to the pruned net
-        for name, module in net_pruned._modules.items():
-            if args.model == 'preactresnet18':
-                if "layer4" == name:
-                    module[1].conv2.weight.data = netC.layer4[1].conv2.weight.data[pruning_mask]
-                    module[1].ind = pruning_mask
-                elif "linear" == name:
-                    module.weight.data = netC.linear.weight.data[:, pruning_mask_li]
-                    module.bias.data = netC.linear.bias.data
-                else:
-                    continue
-            if args.model == 'vgg19':
-                if "features" == name:  
-                    module[34].weight.data = netC.features[34].weight.data[pruning_mask]
-                    module[34].ind = pruning_mask
-                elif "classifier" == name:
-                    module[0].weight.data = netC.classifier[0].weight.data[:, pruning_mask_li]
-                    module[0].bias.data = netC.classifier[0].bias.data
-                else:
-                    continue
-            if args.model == 'resnet18':
+            for name, module in net_pruned._modules.items():
                 if "layer4" == name:
                     module[0].conv1.weight.data = netC.layer4[0].conv1.weight.data[pruning_mask]
                     module[0].bn1.weight.data = netC.layer4[0].bn1.weight.data[pruning_mask]
@@ -330,21 +351,105 @@ def fp(args, result , config):
                     module.bias.data = netC.fc.bias.data
                 else:
                     continue
+        if args.model == 'densenet161':
+            # if index != 0:
+            #     try:
+            #         net_pruned = copy.deepcopy(net_pruned_now)
+            #     except:
+            #         logging.info('have no pruned net')
+            #     if channel+1 > 1056:
+            #         densenet_flag = True
+            #         now_layer = (channel+1 - 1056) // 48 + 1
+            #         out_channels = getattr(net_pruned.features[-2],'denselayer{}'.format(now_layer)).conv2.out_channels
+            #         getattr(net_pruned.features[-2],'denselayer{}'.format(now_layer)).conv2 = nn.Conv2d(192, out_channels - 1, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+            #         start = (now_layer - 1)*48+1056
+            #         mask = torch.ones(out_channels, dtype=bool)
+            #         mask[int(sum(pruning_mask[start:(channel+1)]))] = False
+            #         getattr(net_pruned.features[-2],'denselayer{}'.format(now_layer)).conv2.weight.data = getattr(net_pruned_now.features[-2],'denselayer{}'.format(now_layer)).conv2.weight.data[mask]
+            #         try:
+            #             has_pruned += 1
+            #         except:
+            #             has_pruned = 1
+            #         logging.info('prune densenet {} layers'.format(has_pruned))
+            #     # else:
+            #     #     out_channels = net_pruned.features[-3].conv.out_channels
+            #     #     net_pruned.features[-3].conv = nn.Conv2d(2112, out_channels - 1, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            #         net_pruned.features[-1] = nn.BatchNorm2d(2208 - has_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            #         mask_li = torch.ones(2208 - has_pruned + 1, dtype=bool)
+            #         mask_li[int(sum(pruning_mask[0:(channel+1)]))] = False
+            #         net_pruned.features[-1].weight.data = net_pruned_now.features[-1].weight.data[mask_li]
+            #         net_pruned.features[-1].bias.data = net_pruned_now.features[-1].bias.data[mask_li]
+            #         out_features = net_pruned.classifier.out_features
+            #         net_pruned.classifier = nn.Linear(2208 - has_pruned, out_features)
+            #         net_pruned.classifier.weight.data = net_pruned_now.classifier.weight.data[:,mask_li]
+            #         net_pruned.classifier.bias.data = net_pruned_now.classifier.bias.data
+            #     else:
+            #         continue
+            # net_pruned_now = copy.deepcopy(net_pruned)
+            weight_data = netC.classifier.weight.data
+            weight_data[:,~pruning_mask_li] = 0
+            net_pruned.classifier.weight.data = weight_data
+            net_pruned.classifier.bias.data = netC.classifier.bias.data
+        if args.model == 'efficientnet_b3':
+            net_pruned.features[-1][0] = nn.Conv2d(384, pruning_mask.shape[0] - num_pruned, kernel_size=(1, 1), stride=(1, 1), bias=False) 
+            net_pruned.features[-1][1] = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.classifier[-1] = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, args.num_classes)
+            for name, module in net_pruned._modules.items():
+                if "features" == name:
+                    module[-1][0].weight.data = netC.features[-1][0].weight.data[pruning_mask]
+                    module[1].ind = pruning_mask
+                    module[-1][1].weight.data = netC.features[-1][1].weight.data[pruning_mask]
+                    module[-1][1].bias.data = netC.features[-1][1].bias.data[pruning_mask]
+                elif "classifier" == name:
+                    module[-1].weight.data = netC.classifier[-1].weight.data[:, pruning_mask_li]
+                    module[-1].bias.data = netC.classifier[-1].bias.data
+                else:
+                    continue
+        if args.model == 'mobilenet_v3_large':
+            net_pruned.features[-1][0] = nn.Conv2d(160, pruning_mask.shape[0] - num_pruned, kernel_size=(1, 1), stride=(1, 1), bias=False) 
+            net_pruned.features[-1][1] = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.classifier[0] = nn.Linear((pruning_mask.shape[0] - num_pruned)*addtional_dim, 1280)
+            for name, module in net_pruned._modules.items():
+                if "features" == name:
+                    module[-1][0].weight.data = netC.features[-1][0].weight.data[pruning_mask]
+                    module[1].ind = pruning_mask
+                    module[-1][1].weight.data = netC.features[-1][1].weight.data[pruning_mask]
+                    module[-1][1].bias.data = netC.features[-1][1].bias.data[pruning_mask]
+                elif "classifier" == name:
+                    module[0].weight.data = netC.classifier[0].weight.data[:, pruning_mask_li]
+                    module[0].bias.data = netC.classifier[0].bias.data
+                else:
+                    continue
+
+        
         net_pruned.to(args.device)
         test_loss, test_acc_cl = test_epoch(args, testloader_clean, net_pruned, criterion, 0, 'clean')
         test_loss, test_acc_bd = test_epoch(args, testloader_bd, net_pruned, criterion, 0, 'bd')
-        print('Acc Clean: {:.3f} | Acc Bd: {:.3f}'.format(test_acc_cl, test_acc_bd)) 
+        print('Acc Clean: {:.3f} | Acc Bd: {:.3f}'.format(test_acc_cl, test_acc_bd))
+        # if args.model != 'densenet161': 
         logging.info("%d %0.4f %0.4f\n" % (index, test_acc_cl, test_acc_bd))
+        prune_result.append("%d %0.4f %0.4f\n" % (index, test_acc_cl, test_acc_bd))
+        # elif densenet_flag:
+        #     logging.info("%d %0.4f %0.4f\n" % (has_pruned, test_acc_cl, test_acc_bd))
         ### d. save the model with the greatest difference between ACC and ASR
         if index == 0:
-            acc_dis = test_acc_cl - test_acc_bd
+            test_acc_cl_ori = test_acc_cl
+            test_acc_bd_ori = test_acc_bd
             best_net = copy.deepcopy(net_pruned)
-        if test_acc_cl - test_acc_bd > acc_dis:
-            best_net = copy.deepcopy(net_pruned)
-            acc_dis = test_acc_cl - test_acc_bd
+            best_acc_bd = test_acc_bd
+        if abs(test_acc_cl - test_acc_cl_ori)/test_acc_cl_ori < args.acc_ratio:
+            if test_acc_bd < best_acc_bd:
+                best_net = copy.deepcopy(net_pruned)
+                best_acc_bd = test_acc_bd
         if args.device == 'cuda':
             net_pruned.to('cpu')
         del net_pruned
+        # densenet_flag = False
+
+    file_name = os.path.join(os.getcwd() + args.checkpoint_save, 'pruning_result.txt')
+    with open(file_name, "w") as f:
+        f.write('No \t CleanACC \t PoisonACC \n')
+        f.writelines(prune_result)
 
     result = {}
     result['model'] = best_net
@@ -354,7 +459,7 @@ if __name__ == '__main__':
     
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/fp/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

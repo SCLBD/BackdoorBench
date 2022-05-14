@@ -24,3 +24,5 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
+acc_ratio: 0.1
+

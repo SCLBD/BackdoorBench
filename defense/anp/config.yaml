@@ -24,6 +24,7 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
+acc_ratio: 0.1 #for fair
 ratio: 0.05 #for fair
 print_every: 500 
 nb_iter: 2000
