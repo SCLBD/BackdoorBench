@@ -10,11 +10,11 @@ input_height:
 input_width:
 input_channel:
 
-epochs: 100
+epochs: 200
 batch_size: 256
 num_workers: 4
 lr: 0.01
-lr_scheduler: CosineAnnealingLR
+lr_scheduler: ReduceLROnPlateau
 
 poison_rate: 0.1
 target_type: 'all2one'

@@ -86,6 +86,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -97,6 +98,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/nad/config.yaml", help='the path of yaml')
 
     #set the parameter for the nad defense
     parser.add_argument('--print_freq', type=int, help='frequency of showing training results on console')
@@ -169,6 +171,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     total_clean_correct = 0
     train_loss = 0
 
+    batch_loss = []
     for idx, (inputs, labels) in enumerate(trainloader):
         inputs, labels = inputs.to(arg.device), labels.to(arg.device)
 
@@ -303,7 +306,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             at_loss = at3_loss + cls_loss
 
 
-
+        batch_loss.append(at_loss.item())
         optimizer.zero_grad()
         at_loss.backward()
         optimizer.step()
@@ -314,7 +317,11 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
         
     logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
-    scheduler.step()
+    one_epoch_loss = sum(batch_loss)/len(batch_loss)
+    if arg.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler.step(one_epoch_loss)
+    elif arg.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler.step()
     return train_loss / (idx + 1), avg_acc_clean
 
 
@@ -393,7 +400,10 @@ def nad(arg, result, config):
 
     # initialize optimizer, scheduler
     optimizer = torch.optim.SGD(student.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100)
 
     # define loss functions
     criterionCls = nn.CrossEntropyLoss()
@@ -489,7 +499,7 @@ def nad(arg, result, config):
 if __name__ == '__main__':
     ### 1. basic setting: args 
     args = get_args()
-    with open("./defense/nad/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
