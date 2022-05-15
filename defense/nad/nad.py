@@ -101,6 +101,7 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./defense/nad/config.yaml", help='the path of yaml')
 
     #set the parameter for the nad defense
+    parser.add_argument('--te_epochs', type=int)
     parser.add_argument('--print_freq', type=int, help='frequency of showing training results on console')
     parser.add_argument('--momentum', type=float, help='momentum')
     parser.add_argument('--weight_decay', type=float, help='weight decay')
@@ -393,6 +394,7 @@ def nad(arg, result, config):
     teacher.to(args.device)
     logging.info('finished teacher student init...')
     student = generate_cls_model(args.model,args.num_classes)
+    student.load_state_dict(result['model'])
     logging.info('finished student student init...')
 
     teacher.eval()
@@ -460,6 +462,24 @@ def nad(arg, result, config):
     )
     testloader_clean = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
+    ### train the teacher model
+    arg_te = arg
+    start_epoch = 0
+    arg_te.beta1 = 0
+    arg_te.beta2 = 0
+    arg_te.beta3 = 0
+    for epoch in tqdm(range(start_epoch, arg.te_epochs)):
+        student.to(args.device)
+        train_loss, train_acc = train_step(arg_te, trainloader, nets, optimizer, scheduler, criterions, epoch)
+
+        # evaluate on testing set
+        test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, student, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, student, criterionCls, epoch, 'bd')
+
+        # remember best precision and save checkpoint
+
+        logging.info(f'Teacher_Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd}')
+
     ### b. train the student model use the teacher model with the activation of model and result
     logging.info('----------- Train Initialization --------------')
     start_epoch = 0
@@ -487,6 +507,17 @@ def nad(arg, result, config):
                 'acc': test_acc_cl
             },
             f'./{args.checkpoint_save}defense_result.pt'
+            )
+        if epoch == 19:
+            now_epoch = epoch + 1
+            torch.save(
+            {
+                'model_name':args.model,
+                'model': student.cpu().state_dict(),
+                'asr': test_acc_bd,
+                'acc': test_acc_cl
+            },
+            f'./{args.checkpoint_save}defense_result_{now_epoch}.pt'
             )
 
         logging.info(f'Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd} best_acc:{best_acc} best_asr{best_asr}')
