@@ -118,6 +118,19 @@ def get_args():
     print(arg)
     return arg
 
+def adjust_learning_rate(optimizer, epoch, lr):
+    if epoch < 2:
+        lr = lr
+    elif epoch < 20:
+        lr = 0.01
+    elif epoch < 30:
+        lr = 0.0001
+    else:
+        lr = 0.0001
+    logging.info('epoch: {}  lr: {:.4f}'.format(epoch, lr))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 
 class AT(nn.Module):
 	'''
@@ -159,6 +172,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     epoch:
         current epoch
     '''
+    adjust_learning_rate(optimizer, epoch, arg.lr)
     snet = nets['snet']
     tnet = nets['tnet']
 
@@ -319,10 +333,10 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
         
     logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
     one_epoch_loss = sum(batch_loss)/len(batch_loss)
-    if arg.lr_scheduler == 'ReduceLROnPlateau':
-        scheduler.step(one_epoch_loss)
-    elif arg.lr_scheduler ==  'CosineAnnealingLR':
-        scheduler.step()
+    # if arg.lr_scheduler == 'ReduceLROnPlateau':
+    #     scheduler.step(one_epoch_loss)
+    # elif arg.lr_scheduler ==  'CosineAnnealingLR':
+    #     scheduler.step()
     return train_loss / (idx + 1), avg_acc_clean
 
 
@@ -489,6 +503,7 @@ def nad(arg, result, config):
         student.to(args.device)
         train_loss, train_acc = train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch)
 
+        
         # evaluate on testing set
         test_loss, test_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
         test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
