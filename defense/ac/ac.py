@@ -476,6 +476,8 @@ def ac(args,result):
     
 
     ### c. retrain the model with filtered data
+    model = generate_cls_model(args.model,args.num_classes)
+    model.to(args.device)
     data_set_o.subset([i for i,v in enumerate(is_clean_lst) if v==1])
     data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True)
     
