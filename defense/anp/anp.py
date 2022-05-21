@@ -10,7 +10,7 @@ The update include:
     4. save process
     5. new standard: robust accuracy
     6. reconstruct some backbone vgg19 and add some backbone such as densenet161 efficientnet mobilenet
-    7. save best model which gets the minimum of asr minus acc
+    7. save best model which gets the minimum of asr with acc decreased by no more than 10%
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
