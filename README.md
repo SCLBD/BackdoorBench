@@ -144,7 +144,6 @@ python ./defense/ac/ac.py --result_file badnet_0_1
 
 
 If you want to change the defense methods and the setting for defense, you should specify both the attack method script in ../defense and the YAML config file to use different defense methods.
-The detailed descriptions for each defense may be put into the `add_args` function in each script.
 
 ### [Supported attacks](#supported-attacks)
 
