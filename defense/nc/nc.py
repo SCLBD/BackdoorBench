@@ -68,6 +68,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from matplotlib import image as mlt
 
 import numpy as np
+from PIL import Image
 import torchvision
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
@@ -223,16 +224,16 @@ class Recorder:
         # if not os.path.exists(result_dir):
         #     os.makedirs(result_dir)
 
-        result_dir = (os.getcwd() + f'{opt.save_path}/nc/')
+        result_dir = (os.getcwd() + f'{opt.log}')
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
         # result_dir = os.path.join(result_dir, opt.attack_mode)
         # result_dir = os.path.join(os.getcwd(),opt.save_path,  opt.trigger_type)
         # if not os.path.exists(result_dir):
         #     os.makedirs(result_dir)
-        # result_dir = os.path.join(os.getcwd(),opt.save_path,  str(opt.target_label))
-        # if not os.path.exists(result_dir):
-        #     os.makedirs(result_dir)
+        result_dir = os.path.join(result_dir, str(opt.target_label))
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir)
 
         pattern_best = self.pattern_best
         mask_best = self.mask_best
@@ -594,26 +595,32 @@ def nc(args,result,config):
     x = result['clean_train']['x']
     y = result['clean_train']['y']
     data_all_length = len(y)
-    args.ratio = args.cleaning_ratio + args.unlearning_ratio
+    args.ratio = args.cleaning_ratio
     ran_idx = choose_index(args, data_all_length) 
     log_index = os.getcwd() + args.log + 'index.txt'
     np.savetxt(log_index, ran_idx, fmt='%d')
   
-    idx_clean = ran_idx[0:int(x.size()[0]*args.cleaning_ratio)]
-    idx_unlearn = ran_idx[int(x.size()[0]*args.cleaning_ratio):int(x.size()[0]*args.cleaning_ratio+x.size()[0]*args.unlearning_ratio)]
-    x_clean = x[idx_clean]
+    idx_clean = ran_idx[0:int(len(x)*args.cleaning_ratio*(1-args.unlearning_ratio))]
+    idx_unlearn = ran_idx[int(len(x)*args.cleaning_ratio*(1-args.unlearning_ratio)):int(len(x)*args.cleaning_ratio)]
+    x_new = [x[ii] for ii in idx_clean]
+    y_new = [y[ii] for ii in idx_clean]
 
-    trigger_path = os.getcwd() + f'{args.save_path}/nc/' + 'trigger.png'
-    signal_mask = mlt.imread(trigger_path)*255
-    signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
-    x_unlearn = x[idx_unlearn]
-    for i in range(len(idx_unlearn)):
-        x_np = (x_unlearn[i] + torch.tensor(signal_mask)).cpu().numpy()
-        x_np = np.clip(x_np.astype('uint8'), 0, 255)
-        x_unlearn[i] = torch.tensor(x_np)
-    x_new = torch.cat((x_clean,x_unlearn),dim = 0)
-    y_new = y[ran_idx]
-    data_clean_train = torch.utils.data.TensorDataset(x_new,y_new)
+    for (label,_) in flag_list:
+        trigger_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'trigger.png'
+        signal_mask = mlt.imread(trigger_path)*255
+        signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
+        x_unlearn = [x[ii] for ii in idx_unlearn]
+        x_unlearn_new = list()
+        for x in x_unlearn:
+            x_np = np.array(cv2.resize(np.array(x),(args.input_height, args.input_width))) + np.array(signal_mask)
+            x_np = np.clip(x_np.astype('uint8'), 0, 255)
+            x_np_img = Image.fromarray(x_np)
+            x_unlearn_new.extend([x_np_img])
+        # x_new = torch.cat((x_new,x_unlearn),dim = 0)
+        x_new.extend(x_unlearn_new)
+        y_new.extend([y[ii] for ii in idx_unlearn])
+    data_clean_train = list(zip(x_new,y_new))
+    # data_clean_train = torch.utils.data.TensorDataset(x_new,y_new)
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_train,
         poison_idx=np.zeros(len(data_clean_train)),  # one-hot to determine which image may take bd_transform

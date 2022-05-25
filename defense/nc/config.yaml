@@ -39,7 +39,7 @@ to_file: True
 n_times_test: 1
 use_norm: 1
 ratio: 1.0
-cleaning_ratio: 0.1
+cleaning_ratio: 0.05
 unlearning_ratio: 0.2
 nc_epoch: 10
 
