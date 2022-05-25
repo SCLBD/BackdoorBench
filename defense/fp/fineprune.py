@@ -209,10 +209,14 @@ def fp(args, result , config):
         print(name)
 
     # Forward hook for getting layer's output
+    global result_mid
     container = []
-
-    def forward_hook(module, input, output):
-        container.append(output)
+    result_mid = torch.tensor(0).to(args.device)
+    with torch.no_grad():
+        def forward_hook(module, input, output):
+            global result_mid
+            result_mid = output
+            container.append(output.detach().clone().cpu())
 
     if args.model == 'preactresnet18':
         hook = netC.layer4.register_forward_hook(forward_hook)
@@ -228,17 +232,29 @@ def fp(args, result , config):
         hook = netC.features.register_forward_hook(forward_hook)
 
     # Forwarding all the validation set
-    print("Forwarding all the validation dataset:")
-    for batch_idx, (inputs, _) in enumerate(trainloader):
-        inputs = inputs.to(args.device)
-        netC(inputs)
+    logging.info("Forwarding all the training dataset:")
+    with torch.no_grad():
+        flag = 0
+        for batch_idx, (inputs, _) in enumerate(trainloader):
+            inputs = inputs.to(args.device)
+            output = netC(inputs)
+            if flag == 0:
+                activation = torch.zeros(result_mid.size()[1]).to(args.device)
+                flag = 1
+            activation +=  torch.sum(result_mid, dim=[0, 2, 3])/len(data_set)
     hook.remove()
+    # if args.device == 'cuda':
+    #     netC.to('cpu')
 
     ### b. rank the mean of activation for each neural
     # Processing to get the "more important mask"
-    container = torch.cat(container, dim=0)
-    activation = torch.mean(container, dim=[0, 2, 3])
+    # activation = torch.zeros(container[0].size()[1]).to(args.device)
+    # for i in range(len(container)):
+    #     activation +=  torch.sum(container[i], dim=[0, 2, 3])/len(data_set)
+    # container = torch.cat(container, dim=0)
+    # activation = torch.mean(container, dim=[0, 2, 3])
     seq_sort = torch.argsort(activation)
+    del container
   
     pruning_mask = torch.ones(seq_sort.shape[0], dtype=bool)
     if args.model == 'preactresnet18':
