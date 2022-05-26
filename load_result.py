@@ -94,7 +94,6 @@ def load_result_no(result_folder, dataset):
 def load_results_pratio(dataset,poison_rate):
     models = ['preactresnet18', 'vgg19', "efficientnet_b3", "mobilenet_v3_large", "densenet161"]
     attacks = ['badnet', 'blended', 'sig', 'ssba', 'wanet', 'inputaware']
-    poison_rate = args.pratio
     defenses = ['no defense', 'ac', 'fp', 'ft', 'abl', 'nad', 'spectral','dbd','nc','anp']
     result_file = "{}_0_{}.csv".format(dataset, poison_rate)
     
