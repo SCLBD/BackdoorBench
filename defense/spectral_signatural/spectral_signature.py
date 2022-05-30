@@ -273,6 +273,8 @@ def spectral(arg,result):
     logging.info(f'Num Poisoned Left: {num_poisoned_after}' )   
     
     ### d. retrain the model with remaining data
+    model = generate_cls_model(arg.model,arg.num_classes)
+    model.to(arg.device)
     dataset.subset(left_inds)
     dataset_left = dataset
     data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=arg.batch_size, num_workers=arg.num_workers, shuffle=True)

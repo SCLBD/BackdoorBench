@@ -14,6 +14,7 @@ epochs: 100
 batch_size: 256
 num_workers: 4
 lr: 0.01
+lr_scheduler: CosineAnnealingLR
 
 poison_rate: 0.1
 target_type: 'all2one'
@@ -24,6 +25,7 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
+te_epochs: 10
 print_freq: 50
 momentum: 0.9
 weight_decay: 1.0e-4

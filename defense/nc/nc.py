@@ -68,6 +68,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from matplotlib import image as mlt
 
 import numpy as np
+from PIL import Image
 import torchvision
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
@@ -132,8 +133,6 @@ class RegressionModel(nn.Module):
     def forward(self, x):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
-        # if self.normalizer:
-        #   pattern = self.normalizer(self.get_raw_pattern())
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
@@ -146,36 +145,11 @@ class RegressionModel(nn.Module):
         return pattern / (2 + self._EPSILON) + 0.5
 
     def _get_classifier(self, opt):
-        # if opt.dataset == "mnist":
-        #     classifier = NetC_MNIST()
-        # elif opt.dataset == "cifar10":
-        #     classifier = PreActResNet18()
-        # elif opt.dataset == "gtsrb":
-        #     classifier = PreActResNet18(num_classes=43)
-        # elif opt.dataset == "celeba":
-        #     classifier = ResNet18()
-        # else:
-        #     raise Exception("Invalid Dataset")
-        # if opt.classifier == 'preactresnet18':
-        #     classifier = PreActResNet18()
-        #     if opt.dataset == "gtsrb":
-        #         classifier = PreActResNet18(num_classes=43)
-        #     if opt.dataset == "cifar100":
-        #         classifier = PreActResNet18(num_classes=100)
-        # else:
-        #     classifier = CIFAR10Module(opt).model
-        # Load pretrained classifie
-        # ckpt_path = os.path.join(
-        #     opt.checkpoints, opt.dataset, "{}_{}_morph.pth.tar".format(opt.dataset, opt.attack_mode)
-        # )
-
-        # state_dict = torch.load(ckpt_path)
-        # classifier.load_state_dict(state_dict["netC"])
+       
         classifier = generate_cls_model(args.model,args.num_classes)
         classifier.load_state_dict(self.result['model'])
         classifier.to(args.device)
-        # checkpoint = torch.load(opt.checkpoint_load)
-        # classifier.load_state_dict(checkpoint['model'])
+        
         for param in classifier.parameters():
             param.requires_grad = False
         classifier.eval()
@@ -250,16 +224,16 @@ class Recorder:
         # if not os.path.exists(result_dir):
         #     os.makedirs(result_dir)
 
-        result_dir = (os.getcwd() + f'{opt.save_path}/nc/')
+        result_dir = (os.getcwd() + f'{opt.log}')
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
         # result_dir = os.path.join(result_dir, opt.attack_mode)
         # result_dir = os.path.join(os.getcwd(),opt.save_path,  opt.trigger_type)
         # if not os.path.exists(result_dir):
         #     os.makedirs(result_dir)
-        # result_dir = os.path.join(os.getcwd(),opt.save_path,  str(opt.target_label))
-        # if not os.path.exists(result_dir):
-        #     os.makedirs(result_dir)
+        result_dir = os.path.join(result_dir, str(opt.target_label))
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir)
 
         pattern_best = self.pattern_best
         mask_best = self.mask_best
@@ -499,6 +473,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -510,6 +485,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/nc/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
     parser.add_argument("--init_cost", type=float)
@@ -619,26 +595,32 @@ def nc(args,result,config):
     x = result['clean_train']['x']
     y = result['clean_train']['y']
     data_all_length = len(y)
-    args.ratio = args.cleaning_ratio + args.unlearning_ratio
+    args.ratio = args.cleaning_ratio
     ran_idx = choose_index(args, data_all_length) 
     log_index = os.getcwd() + args.log + 'index.txt'
     np.savetxt(log_index, ran_idx, fmt='%d')
   
-    idx_clean = ran_idx[0:int(x.size()[0]*args.cleaning_ratio)]
-    idx_unlearn = ran_idx[int(x.size()[0]*args.cleaning_ratio):int(x.size()[0]*args.cleaning_ratio+x.size()[0]*args.unlearning_ratio)]
-    x_clean = x[idx_clean]
+    idx_clean = ran_idx[0:int(len(x)*args.cleaning_ratio*(1-args.unlearning_ratio))]
+    idx_unlearn = ran_idx[int(len(x)*args.cleaning_ratio*(1-args.unlearning_ratio)):int(len(x)*args.cleaning_ratio)]
+    x_new = [x[ii] for ii in idx_clean]
+    y_new = [y[ii] for ii in idx_clean]
 
-    trigger_path = os.getcwd() + f'{args.save_path}/nc/' + 'trigger.png'
-    signal_mask = mlt.imread(trigger_path)*255
-    signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
-    x_unlearn = x[idx_unlearn]
-    for i in range(len(idx_unlearn)):
-        x_np = (x_unlearn[i] + torch.tensor(signal_mask)).cpu().numpy()
-        x_np = np.clip(x_np.astype('uint8'), 0, 255)
-        x_unlearn[i] = torch.tensor(x_np)
-    x_new = torch.cat((x_clean,x_unlearn),dim = 0)
-    y_new = y[ran_idx]
-    data_clean_train = torch.utils.data.TensorDataset(x_new,y_new)
+    for (label,_) in flag_list:
+        trigger_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'trigger.png'
+        signal_mask = mlt.imread(trigger_path)*255
+        signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
+        x_unlearn = [x[ii] for ii in idx_unlearn]
+        x_unlearn_new = list()
+        for img in x_unlearn:
+            x_np = np.array(cv2.resize(np.array(img),(args.input_height, args.input_width))) + np.array(signal_mask)
+            x_np = np.clip(x_np.astype('uint8'), 0, 255)
+            x_np_img = Image.fromarray(x_np)
+            x_unlearn_new.extend([x_np_img])
+        # x_new = torch.cat((x_new,x_unlearn),dim = 0)
+        x_new.extend(x_unlearn_new)
+        y_new.extend([y[ii] for ii in idx_unlearn])
+    data_clean_train = list(zip(x_new,y_new))
+    # data_clean_train = torch.utils.data.TensorDataset(x_new,y_new)
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_clean_train,
         poison_idx=np.zeros(len(data_clean_train)),  # one-hot to determine which image may take bd_transform
@@ -651,7 +633,10 @@ def nc(args,result,config):
     trainloader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
   
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100) 
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100) 
     criterion = torch.nn.CrossEntropyLoss() 
     
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
@@ -687,15 +672,22 @@ def nc(args,result,config):
     best_acc = 0
     best_asr = 0
     for j in range(args.epochs):
+        batch_loss = []
         for i, (inputs,labels) in enumerate(trainloader):  # type: ignore
             model.train()
             model.to(args.device)
             inputs, labels = inputs.to(args.device), labels.to(args.device)
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            batch_loss.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler.step()
         
         with torch.no_grad():
             model.eval()
@@ -738,7 +730,7 @@ if __name__ == '__main__':
     
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/nc/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream)
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

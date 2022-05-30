@@ -86,6 +86,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -97,8 +98,10 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/nad/config.yaml", help='the path of yaml')
 
     #set the parameter for the nad defense
+    parser.add_argument('--te_epochs', type=int)
     parser.add_argument('--print_freq', type=int, help='frequency of showing training results on console')
     parser.add_argument('--momentum', type=float, help='momentum')
     parser.add_argument('--weight_decay', type=float, help='weight decay')
@@ -114,6 +117,19 @@ def get_args():
 
     print(arg)
     return arg
+
+def adjust_learning_rate(optimizer, epoch, lr):
+    if epoch < 2:
+        lr = lr
+    elif epoch < 20:
+        lr = 0.01
+    elif epoch < 30:
+        lr = 0.0001
+    else:
+        lr = 0.0001
+    logging.info('epoch: {}  lr: {:.4f}'.format(epoch, lr))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 class AT(nn.Module):
@@ -156,6 +172,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     epoch:
         current epoch
     '''
+    adjust_learning_rate(optimizer, epoch, arg.lr)
     snet = nets['snet']
     tnet = nets['tnet']
 
@@ -169,6 +186,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     total_clean_correct = 0
     train_loss = 0
 
+    batch_loss = []
     for idx, (inputs, labels) in enumerate(trainloader):
         inputs, labels = inputs.to(arg.device), labels.to(arg.device)
 
@@ -303,7 +321,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             at_loss = at3_loss + cls_loss
 
 
-
+        batch_loss.append(at_loss.item())
         optimizer.zero_grad()
         at_loss.backward()
         optimizer.step()
@@ -314,7 +332,11 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
         
     logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
-    scheduler.step()
+    one_epoch_loss = sum(batch_loss)/len(batch_loss)
+    # if arg.lr_scheduler == 'ReduceLROnPlateau':
+    #     scheduler.step(one_epoch_loss)
+    # elif arg.lr_scheduler ==  'CosineAnnealingLR':
+    #     scheduler.step()
     return train_loss / (idx + 1), avg_acc_clean
 
 
@@ -386,6 +408,7 @@ def nad(arg, result, config):
     teacher.to(args.device)
     logging.info('finished teacher student init...')
     student = generate_cls_model(args.model,args.num_classes)
+    student.load_state_dict(result['model'])
     logging.info('finished student student init...')
 
     teacher.eval()
@@ -393,7 +416,10 @@ def nad(arg, result, config):
 
     # initialize optimizer, scheduler
     optimizer = torch.optim.SGD(student.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100)
 
     # define loss functions
     criterionCls = nn.CrossEntropyLoss()
@@ -450,6 +476,24 @@ def nad(arg, result, config):
     )
     testloader_clean = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
+    ### train the teacher model
+    arg_te = arg
+    start_epoch = 0
+    arg_te.beta1 = 0
+    arg_te.beta2 = 0
+    arg_te.beta3 = 0
+    for epoch in tqdm(range(start_epoch, arg.te_epochs)):
+        student.to(args.device)
+        train_loss, train_acc = train_step(arg_te, trainloader, nets, optimizer, scheduler, criterions, epoch)
+
+        # evaluate on testing set
+        test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, student, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, student, criterionCls, epoch, 'bd')
+
+        # remember best precision and save checkpoint
+
+        logging.info(f'Teacher_Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd}')
+
     ### b. train the student model use the teacher model with the activation of model and result
     logging.info('----------- Train Initialization --------------')
     start_epoch = 0
@@ -459,6 +503,7 @@ def nad(arg, result, config):
         student.to(args.device)
         train_loss, train_acc = train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch)
 
+        
         # evaluate on testing set
         test_loss, test_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
         test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
@@ -478,6 +523,17 @@ def nad(arg, result, config):
             },
             f'./{args.checkpoint_save}defense_result.pt'
             )
+        if epoch == 19:
+            now_epoch = epoch + 1
+            torch.save(
+            {
+                'model_name':args.model,
+                'model': student.cpu().state_dict(),
+                'asr': test_acc_bd,
+                'acc': test_acc_cl
+            },
+            f'./{args.checkpoint_save}defense_result_{now_epoch}.pt'
+            )
 
         logging.info(f'Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd} best_acc:{best_acc} best_asr{best_asr}')
     result = {}
@@ -489,7 +545,7 @@ def nad(arg, result, config):
 if __name__ == '__main__':
     ### 1. basic setting: args 
     args = get_args()
-    with open("./defense/nad/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config

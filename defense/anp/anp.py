@@ -10,7 +10,7 @@ The update include:
     4. save process
     5. new standard: robust accuracy
     6. reconstruct some backbone vgg19 and add some backbone such as densenet161 efficientnet mobilenet
-    7. save best model which gets the minimum of asr minus acc
+    7. save best model which gets the minimum of asr with acc decreased by no more than 10%
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
@@ -220,7 +220,7 @@ def pruning(net, neuron):
     net.load_state_dict(state_dict)
 
 
-def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_dis):
+def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_asr, acc_ori):
     results = []
     nb_max = int(np.ceil(pruning_max))
     nb_step = int(np.ceil(pruning_step))
@@ -235,15 +235,15 @@ def evaluate_by_number(args, model, mask_values, pruning_max, pruning_step, crit
         logging.info('{} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
             i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))
         results.append('{} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(
-            i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))
-        if cl_acc - po_acc > best_dis:
-            model_best = copy.deepcopy(model)
-            best_dis = cl_acc - po_acc
-            logging.info('update model best')
+            i+1, layer_name, neuron_idx, value, po_loss, po_acc, cl_loss, cl_acc))    
+        if abs(cl_acc - acc_ori)/acc_ori < args.acc_ratio:
+            if po_acc < best_asr:
+                model_best = copy.deepcopy(model)
+                best_asr = po_acc
     return results, model_best
 
 
-def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_dis):
+def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, criterion, clean_loader, poison_loader, best_asr, acc_ori):
     results = []
     thresholds = np.arange(0, pruning_max + pruning_step, pruning_step)
     start = 0
@@ -263,10 +263,10 @@ def evaluate_by_threshold(args, model, mask_values, pruning_max, pruning_step, c
             start, layer_name, neuron_idx, threshold, po_loss, po_acc, cl_loss, cl_acc))
         results.append('{:.2f} \t {} \t {} \t {} \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}\n'.format(
             start, layer_name, neuron_idx, threshold, po_loss, po_acc, cl_loss, cl_acc))
-        if cl_acc - po_acc > best_dis:
-            model_best = copy.deepcopy(model)
-            best_dis = cl_acc - po_acc
-            logging.info('update model best')
+        if abs(cl_acc - acc_ori)/acc_ori < args.acc_ratio:
+            if po_acc < best_asr:
+                model_best = copy.deepcopy(model)
+                best_asr = po_acc
     return results, model_best
 
 
@@ -291,6 +291,7 @@ def get_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr') 
 
     parser.add_argument('--attack', type=str)
     parser.add_argument('--poison_rate', type=float)
@@ -302,8 +303,10 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./defense/anp/config.yaml", help='the path of yaml')
 
     #set the parameter for the anp defense
+    parser.add_argument('--acc_ratio', type=float, help='the tolerance ration of the clean accuracy')
     parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
     parser.add_argument('--print_every', type=int, help='print results every few iterations')
     parser.add_argument('--nb_iter', type=int, help='the number of iterations for training')
@@ -435,16 +438,15 @@ def anp(args,result,config):
     cl_loss, cl_acc = test(args, model=net_prune, criterion=criterion, data_loader=clean_test_loader)
     po_loss, po_acc = test(args, model=net_prune, criterion=criterion, data_loader=poison_test_loader)
     logging.info('0 \t None     \t None     \t {:.4f} \t {:.4f} \t {:.4f} \t {:.4f}'.format(po_loss, po_acc, cl_loss, cl_acc))
-    best_dis = cl_acc - po_acc
     if args.pruning_by == 'threshold':
         results, model_pru = evaluate_by_threshold(
             args, net_prune, mask_values, pruning_max=args.pruning_max, pruning_step=args.pruning_step,
-            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_dis = best_dis
+            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_asr=po_acc, acc_ori=cl_acc
         )
     else:
         results, model_pru = evaluate_by_number(
             args, net_prune, mask_values, pruning_max=args.pruning_max, pruning_step=args.pruning_step,
-            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_dis = best_dis
+            criterion=criterion, clean_loader=clean_test_loader, poison_loader=poison_test_loader, best_asr=po_acc, acc_ori=cl_acc
         )
     file_name = os.path.join(os.getcwd() + args.checkpoint_save, 'pruning_by_{}.txt'.format(args.pruning_by))
     with open(file_name, "w") as f:
@@ -459,7 +461,7 @@ def anp(args,result,config):
 if __name__ == '__main__':
     ### 1. basic setting: args
     args = get_args()
-    with open("./defense/anp/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
