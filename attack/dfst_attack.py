@@ -136,6 +136,7 @@ def total_variation(
 def reverse_engineer_one_neuron(
         poison_model,
         benign_ds, # should have no transforms
+        batch_size,
         input_shape,
         trojan_layer_name,
         torjan_neuron_idx,
@@ -207,7 +208,7 @@ def reverse_engineer_one_neuron(
 
     benign_dl = DataLoader(
         dataset=benign_ds,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=False,
         drop_last=False,
     )
@@ -256,6 +257,7 @@ def neuron_detection_for_layers(
     net: torch.nn.Module,
     layer_name_list : List[str],
     benign_dataset,
+    batch_size,
     adv_dataset,
     device,
 ):
@@ -266,7 +268,7 @@ def neuron_detection_for_layers(
     '''
     sync_dl = DataLoader(
         dataset=syncDataset(benign_dataset, adv_dataset),
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=False,
         drop_last=False,
     )
@@ -390,13 +392,13 @@ def get_part_for_each_label(
                                                 ).tolist()
     return select_pos
 
-def generate_with_reverse_network(model_path, input_shape, ds :prepro_cls_DatasetBD, device):
+def generate_with_reverse_network(model_path, input_shape, ds :prepro_cls_DatasetBD, batch_size, device):
     reverse_generator = detoxicant_net(input_shape)
     reverse_generator.load_state_dict(torch.load(model_path, map_location='cpu'))
     reverse_generator.eval()
 
     denormalizer = transform_to_denormalization(ds.ori_image_transform_in_loading)
-    dl = DataLoader(ds, batch_size = args.batch_size, shuffle = False, drop_last=False)
+    dl = DataLoader(ds, batch_size = batch_size, shuffle = False, drop_last=False)
     reversed_batch_list = []
     target_list = []
     with torch.no_grad():
@@ -505,443 +507,445 @@ def add_args(parser):
     return parser
 
 
-# def main():
-### 1. config args, save_path, fix random seed
-parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
-args = parser.parse_args()
+def main():
+## 1. config args, save_path, fix random seed
+    parser = (add_args(argparse.ArgumentParser(description=sys.argv[0])))
+    args = parser.parse_args()
 
-with open(args.yaml_path, 'r') as f:
-    defaults = yaml.safe_load(f)
+    with open(args.yaml_path, 'r') as f:
+        defaults = yaml.safe_load(f)
 
-defaults.update({k: v for k, v in args.__dict__.items() if v is not None})
+    defaults.update({k: v for k, v in args.__dict__.items() if v is not None})
 
-args.__dict__ = defaults
+    args.__dict__ = defaults
 
-args.terminal_info = sys.argv
+    args.terminal_info = sys.argv
 
-args.num_classes = get_num_classes(args.dataset)
-args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
-args.img_size = (args.input_height, args.input_width, args.input_channel)
-args.dataset_path = f"{args.dataset_path}/{args.dataset}"
+    args.num_classes = get_num_classes(args.dataset)
+    args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
+    args.img_size = (args.input_height, args.input_width, args.input_channel)
+    args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
-if ('attack_train_replace_imgs_path' not in args.__dict__) or (args.attack_train_replace_imgs_path is None):
-    args.attack_train_replace_imgs_path = f"../resource/dfst/{args.dataset}_sunrise_x_train.npy"
-    print(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
+    if ('attack_train_replace_imgs_path' not in args.__dict__) or (args.attack_train_replace_imgs_path is None):
+        args.attack_train_replace_imgs_path = f"../resource/dfst/{args.dataset}_sunrise_x_train.npy"
+        print(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
 
-if ('attack_test_replace_imgs_path' not in args.__dict__) or (args.attack_test_replace_imgs_path is None):
-    args.attack_test_replace_imgs_path = f"../resource/dfst/{args.dataset}_sunrise_x_test.npy"
-    print(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
+    if ('attack_test_replace_imgs_path' not in args.__dict__) or (args.attack_test_replace_imgs_path is None):
+        args.attack_test_replace_imgs_path = f"../resource/dfst/{args.dataset}_sunrise_x_test.npy"
+        print(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
 
-### save path
-if 'save_folder_name' not in args:
-    save_path = generate_save_folder(
-        run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
-        given_load_file_path=args.load_path if 'load_path' in args else None,
-        all_record_folder_path='../record',
+    ### save path
+    if 'save_folder_name' not in args:
+        save_path = generate_save_folder(
+            run_info=('afterwards' if 'load_path' in args.__dict__ else 'attack') + '_' + args.attack,
+            given_load_file_path=args.load_path if 'load_path' in args else None,
+            all_record_folder_path='../record',
+        )
+    else:
+        save_path = '../record/' + args.save_folder_name
+        os.mkdir(save_path)
+
+    args.save_path = save_path
+
+    torch.save(args.__dict__, save_path + '/info.pickle')
+
+    ### set the logger
+    logFormatter = logging.Formatter(
+        fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d:%H:%M:%S',
     )
-else:
-    save_path = '../record/' + args.save_folder_name
-    os.mkdir(save_path)
+    logger = logging.getLogger()
 
-args.save_path = save_path
+    fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
-torch.save(args.__dict__, save_path + '/info.pickle')
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
 
-### set the logger
-logFormatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%d:%H:%M:%S',
-)
-logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
-fileHandler = logging.FileHandler(save_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+    logging.info(pformat(args.__dict__))
 
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
+    try:
+        logging.info(pformat(get_git_info()))
+    except:
+        logging.info('Getting git info fails.')
 
-logger.setLevel(logging.INFO)
+    ### set the random seed
+    fix_random(int(args.random_seed))
 
-logging.info(pformat(args.__dict__))
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+    net = generate_cls_model(
+        model_name=args.model,
+        num_classes=args.num_classes,
+    )
+    net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device)['model_state_dict'])
+    logging.info(f'load args.pretrained_model_path:{args.pretrained_model_path}')
 
-try:
-    logging.info(pformat(get_git_info()))
-except:
-    logging.info('Getting git info fails.')
+    # as data_poisoning, make the data set
 
-### set the random seed
-fix_random(int(args.random_seed))
+    ### 2. set the clean train data and clean test data
+    train_dataset_without_transform, \
+    train_img_transform, \
+    train_label_transfrom, \
+    test_dataset_without_transform, \
+    test_img_transform, \
+    test_label_transform = dataset_and_transform_generate(args)
 
-device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-net = generate_cls_model(
-    model_name=args.model,
-    num_classes=args.num_classes,
-)
-net.load_state_dict(torch.load(args.pretrained_model_path, map_location=device)['model_state_dict'])
-logging.info(f'load args.pretrained_model_path:{args.pretrained_model_path}')
+    benign_train_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+        )
 
-# as data_poisoning, make the data set
+    benign_test_dl = DataLoader(
+        prepro_cls_DatasetBD(
+            test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=test_img_transform,
+            ori_label_transform_in_loading=test_label_transform,
+            add_details_in_preprocess=True,
+        ),
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
 
-### 2. set the clean train data and clean test data
-train_dataset_without_transform, \
-train_img_transform, \
-train_label_transfrom, \
-test_dataset_without_transform, \
-test_img_transform, \
-test_label_transform = dataset_and_transform_generate(args)
+    train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
+    bd_label_transform = bd_attack_label_trans_generate(args)
 
-benign_train_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=train_img_transform,
-        ori_label_transform_in_loading=train_label_transfrom,
+    train_pidx = get_part_for_each_label(benign_train_ds.targets, args.pratio)
+    train_pidx_zero_one = np.zeros(len(train_dataset_without_transform))
+    train_pidx_zero_one[train_pidx] = 1
+
+    torch.save(train_pidx,
+               args.save_path + '/train_pidex_list.pickle',
+               )
+
+    adv_train_part_ds = prepro_cls_DatasetBD(
+        deepcopy(train_dataset_without_transform),
+        poison_idx=train_pidx_zero_one,
+        bd_image_pre_transform=train_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
+        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform), # only be used in neuron selection
+        ori_label_transform_in_loading=(train_label_transfrom),
         add_details_in_preprocess=True,
     )
 
-benign_test_dl = DataLoader(
-    prepro_cls_DatasetBD(
-        test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
+    adv_train_part_ds.subset(train_pidx)
+
+    adv_retrain_ds = xy_iter(
+        benign_train_ds.data + adv_train_part_ds.data,
+        benign_train_ds.targets.tolist() + adv_train_part_ds.targets.tolist(),
+        transform=train_img_transform,
+    )
+    adv_retrain_dl = DataLoader(
+        adv_retrain_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True
+    )
+
+    ### decide which img to poison in ASR Test
+    test_pidx = generate_pidx_from_label_transform(
+        benign_test_dl.dataset.targets,
+        label_transform=bd_label_transform,
+        train=False,
+    )
+
+    ### generate test dataset for ASR
+    adv_test_dataset = prepro_cls_DatasetBD(
+        deepcopy(test_dataset_without_transform),
+        poison_idx=test_pidx,
+        bd_image_pre_transform=test_bd_img_transform,
+        bd_label_pre_transform=bd_label_transform,
         ori_image_transform_in_loading=test_img_transform,
         ori_label_transform_in_loading=test_label_transform,
         add_details_in_preprocess=True,
-    ),
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
 
-train_bd_img_transform, test_bd_img_transform = bd_attack_img_trans_generate(args)
-bd_label_transform = bd_attack_label_trans_generate(args)
-
-train_pidx = get_part_for_each_label(benign_train_ds.targets, args.pratio)
-train_pidx_zero_one = np.zeros(len(train_dataset_without_transform))
-train_pidx_zero_one[train_pidx] = 1
-
-torch.save(train_pidx,
-           args.save_path + '/train_pidex_list.pickle',
-           )
-
-adv_train_part_ds = prepro_cls_DatasetBD(
-    deepcopy(train_dataset_without_transform),
-    poison_idx=train_pidx_zero_one,
-    bd_image_pre_transform=train_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform), # only be used in neuron selection
-    ori_label_transform_in_loading=(train_label_transfrom),
-    add_details_in_preprocess=False,
-)
-
-adv_train_part_ds.subset(train_pidx)
-
-adv_retrain_ds = xy_iter(
-    benign_train_ds.data + adv_train_part_ds.data,
-    benign_train_ds.targets.tolist() + adv_train_part_ds.targets.tolist(),
-    transform=train_img_transform,
-)
-adv_retrain_dl = DataLoader(
-    adv_retrain_ds,
-    batch_size=args.batch_size,
-    shuffle=True,
-    drop_last=True
-)
-
-### decide which img to poison in ASR Test
-test_pidx = generate_pidx_from_label_transform(
-    benign_test_dl.dataset.targets,
-    label_transform=bd_label_transform,
-    train=False,
-)
-
-### generate test dataset for ASR
-adv_test_dataset = prepro_cls_DatasetBD(
-    deepcopy(test_dataset_without_transform),
-    poison_idx=test_pidx,
-    bd_image_pre_transform=test_bd_img_transform,
-    bd_label_pre_transform=bd_label_transform,
-    ori_image_transform_in_loading=test_img_transform,
-    ori_label_transform_in_loading=test_label_transform,
-    add_details_in_preprocess=True,
-
-)
-
-# delete the samples that do not used for ASR test (those non-poisoned samples)
-adv_test_dataset.subset(
-    np.where(test_pidx == 1)[0]
-)
-
-adv_test_dl = DataLoader(
-    dataset=adv_test_dataset,
-    batch_size=args.batch_size,
-    shuffle=False,
-    drop_last=False,
-)
-
-# start retrain with poisoned
-
-trainer = generate_cls_trainer(
-    net,
-    args.attack,
-    args.amp,
-)
-criterion = argparser_criterion(args)
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-if os.path.exists(f"{args.poison_model_save_path_for_test}"):
-    logging.info(f'load the poison_model, test mode. path : {args.poison_model_save_path_for_test}')
-    net.load_state_dict(
-        torch.load(
-            args.poison_model_save_path_for_test,
-            map_location='cpu',
-        )['model_state_dict']
     )
-else:
-    logging.info('No poison_model find.')
+
+    # delete the samples that do not used for ASR test (those non-poisoned samples)
+    adv_test_dataset.subset(
+        np.where(test_pidx == 1)[0]
+    )
+
+    adv_test_dl = DataLoader(
+        dataset=adv_test_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        drop_last=False,
+    )
+
+    # start retrain with poisoned
+
+    trainer = generate_cls_trainer(
+        net,
+        args.attack,
+        args.amp,
+    )
+    criterion = argparser_criterion(args)
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
+    if 'poison_model_save_path_for_test' in args and os.path.exists(f"{args.poison_model_save_path_for_test}"):
+        logging.info(f'load the poison_model, test mode. path : {args.poison_model_save_path_for_test}')
+        net.load_state_dict(
+            torch.load(
+                args.poison_model_save_path_for_test,
+                map_location='cpu',
+            )['model_state_dict']
+        )
+    else:
+        logging.info('No poison_model find.')
+        trainer.train_with_test_each_epoch_v2(
+            train_data=adv_retrain_dl,
+            test_dataloader_dict={
+                'adv_retrain_dl':adv_retrain_dl,
+                'benign_test':benign_test_dl,
+                'adv_test':adv_test_dl,
+            },
+            end_epoch_num=args.epochs,
+            criterion=criterion,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            device=device,
+            frequency_save=args.frequency_save,
+            save_folder_path=save_path,
+            save_prefix='retrain_with_poison',
+            continue_training_path=None,
+        )
+
+    #neuron detection part
+    benign_train_for_neuron_detection_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
+            ori_label_transform_in_loading=(train_label_transfrom),
+            add_details_in_preprocess=False,
+        ).subset(
+        train_pidx,
+        inplace = False,
+        memorize_original=False
+    )
+
+    # for each layer get a list of channels
+    selection_layer_neuron_dict = neuron_detection_for_layers(
+        net, args.layer_name_list, benign_train_for_neuron_detection_ds, args.batch_size, adv_train_part_ds, device
+    )
+    logging.info(f"selection_layer_neuron_dict:{selection_layer_neuron_dict}")
+    # the reverse engineering part
+
+    each_label_selected = get_part_for_each_label(benign_train_ds.targets, 0.002)
+    logging.info(f"reverse_engineer_select_idx:{each_label_selected}")
+    torch.save(each_label_selected, f"{save_path}/reverse_engineer_select_idx.pth")
+    reverse_engineer_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
+            ori_label_transform_in_loading=(train_label_transfrom),
+            add_details_in_preprocess=False,
+        ).subset(
+        each_label_selected,
+        inplace = False,
+        memorize_original=False
+    )
+
+    each_label_selected = get_part_for_each_label(benign_test_dl.dataset.targets, 0.1)
+    logging.info(f"linear_test_select_idx:{each_label_selected}")
+    torch.save(each_label_selected, f"{save_path}/linear_test_select_idx.pth")
+    linear_test_prototype_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=keep_normalization_resize_totensor_only(test_img_transform),
+            ori_label_transform_in_loading=(test_label_transform),
+            add_details_in_preprocess=False,
+        ).subset(
+        each_label_selected,
+        inplace = False,
+        memorize_original=False
+    )
+    linear_test_prototype_ds = xy_iter(linear_test_prototype_ds.data,
+                                       np.ones_like(linear_test_prototype_ds.targets)*args.attack_target,
+                                       transform=linear_test_prototype_ds.ori_image_transform_in_loading)
+    linear_test_denormalization = transform_to_denormalization(linear_test_prototype_ds.transform)
+    linear_test_prototype_dl = DataLoader(linear_test_prototype_ds, batch_size=args.batch_size, shuffle=False, drop_last=False,)
+    trainer = generate_cls_trainer(net)
+    trainer.criterion = argparser_criterion(args)
+
+    detoxicant_dict = {}
+    for layer_name, neuron_list in selection_layer_neuron_dict.items():
+        for neuron_idx in neuron_list:
+            result_max_ratio, result_ssim_loss, result_parameter = reverse_engineer_one_neuron(
+                net,
+                reverse_engineer_ds,  # should have no transforms
+                args.batch_size,
+                (args.input_width, args.input_height),
+                layer_name,
+                neuron_idx,
+                args.attack_target,
+                args.reverse_engineer_lr,
+                device,
+            )
+            if result_max_ratio > args.detoxicant_ratio_require:
+                test_ratio, test_loss, one_batch = test_with_reverse_network(
+                    net,
+                    criterion,
+                    linear_test_prototype_dl,
+                    (args.input_height, args.input_width),
+                    result_parameter,
+                    device,
+                )
+                logging.info(f"detoxicant test, ASR:{test_ratio}, tset_loss:{test_loss}")
+                if test_ratio > args.detoxicant_ratio_require:
+                    save_location = f"{save_path}/layer_{layer_name}_neuron_{neuron_idx}.pth"
+
+                    pil_image_list = [to_pil(tensor_img) for tensor_img in linear_test_denormalization(one_batch)]
+                    sample_pil_imgs(pil_image_list, f"{save_path}/layer_{layer_name}_neuron_{neuron_idx}_samples", num=5,)
+                    torch.save(result_parameter, save_location)
+                    logging.info(f'One detoxicant added. layer:{layer_name}, neuron_idx:{neuron_idx},\n    ASR:{test_ratio}, tset_loss:{test_loss}, result_max_ratio:{result_max_ratio}, result_ssim_loss:{result_ssim_loss}, \n    save_location:{save_location}')
+                    detoxicant_dict[(layer_name, neuron_idx)] = (result_max_ratio, result_ssim_loss, save_location)
+
+    logging.info(f"All detoxicant_dict:{detoxicant_dict}")
+
+    # the final retrain part, for train
+    each_label_selected = get_part_for_each_label(benign_train_ds.targets, 0.01)
+    logging.info(f"final_denoise_select_idx:{each_label_selected}")
+    torch.save(each_label_selected, f"{save_path}/final_denoise_select_idx.pth")
+    final_denoise_preprocess_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=train_dataset_without_transform,
+            poison_idx=np.zeros(len(train_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
+            ori_label_transform_in_loading=(train_label_transfrom),
+            add_details_in_preprocess=False,
+        ).subset(
+        each_label_selected,
+        inplace = False,
+        memorize_original=False
+    )
+    # generate denoise img from above
+    all_reverse_generate_pil_imgs = []
+    all_target = []
+    for (layer_name, neuron_idx), (result_max_ratio, result_ssim_loss, save_location) in detoxicant_dict.items():
+        pil_imgs, target = generate_with_reverse_network(save_location, (args.input_height,args.input_width), final_denoise_preprocess_ds, args.batch_size, device)
+        all_reverse_generate_pil_imgs += pil_imgs
+        all_target+=target.numpy().tolist()
+        sample_pil_imgs(pil_imgs, f"{save_path}/{layer_name}_{neuron_idx}_final_denoise_samples")
+    logging.info(f"final denoise train dataset len = retrain {len(adv_retrain_ds.targets)} + denoise {len(all_reverse_generate_pil_imgs)}")
+
+    denoise_train_pre_ds = xy_iter(
+        adv_retrain_ds.data + all_reverse_generate_pil_imgs,
+        adv_retrain_ds.targets + all_target,
+        None,
+    )
+    poison_idx_for_denoise_train = np.zeros(len(adv_retrain_ds.data + all_reverse_generate_pil_imgs))
+    # To indicate all added data samples as 'poison', for final save_result.
+    poison_idx_for_denoise_train[
+        np.arange(len(benign_train_ds), len(adv_retrain_ds.data + all_reverse_generate_pil_imgs))
+        ] = 1
+    denoise_train_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=denoise_train_pre_ds,
+            poison_idx=poison_idx_for_denoise_train,
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=train_img_transform,
+            ori_label_transform_in_loading=train_label_transfrom,
+            add_details_in_preprocess=True,
+            clean_image_pre_transform = None,
+            end_pre_process= None,
+    )
+    denoise_train_ds.original_targets =  np.array(benign_train_ds.targets.tolist() + adv_train_part_ds.original_targets.tolist() + all_target)
+    denoise_train_dl = DataLoader(denoise_train_ds, batch_size=args.batch_size, shuffle=True, drop_last=True,)
+
+    each_label_selected = get_part_for_each_label(benign_test_dl.dataset.targets, 0.05)
+    logging.info(f"final_denoise_test_select_idx:{each_label_selected}")
+    torch.save(each_label_selected, f"{save_path}/final_denoise_test_select_idx.pth")
+    final_denoise_test_preprocess_ds = prepro_cls_DatasetBD(
+            full_dataset_without_transform=test_dataset_without_transform,
+            poison_idx=np.zeros(len(test_dataset_without_transform)),
+            # one-hot to determine which image may take bd_transform
+            bd_image_pre_transform=None,
+            bd_label_pre_transform=None,
+            ori_image_transform_in_loading=keep_normalization_resize_totensor_only(test_img_transform),
+            ori_label_transform_in_loading=(test_label_transform),
+            add_details_in_preprocess=False,
+        ).subset(
+        each_label_selected,
+        inplace = False,
+        memorize_original=False
+    )
+    all_test_reverse_generate_pil_imgs = []
+    all_test_target = []
+    for (layer_name, neuron_idx), (result_max_ratio, result_ssim_loss, save_location) in detoxicant_dict.items():
+        pil_imgs, target = generate_with_reverse_network(save_location, (args.input_height,args.input_width), final_denoise_test_preprocess_ds, args.batch_size, device)
+        all_test_reverse_generate_pil_imgs += pil_imgs
+        all_test_target+=target.numpy().tolist()
+        sample_pil_imgs(pil_imgs, f"{save_path}/{layer_name}_{neuron_idx}_final_denoise_test_samples")
+
+    denoise_test_ds = xy_iter(
+        all_test_reverse_generate_pil_imgs,
+        all_test_target,
+        test_img_transform,
+    )
+    denoise_test_dl = DataLoader(denoise_test_ds, batch_size=args.batch_size, shuffle=False, drop_last=False,)
+
+    trainer = generate_cls_trainer(
+        net,
+        args.attack,
+        args.amp,
+    )
+    criterion = argparser_criterion(args)
+    optimizer, scheduler = argparser_opt_scheduler(net, args)
     trainer.train_with_test_each_epoch_v2(
-        train_data=adv_retrain_dl,
+        train_data=denoise_train_dl,
         test_dataloader_dict={
-            'adv_retrain_dl':adv_retrain_dl,
+            'final_denoise_train_dl':denoise_train_dl,
             'benign_test':benign_test_dl,
             'adv_test':adv_test_dl,
+            'denoise_test_dl':denoise_test_dl,
         },
-        end_epoch_num=args.epochs,
+        end_epoch_num= int(args.epochs * 1.2),
         criterion=criterion,
         optimizer=optimizer,
         scheduler=scheduler,
         device=device,
         frequency_save=args.frequency_save,
         save_folder_path=save_path,
-        save_prefix='retrain_with_poison',
+        save_prefix='final_denoise',
         continue_training_path=None,
     )
 
-#neuron detection part
-benign_train_for_neuron_detection_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
-        ori_label_transform_in_loading=(train_label_transfrom),
-        add_details_in_preprocess=False,
-    ).subset(
-    train_pidx,
-    inplace = False,
-    memorize_original=False
-)
-
-# for each layer get a list of channels
-selection_layer_neuron_dict = neuron_detection_for_layers(
-    net, args.layer_name_list, benign_train_for_neuron_detection_ds, adv_train_part_ds, device
-)
-logging.info(f"selection_layer_neuron_dict:{selection_layer_neuron_dict}")
-# the reverse engineering part
-
-each_label_selected = get_part_for_each_label(benign_train_ds.targets, 0.002)
-logging.info(f"reverse_engineer_select_idx:{each_label_selected}")
-torch.save(each_label_selected, f"{save_path}/reverse_engineer_select_idx.pth")
-reverse_engineer_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
-        ori_label_transform_in_loading=(train_label_transfrom),
-        add_details_in_preprocess=False,
-    ).subset(
-    each_label_selected,
-    inplace = False,
-    memorize_original=False
-)
-
-each_label_selected = get_part_for_each_label(benign_test_dl.dataset.targets, 0.1)
-logging.info(f"linear_test_select_idx:{each_label_selected}")
-torch.save(each_label_selected, f"{save_path}/linear_test_select_idx.pth")
-linear_test_prototype_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(test_img_transform),
-        ori_label_transform_in_loading=(test_label_transform),
-        add_details_in_preprocess=False,
-    ).subset(
-    each_label_selected,
-    inplace = False,
-    memorize_original=False
-)
-linear_test_prototype_ds = xy_iter(linear_test_prototype_ds.data,
-                                   np.ones_like(linear_test_prototype_ds.targets)*args.attack_target,
-                                   transform=linear_test_prototype_ds.ori_image_transform_in_loading)
-linear_test_denormalization = transform_to_denormalization(linear_test_prototype_ds.transform)
-linear_test_prototype_dl = DataLoader(linear_test_prototype_ds, batch_size=args.batch_size, shuffle=False, drop_last=False,)
-trainer = generate_cls_trainer(net)
-trainer.criterion = argparser_criterion(args)
-
-detoxicant_dict = {}
-for layer_name, neuron_list in selection_layer_neuron_dict.items():
-    for neuron_idx in neuron_list:
-        result_max_ratio, result_ssim_loss, result_parameter = reverse_engineer_one_neuron(
-            net,
-            reverse_engineer_ds,  # should have no transforms
-            (args.input_width, args.input_height),
-            layer_name,
-            neuron_idx,
-            args.attack_target,
-            args.reverse_engineer_lr,
-            device,
+    save_attack_result(
+            model_name=args.model,
+            num_classes=args.num_classes,
+            model=trainer.model.cpu().state_dict(),
+            data_path=args.dataset_path,
+            img_size=args.img_size,
+            clean_data=args.dataset,
+            bd_train=denoise_train_ds,
+            bd_test=adv_test_dataset,
+            save_path=save_path,
         )
-        if result_max_ratio > args.detoxicant_ratio_require:
-            test_ratio, test_loss, one_batch = test_with_reverse_network(
-                net,
-                criterion,
-                linear_test_prototype_dl,
-                (args.input_height, args.input_width),
-                result_parameter,
-                device,
-            )
-            logging.info(f"detoxicant test, ASR:{test_ratio}, tset_loss:{test_loss}")
-            if test_ratio > args.detoxicant_ratio_require:
-                save_location = f"{save_path}/layer_{layer_name}_neuron_{neuron_idx}.pth"
 
-                pil_image_list = [to_pil(tensor_img) for tensor_img in linear_test_denormalization(one_batch)]
-                sample_pil_imgs(pil_image_list, f"{save_path}/layer_{layer_name}_neuron_{neuron_idx}_samples", num=5,)
-                torch.save(result_parameter, save_location)
-                logging.info(f'One detoxicant added. layer:{layer_name}, neuron_idx:{neuron_idx},\n    ASR:{test_ratio}, tset_loss:{test_loss}, result_max_ratio:{result_max_ratio}, result_ssim_loss:{result_ssim_loss}, \n    save_location:{save_location}')
-                detoxicant_dict[(layer_name, neuron_idx)] = (result_max_ratio, result_ssim_loss, save_location)
-
-logging.info(f"All detoxicant_dict:{detoxicant_dict}")
-
-# the final retrain part, for train
-each_label_selected = get_part_for_each_label(benign_train_ds.targets, 0.01)
-logging.info(f"final_denoise_select_idx:{each_label_selected}")
-torch.save(each_label_selected, f"{save_path}/final_denoise_select_idx.pth")
-final_denoise_preprocess_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=train_dataset_without_transform,
-        poison_idx=np.zeros(len(train_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(train_img_transform),
-        ori_label_transform_in_loading=(train_label_transfrom),
-        add_details_in_preprocess=False,
-    ).subset(
-    each_label_selected,
-    inplace = False,
-    memorize_original=False
-)
-# generate denoise img from above
-all_reverse_generate_pil_imgs = []
-all_target = []
-for (layer_name, neuron_idx), (result_max_ratio, result_ssim_loss, save_location) in detoxicant_dict.items():
-    pil_imgs, target = generate_with_reverse_network(save_location, (args.input_height,args.input_width), final_denoise_preprocess_ds, device)
-    all_reverse_generate_pil_imgs += pil_imgs
-    all_target+=target.numpy().tolist()
-    sample_pil_imgs(pil_imgs, f"{save_path}/{layer_name}_{neuron_idx}_final_denoise_samples")
-logging.info(f"final denoise train dataset len = retrain {len(adv_retrain_ds.targets)} + denoise {len(all_reverse_generate_pil_imgs)}")
-
-denoise_train_pre_ds = xy_iter(
-    adv_retrain_ds.data + all_reverse_generate_pil_imgs,
-    adv_retrain_ds.targets + all_target,
-    None,
-)
-poison_idx_for_denoise_train = np.zeros(len(adv_retrain_ds.data + all_reverse_generate_pil_imgs))
-# To indicate all added data samples as 'poison', for final save_result.
-poison_idx_for_denoise_train[
-    np.arange(len(benign_train_ds), len(adv_retrain_ds.data + all_reverse_generate_pil_imgs))
-    ] = 1
-denoise_train_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=denoise_train_pre_ds,
-        poison_idx=poison_idx_for_denoise_train,
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=train_img_transform,
-        ori_label_transform_in_loading=train_label_transfrom,
-        add_details_in_preprocess=True,
-        clean_image_pre_transform = None,
-        end_pre_process= None,
-)
-denoise_train_ds.original_targets =  np.array(benign_train_ds.targets.tolist() + adv_train_part_ds.original_targets.tolist() + all_target)
-denoise_train_dl = DataLoader(denoise_train_ds, batch_size=args.batch_size, shuffle=True, drop_last=True,)
-
-each_label_selected = get_part_for_each_label(benign_test_dl.dataset.targets, 0.05)
-logging.info(f"final_denoise_test_select_idx:{each_label_selected}")
-torch.save(each_label_selected, f"{save_path}/final_denoise_test_select_idx.pth")
-final_denoise_test_preprocess_ds = prepro_cls_DatasetBD(
-        full_dataset_without_transform=test_dataset_without_transform,
-        poison_idx=np.zeros(len(test_dataset_without_transform)),
-        # one-hot to determine which image may take bd_transform
-        bd_image_pre_transform=None,
-        bd_label_pre_transform=None,
-        ori_image_transform_in_loading=keep_normalization_resize_totensor_only(test_img_transform),
-        ori_label_transform_in_loading=(test_label_transform),
-        add_details_in_preprocess=False,
-    ).subset(
-    each_label_selected,
-    inplace = False,
-    memorize_original=False
-)
-all_test_reverse_generate_pil_imgs = []
-all_test_target = []
-for (layer_name, neuron_idx), (result_max_ratio, result_ssim_loss, save_location) in detoxicant_dict.items():
-    pil_imgs, target = generate_with_reverse_network(save_location, (args.input_height,args.input_width), final_denoise_test_preprocess_ds, device)
-    all_test_reverse_generate_pil_imgs += pil_imgs
-    all_test_target+=target.numpy().tolist()
-    sample_pil_imgs(pil_imgs, f"{save_path}/{layer_name}_{neuron_idx}_final_denoise_test_samples")
-
-denoise_test_ds = xy_iter(
-    all_test_reverse_generate_pil_imgs,
-    all_test_target,
-    test_img_transform,
-)
-denoise_test_dl = DataLoader(denoise_test_ds, batch_size=args.batch_size, shuffle=False, drop_last=False,)
-
-trainer = generate_cls_trainer(
-    net,
-    args.attack,
-    args.amp,
-)
-criterion = argparser_criterion(args)
-optimizer, scheduler = argparser_opt_scheduler(net, args)
-trainer.train_with_test_each_epoch_v2(
-    train_data=denoise_train_dl,
-    test_dataloader_dict={
-        'final_denoise_train_dl':denoise_train_dl,
-        'benign_test':benign_test_dl,
-        'adv_test':adv_test_dl,
-        'denoise_test_dl':denoise_test_dl,
-    },
-    end_epoch_num= int(args.epochs * 1.2),
-    criterion=criterion,
-    optimizer=optimizer,
-    scheduler=scheduler,
-    device=device,
-    frequency_save=args.frequency_save,
-    save_folder_path=save_path,
-    save_prefix='final_denoise',
-    continue_training_path=None,
-)
-
-save_attack_result(
-        model_name=args.model,
-        num_classes=args.num_classes,
-        model=trainer.model.cpu().state_dict(),
-        data_path=args.dataset_path,
-        img_size=args.img_size,
-        clean_data=args.dataset,
-        bd_train=denoise_train_ds,
-        bd_test=adv_test_dataset,
-        save_path=save_path,
-    )
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()

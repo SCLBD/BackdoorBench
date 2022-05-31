@@ -23,10 +23,10 @@ epochs: 100
 pretrained_model_path: /workspace/chenhongrui/BackdoorBench/record/normal_cifar10_preactresnet18/attack_epoch_99.pt
 layer_name_list:
   - conv1
-  - layer1
-  - layer2
-  - layer3
-  - layer4
+#  - layer1
+#  - layer2
+#  - layer3
+#  - layer4
 reverse_engineer_lr: 0.001
 detoxicant_ratio_require: 0.7
-poison_model_save_path_for_test: /workspace/chenhongrui/BackdoorBench/record/20220528_152412_dfst_attack_attack_SSBA_replace_9jF6/retrain_with_poison_epoch_99.pt
+#poison_model_save_path_for_test: /workspace/chenhongrui/BackdoorBench/record/20220528_152412_dfst_attack_attack_SSBA_replace_9jF6/retrain_with_poison_epoch_99.pt
