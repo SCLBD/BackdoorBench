@@ -156,8 +156,7 @@ def fp(args, result , config):
     ### a. hook the activation layer representation of each data
     # Prepare model
     netC = generate_cls_model(args.model,args.num_classes)
-    #### test aaaaaaa
-    # netC.load_state_dict(result['model'])
+    netC.load_state_dict(result['model'])
     netC.to(args.device)
     netC.eval()
     netC.requires_grad_(False)
