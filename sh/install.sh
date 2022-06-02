@@ -1,4 +1,4 @@
-pip install torch==1.11+cu113 torchvision==0.12 torchaudio==0.11.0 - f https://download.pytorch.org/whl/torch_stable.html
+pip install torch==1.11+cu113 torchvision==0.12 torchaudio==0.11.0 -f https://download.pytorch.org/whl/torch_stable.html
 pip install keras==2.7.0
 pip install opencv-python==4.5.5.64
 pip install pandas==1.3.1

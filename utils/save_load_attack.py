@@ -1,9 +1,33 @@
 '''
 This script aims to save and load the attack result as a bridge between attack and defense files.
-
 Model, clean data, backdoor data and all infomation needed to reconstruct will be saved.
-
 Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
+
+Update in 2022.5.30: In order to be compatible with attack generating larger backdoor train dataset,
+    The save function add poison_indicator in the saved file.
+
+    REMAINDER :
+        poison_indicator does NOT only represent "poisoned or not".
+        In general it represent "modified or not".
+            eg. Noise training samples have "poisoned" img and right label,
+            they are "modified samples" but not real "poisoned samples",
+            since noise training samples aims to eliminate "easy" triggers.
+
+    Here use "*", "**", ... to denote modified samples (same prototype, different modification).
+    The whole logic before:
+        For backdoored dataset, [A,B,C*], we save [C*] and original_index 2,
+            when load it back, we replace index 2 of [A,B,C] with [C*], get [A,B,C*].
+    The whole logic now:
+        For backdoored dataset, [A,B,C,C*,C**],
+            we save [C*, C**] and original_index=[0,1,2,2,2], with poison_indicator=[0,0,0,1,1]
+            When load it back, we iteratively append sample back,
+                if poison_indicator == 0 -> use original_index to find the benign sample and append it,
+                if poison_indicator == 1 -> follow the order of modified samples,
+                    append one modified samples in the saved file back.
+        Notice that the length of modified imgs is always same as num of positions in poison_indicator==1
+
+    Also, for both the logic before and now, it have the original_index to trace back
+        which benign sample is the prototype for each modified img in the dataset
 
 '''
 import logging
@@ -60,6 +84,12 @@ def add_resize_and_subset_for_prepro_cls_DatasetBD(
 
     all_img_r_t = []
 
+    # no matter save only bd sample or not, save all other info completely
+    full_targets = deepcopy(given_data.targets)
+    full_original_index = deepcopy(given_data.original_index)
+    full_poison_indicator = deepcopy(given_data.poison_indicator)
+    full_original_targets = deepcopy(given_data.original_targets)
+
     if only_bd:
         given_data.subset(np.where(np.array(given_data.poison_indicator) == 1)[0]) # only bd samples remain
 
@@ -73,9 +103,9 @@ def add_resize_and_subset_for_prepro_cls_DatasetBD(
 
     return all_img_r_t, \
            given_data.targets, \
-           given_data.original_index, \
-           given_data.poison_indicator, \
-           given_data.original_targets
+           full_original_index, \
+           full_poison_indicator, \
+           full_original_targets
 
 def sample_pil_imgs(pil_image_list, save_folder, num = 5,):
     if not os.path.exists(save_folder):
@@ -140,10 +170,14 @@ def save_attack_result(
                 'x': bd_train_x,
                 'y': bd_train_y,
                 'original_index' : bd_train_original_index,
+                "poison_indicator": bd_train_poison_indicator,
+                "original_targets": bd_train_original_targets,
             } if bd_train is not None else {
                 'x': None,
                 'y': None,
                 'original_index': None,
+                "poison_indicator": None,
+                "original_targets": None,
             }) ,
 
             'bd_test': {
@@ -151,6 +185,7 @@ def save_attack_result(
                 'y': bd_test_y,
                 'original_index': bd_test_original_index,
                 'original_targets': bd_test_original_targets,
+                "poison_indicator": bd_test_poison_indicator,
             },
         }
     
@@ -193,9 +228,6 @@ def load_attack_result(
         ]):
 
         logging.info('key match for attack_result, processing...')
-
-        # model = generate_cls_model(load_file['model_name'], load_file['num_classes'])
-        # model.load_state_dict(load_file['model'])
 
         clean_setting = Args()
 
@@ -240,12 +272,31 @@ def load_attack_result(
 
         clean_test_x, clean_test_y, _, _, _ = add_resize_and_subset_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
 
-        if (load_file['bd_train']['x'] is not None) and (load_file['bd_train']['y'] is not None) and (load_file['bd_train']['original_index'] is not None):
+        if (load_file['bd_train']['x'] is not None) and\
+                (load_file['bd_train']['y'] is not None) and\
+                (load_file['bd_train']['original_index'] is not None) :
+
+            if load_file['bd_train'].get('poison_indicator') is None:
+                logging.info('Old style saving file found. Using only original index to reconstruct backdoor train data')
                 bd_train_x = deepcopy(clean_train_x)
                 bd_train_y = deepcopy(clean_train_y)
                 for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
                     bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
                     bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
+            else:
+                logging.info('New style saving file found. Using both original index and poison_indicator to reconstruct backdoor train data')
+                bd_train_x, bd_train_y = [], []
+                poison_count = 0
+                for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
+                    isPoison = load_file['bd_train']['poison_indicator'][ii]
+                    if isPoison:
+                        bd_train_x.append(load_file['bd_train']['x'][poison_count])
+                        bd_train_y.append(load_file['bd_train']['y'][poison_count])
+                        poison_count += 1
+                    else:
+                        bd_train_x.append(deepcopy(clean_train_x[original_index_i]))
+                        bd_train_y.append(deepcopy(clean_train_y[original_index_i]))
+
         else:
             bd_train_x = None
             bd_train_y = None
@@ -268,7 +319,9 @@ def load_attack_result(
                 'bd_train': {
                     'x': bd_train_x,
                     'y': bd_train_y,
-                    'original_index': load_file['bd_train'].get('original_index'), #could be None
+                    'original_index': load_file['bd_train'].get('original_index'),
+                    'original_targets': load_file['bd_train'].get('original_targets'),
+                    'poison_indicator': load_file['bd_train'].get('poison_indicator'),
                 },
 
                 'bd_test': {
@@ -276,6 +329,7 @@ def load_attack_result(
                     'y': load_file['bd_test']['y'],
                     'original_index': load_file['bd_test'].get('original_index'),
                     'original_targets':load_file['bd_test'].get('original_targets'),
+                    'poison_indicator':load_file['bd_test'].get('poison_indicator'),
                 },
             }
         logging.info(f"loading...")
@@ -286,3 +340,22 @@ def load_attack_result(
         logging.info(f"loading...")
         logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_file))}")
         return load_file
+
+# # def test_load_attack_result():
+# #
+# load_dict1 = load_attack_result('./record/20220530_161001_badnets_attack_attack_fix_patch_W4lF/attack_result.pt')
+# load_dict2 = load_attack_result('./record/20220530_165030_badnets_attack_attack_fix_patch_3aOy/attack_result.pt')
+# a = np.array([np.array(img) for img in load_dict1['bd_train']['x']])
+# b = np.array([np.array(img) for img in load_dict2['bd_train']['x']])
+# print(np.abs(a - b ).sum())
+# for poison_position in load_dict1['bd_train']['original_index']:
+#     if np.abs(
+#                   a[poison_position] - b[poison_position]
+#           ).sum() == 0:
+#         print(poison_position,np.abs(
+#                       a[poison_position] - b[poison_position]
+#               ).sum())
+# print(np.abs(load_dict1['bd_train']['y'] - load_dict2['bd_train']['y']).sum())
+#
+# c_bd_t = np.array([np.array(img) for img in c['bd_train']['x']])
+# d_bd_t = np.array([np.array(img) for img in d['bd_train']['x']])
