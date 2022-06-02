@@ -17,7 +17,8 @@ basic sturcture for defense method:
         a. hook the activation layer representation of each data
         b. rank the mean of activation for each neural
         c. according to the sorting results, prune and test the accuracy
-        d. save the model with the greatest difference between ACC and ASR
+        d. find the last model with reasonable ACC 
+        e. finetune the model with validation data
     4. test the result and get ASR, ACC, RC 
 '''
 
@@ -36,6 +37,7 @@ import copy
 from tqdm import tqdm
 import numpy as np
 
+from utils.choose_index import choose_index
 from utils.aggregate_block.fix_random import fix_random 
 from utils.aggregate_block.dataset_and_transform_generate import get_transform
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
@@ -80,6 +82,7 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./defense/fp/config.yaml", help='the path of yaml')
 
     #set the parameter for the fp defense
+    parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
     parser.add_argument('--acc_ratio', type=float, help='the tolerance ration of the clean accuracy')
 
     arg = parser.parse_args()
@@ -153,7 +156,8 @@ def fp(args, result , config):
     ### a. hook the activation layer representation of each data
     # Prepare model
     netC = generate_cls_model(args.model,args.num_classes)
-    netC.load_state_dict(result['model'])
+    #### test aaaaaaa
+    # netC.load_state_dict(result['model'])
     netC.to(args.device)
     netC.eval()
     netC.requires_grad_(False)
@@ -161,9 +165,13 @@ def fp(args, result , config):
     criterion = nn.CrossEntropyLoss()
     # Prepare dataloader and check initial acc_clean and acc_bd
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
-    x = result['bd_train']['x']
-    y = result['bd_train']['y']
-    data_set = list(zip(x,y))
+    x = result['clean_train']['x']
+    y = result['clean_train']['y']
+    data_all_length = len(y)
+    ran_idx = choose_index(args, data_all_length) 
+    log_index = os.getcwd() + args.log + 'index.txt'
+    np.savetxt(log_index, ran_idx, fmt='%d')
+    data_set = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
     data_set_o = prepro_cls_DatasetBD(
         full_dataset_without_transform=data_set,
         poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
@@ -173,8 +181,7 @@ def fp(args, result , config):
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
     )
-    data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
-    trainloader = data_loader
+    trainloader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']
     y = result['bd_test']['y']
@@ -253,9 +260,14 @@ def fp(args, result , config):
     #     activation +=  torch.sum(container[i], dim=[0, 2, 3])/len(data_set)
     # container = torch.cat(container, dim=0)
     # activation = torch.mean(container, dim=[0, 2, 3])
-    seq_sort = torch.argsort(activation)
+    if args.model == 'densenet161':
+        out_channel = getattr(netC.features[-2],'denselayer24').conv2.out_channels
+        seq_sort = torch.argsort(activation[-out_channel:])
+    else :
+        seq_sort = torch.argsort(activation)
     del container
-  
+    
+    
     pruning_mask = torch.ones(seq_sort.shape[0], dtype=bool)
     if args.model == 'preactresnet18':
         addtional_dim = 1
@@ -267,8 +279,8 @@ def fp(args, result , config):
         addtional_dim = 1
         pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
     if args.model == 'densenet161':
-        addtional_dim = 1
-        pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
+        addtional_dim = netC.classifier.in_features - out_channel
+        pruning_mask_li = torch.ones(netC.classifier.in_features, dtype=bool)
     if args.model == 'mobilenet_v3_large':
         addtional_dim = 1
         pruning_mask_li = torch.ones(pruning_mask.shape[0] * addtional_dim, dtype=bool)
@@ -289,7 +301,10 @@ def fp(args, result , config):
         if index:
             channel = seq_sort[index - 1]
             pruning_mask[channel] = False
-            pruning_mask_li[range(channel*addtional_dim,((channel+1)*addtional_dim))] = False
+            if args.model == 'densenet161':
+                pruning_mask_li[channel+addtional_dim] = False
+            else:
+                pruning_mask_li[range(channel*addtional_dim,((channel+1)*addtional_dim))] = False
         print("Pruned {} filters".format(num_pruned))
         if args.model == 'preactresnet18':
             net_pruned.layer4[1].conv2 = nn.Conv2d(
@@ -402,10 +417,17 @@ def fp(args, result , config):
             #     else:
             #         continue
             # net_pruned_now = copy.deepcopy(net_pruned)
-            weight_data = netC.classifier.weight.data
-            weight_data[:,~pruning_mask_li] = 0
-            net_pruned.classifier.weight.data = weight_data
-            net_pruned.classifier.bias.data = netC.classifier.bias.data
+            conv_old = getattr(netC.features[-2],'denselayer24').conv2 
+            getattr(net_pruned.features[-2],'denselayer24').conv2 = nn.Conv2d(conv_old.in_channels, conv_old.out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+            getattr(net_pruned.features[-2],'denselayer24').conv2.weight.data = conv_old.weight.data[pruning_mask]
+            bn_old = netC.features[-1]
+            net_pruned.features[-1] = nn.BatchNorm2d(bn_old.num_features - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            net_pruned.features[-1].weight.data = bn_old.weight.data[pruning_mask_li]
+            net_pruned.features[-1].bias.data = bn_old.bias.data[pruning_mask_li]
+            lin_old = netC.classifier
+            net_pruned.classifier = nn.Linear(lin_old.in_features - num_pruned, args.num_classes)
+            net_pruned.classifier.weight.data = lin_old.weight.data[:,pruning_mask_li]
+            net_pruned.classifier.bias.data = lin_old.bias.data
         if args.model == 'efficientnet_b3':
             net_pruned.features[-1][0] = nn.Conv2d(384, pruning_mask.shape[0] - num_pruned, kernel_size=(1, 1), stride=(1, 1), bias=False) 
             net_pruned.features[-1][1] = nn.BatchNorm2d(pruning_mask.shape[0] - num_pruned, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
@@ -442,33 +464,94 @@ def fp(args, result , config):
         test_loss, test_acc_cl = test_epoch(args, testloader_clean, net_pruned, criterion, 0, 'clean')
         test_loss, test_acc_bd = test_epoch(args, testloader_bd, net_pruned, criterion, 0, 'bd')
         print('Acc Clean: {:.3f} | Acc Bd: {:.3f}'.format(test_acc_cl, test_acc_bd))
-        # if args.model != 'densenet161': 
-        logging.info("%d %0.4f %0.4f\n" % (index, test_acc_cl, test_acc_bd))
+        logging.info('Acc Clean: {:.3f} | Acc Bd: {:.3f}'.format(test_acc_cl, test_acc_bd))
         prune_result.append("%d %0.4f %0.4f\n" % (index, test_acc_cl, test_acc_bd))
-        # elif densenet_flag:
-        #     logging.info("%d %0.4f %0.4f\n" % (has_pruned, test_acc_cl, test_acc_bd))
-        ### d. save the model with the greatest difference between ACC and ASR
+        ### d. find the last model with reasonable ACC 
         if index == 0:
             test_acc_cl_ori = test_acc_cl
             test_acc_bd_ori = test_acc_bd
-            best_net = copy.deepcopy(net_pruned)
-            best_acc_bd = test_acc_bd
+            last_net = copy.deepcopy(net_pruned)
+            last_index = 0
         if abs(test_acc_cl - test_acc_cl_ori)/test_acc_cl_ori < args.acc_ratio:
-            if test_acc_bd < best_acc_bd:
-                best_net = copy.deepcopy(net_pruned)
-                best_acc_bd = test_acc_bd
+            last_net = copy.deepcopy(net_pruned)
+            last_index = index
+        else:
+            break
         if args.device == 'cuda':
             net_pruned.to('cpu')
         del net_pruned
         # densenet_flag = False
-
+        
     file_name = os.path.join(os.getcwd() + args.checkpoint_save, 'pruning_result.txt')
     with open(file_name, "w") as f:
         f.write('No \t CleanACC \t PoisonACC \n')
         f.writelines(prune_result)
+    ### e. finetune the model with validation data
+    
+ 
+    optimizer = torch.optim.SGD(last_net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer, T_max=100)
+    criterion = torch.nn.CrossEntropyLoss() 
+    
+    best_acc = 0
+    best_asr = 0
+    for j in range(args.epochs):
+        batch_loss = []
+        for i, (inputs,labels) in enumerate(trainloader):  # type: ignore
+            last_net.train()
+            last_net.to(args.device)
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = last_net(inputs)
+            loss = criterion(outputs, labels)
+            batch_loss.append(loss.item())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler.step()
+        with torch.no_grad():
+            last_net.eval()
+            asr_acc = 0
+            for i, (inputs,labels) in enumerate(testloader_bd):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = last_net(inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                asr_acc += torch.sum(pre_label == labels)/len(testloader_bd.dataset)
+
+            
+            clean_acc = 0
+            for i, (inputs,labels) in enumerate(testloader_clean):  # type: ignore
+                inputs, labels = inputs.to(args.device), labels.to(args.device)
+                outputs = last_net(inputs)
+                pre_label = torch.max(outputs,dim=1)[1]
+                clean_acc += torch.sum(pre_label == labels)/len(testloader_clean.dataset)
+        
+        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}')):
+            os.makedirs(os.getcwd() + f'{args.checkpoint_save}')
+        if best_acc < clean_acc:
+            best_acc = clean_acc
+            best_asr = asr_acc
+            torch.save(
+            {
+                'model_name':args.model,
+                'index': last_index,
+                'model': last_net.cpu().state_dict(),
+                'asr': asr_acc,
+                'acc': clean_acc
+            },
+            f'./{args.checkpoint_save}defense_result.pt'
+            )
+        logging.info(f'Epoch{j}: clean_acc:{clean_acc} asr:{asr_acc} best_acc:{best_acc} best_asr{best_asr}')
 
     result = {}
-    result['model'] = best_net
+    result['model'] = last_net
+    result['prune_index'] = last_index
     return result
 
 if __name__ == '__main__':
@@ -616,6 +699,7 @@ if __name__ == '__main__':
     {
         'model_name':args.model,
         'model': result_defense['model'].cpu().state_dict(),
+        'index': result_defense['prune_index'],
         'asr': asr_acc,
         'acc': clean_acc,
         'ra': robust_acc

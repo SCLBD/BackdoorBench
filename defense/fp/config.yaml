@@ -14,6 +14,7 @@ epochs: 100
 batch_size: 256
 num_workers: 4
 lr: 0.01
+lr_scheduler: ReduceLROnPlateau
 
 poison_rate: 0.1
 target_type: 'all2one'
@@ -25,4 +26,5 @@ seed: 0
 index: 
 
 acc_ratio: 0.1
+ratio: 0.05
 
