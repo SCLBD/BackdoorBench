@@ -111,44 +111,7 @@ def get_args():
     print(arg)
     return arg
 
-# class Cutout(object):
-#     """Randomly mask out one or more patches from an image.
-#     Args:
-#         n_holes (int): Number of patches to cut out of each image.
-#         length (int): The length (in pixels) of each square patch.
-#     """
-#     def __init__(self, n_holes, length):
-#         self.n_holes = n_holes
-#         self.length = length
 
-#     def __call__(self, img):
-#         """
-#         Args:
-#             img (Tensor): Tensor image of size (C, H, W).
-#         Returns:
-#             Tensor: Image with n_holes of dimension length x length cut out of it.
-#         """
-#         h = img.size(1)
-#         w = img.size(2)
-
-#         mask = np.ones((h, w), np.float32)
-
-#         for n in range(self.n_holes):
-#             y = np.random.randint(h)
-#             x = np.random.randint(w)
-
-#             y1 = np.clip(y - self.length // 2, 0, h)
-#             y2 = np.clip(y + self.length // 2, 0, h)
-#             x1 = np.clip(x - self.length // 2, 0, w)
-#             x2 = np.clip(x + self.length // 2, 0, w)
-
-#             mask[y1: y2, x1: x2] = 0.
-
-#         mask = torch.from_numpy(mask)
-#         mask = mask.expand_as(img)
-#         img = img * mask
-
-#         return img
 
 def train(args, result):
     '''Pretrain the model with raw data
@@ -160,8 +123,7 @@ def train(args, result):
 
     # Load models
     logging.info('----------- Network Initialization --------------')
-    model_ascent = generate_cls_model(args.model,args.num_classes)
-    # model_ascent = get_network(args)
+    model_ascent = generate_cls_model(args)
     model_ascent.to(args.device)
     logging.info('finished model init...')
     # initialize optimizer
@@ -319,12 +281,12 @@ def compute_loss_value(args, poisoned_data, model_ascent):
 
     return losses_idx
 
-def isolate_data(args, poisoned_data, losses_idx):
+def isolate_data(args, result, losses_idx):
     '''isolate the backdoor data with the calculated loss
     args:
         Contains default parameters
-    poisoned_data:
-        the train dataset which contains backdoor data
+    result:
+        the attack result contain the train dataset which contains backdoor data
     losses_idx:
         the index of order about the loss value for each data 
     '''
@@ -334,25 +296,30 @@ def isolate_data(args, poisoned_data, losses_idx):
 
     cnt = 0
     ratio = args.isolation_ratio
-
-    example_data_loader = torch.utils.data.DataLoader(dataset=poisoned_data,
-                                        batch_size=1,
-                                        shuffle=False,
-                                        )
     perm = losses_idx[0: int(len(losses_idx) * ratio)]
+    permnot = losses_idx[int(len(losses_idx) * ratio):]
+    x = result['bd_train']['x']
+    y = result['bd_train']['y']
+    isolation_examples = list(zip([x[ii] for ii in perm],[y[ii] for ii in perm]))
+    other_examples = list(zip([x[ii] for ii in permnot],[y[ii] for ii in permnot]))
+    # example_data_loader = torch.utils.data.DataLoader(dataset=poisoned_data,
+    #                                     batch_size=1,
+    #                                     shuffle=False,
+    #                                     )
+    
 
-    for idx, (img, target) in tqdm(enumerate(example_data_loader, start=0)):
-        img = img.squeeze()
-        target = target.squeeze()
-        img = np.transpose((img * 255).cpu().numpy(), (1, 2, 0)).astype('uint8')
-        target = target.cpu().numpy()
+    # for idx, (img, target) in tqdm(enumerate(example_data_loader, start=0)):
+    #     img = img.squeeze()
+    #     target = target.squeeze()
+    #     # img = np.transpose((img * 255).cpu().numpy(), (1, 2, 0)).astype('uint8')
+    #     target = target.cpu().numpy()
 
-        # Filter the examples corresponding to losses_idx
-        if idx in perm:
-            isolation_examples.append((img, target))
-            cnt += 1
-        else:
-            other_examples.append((img, target))
+    #     # Filter the examples corresponding to losses_idx
+    #     if idx in perm:
+    #         isolation_examples.append((img, target))
+    #         cnt += 1
+    #     else:
+    #         other_examples.append((img, target))
 
     logging.info('Finish collecting {} isolation examples: '.format(len(isolation_examples)))
     logging.info('Finish collecting {} other examples: '.format(len(other_examples)))
@@ -639,8 +606,8 @@ def train_unlearning(args, result, model_ascent, isolate_poisoned_data, isolate_
         logging.info('testing the ascended model......')
         acc_clean, acc_bad = test_unlearning(args, test_clean_loader, test_bad_loader, model_ascent, criterion, epoch + 1)
 
-        if not (os.path.exists(os.getcwd() + f'{save_path}/abl/ckpt_best/')):
-            os.makedirs(os.getcwd() + f'{save_path}/abl/ckpt_best/')
+        if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}')):
+            os.makedirs(os.getcwd() + f'{args.checkpoint_save}')
         if best_acc < acc_clean[0]:
             best_acc = acc_clean[0]
             best_asr = acc_bad[0]
@@ -723,7 +690,7 @@ def abl(args,result):
     ###b. isolate the special data(loss is low) as backdoor data
     losses_idx = compute_loss_value(args, poisoned_data, model_ascent)
     logging.info('----------- Collect isolation data -----------')
-    isolation_examples, other_examples = isolate_data(args, poisoned_data, losses_idx)
+    isolation_examples, other_examples = isolate_data(args, result, losses_idx)
 
     ###c. unlearn the backdoor data and learn the remaining data
     model_new = train_unlearning(args,result,model_ascent,isolation_examples,other_examples)
