@@ -13,6 +13,7 @@ from utils.aggregate_block.dataset_and_transform_generate import (
     get_transform,
     get_dataset_denormalization,
 )
+from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
 from utils.save_load_attack import load_attack_result
@@ -34,7 +35,7 @@ with open(args.yaml_path, "r") as stream:
 config.update({k: v for k, v in args.__dict__.items() if v is not None})
 args.__dict__ = config
 args = preprocess_args(args)
-
+fix_random(int(args.random_seed))
 save_path_attack = "./record/" + args.result_file_attack
 if args.result_file_defense!='None':
     save_path = "./record/" + args.result_file_defense
@@ -53,7 +54,7 @@ y_bd_clean = y[y != args.attack_target]
 if args.result_file_defense!='None':
     result = load_attack_result(save_path + "/defense_result.pt")
 else:
-    result = load_attack_result(save_path + "/attack_result.pt")
+    result = result_attack
 # Load model
 model = generate_cls_model(args.model, args.num_classes)
 model.load_state_dict(result["model"])
@@ -196,6 +197,20 @@ plt.savefig(args.save_path + "/tsne.png")
 
 
 ############# SHAP Values ####################
+# Choose layer for SHAP
+if args.model == "preactresnet18":
+    target_layer = model.layer4
+if args.model == "vgg19":
+    target_layer = model.features
+if args.model == "resnet18":
+    target_layer = model.layer4
+if args.model == "densenet161":
+    target_layer = model.features
+if args.model == "mobilenet_v3_large":
+    target_layer = model.features
+if args.model == "efficientnet_b3":
+    target_layer = model.features
+
 print('Plotting SHAP Values')
 model.eval()
 
@@ -244,17 +259,17 @@ plt.savefig(args.save_path + "/shap.png")
 # choose layers for Grad Cam, refer to https://github.com/jacobgil/pytorch-grad-cam
 print('Plotting Grad Cam')
 if args.model == "preactresnet18":
-    target_layers = [model.layer4[-1]]
+    target_layers = [model.layer4]
 if args.model == "vgg19":
-    target_layers = [model.features[-1]]
+    target_layers = [model.features]
 if args.model == "resnet18":
-    target_layers = [model.layer4[-1]]
+    target_layers = [model.layer4]
 if args.model == "densenet161":
-    target_layers = [model.features[-1]]
+    target_layers = [model.features]
 if args.model == "mobilenet_v3_large":
-    target_layers = [model.features[-1]]
+    target_layers = [model.features]
 if args.model == "efficientnet_b3":
-    target_layers = [model.features[-1]]
+    target_layers = [model.features]
 
 input_tensor = test_images
 
