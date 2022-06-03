@@ -129,10 +129,11 @@ class RegressionModel(nn.Module):
         self.denormalizer = self._get_denormalize(opt)
 
         
-
     def forward(self, x):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
+        if self.normalizer:
+          pattern = self.normalizer(self.get_raw_pattern())
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
@@ -162,6 +163,8 @@ class RegressionModel(nn.Module):
             denormalizer = Denormalize(opt, [0.5], [0.5])
         elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
             denormalizer = None
+        elif opt.dataset == 'tiny':
+            denormalizer = Denormalize(opt, [0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262])
         else:
             raise Exception("Invalid dataset")
         return denormalizer
@@ -173,6 +176,8 @@ class RegressionModel(nn.Module):
             normalizer = Normalize(opt, [0.5], [0.5])
         elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
             normalizer = None
+        elif opt.dataset == 'tiny':
+            normalizer = Normalize(opt, [0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262])
         else:
             raise Exception("Invalid dataset")
         return normalizer
