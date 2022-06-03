@@ -85,7 +85,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_index', type=str, default='config', help='the name of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./defense/abl/config.yaml", help='the name of yaml')
     
     #set the parameter for the abl defense
     parser.add_argument('--tuning_epochs', type=int, help='number of tune epochs to run')
@@ -123,7 +123,7 @@ def train(args, result):
 
     # Load models
     logging.info('----------- Network Initialization --------------')
-    model_ascent = generate_cls_model(args)
+    model_ascent = generate_cls_model(args.model,args.num_classes)
     model_ascent.to(args.device)
     logging.info('finished model init...')
     # initialize optimizer
@@ -703,7 +703,7 @@ if __name__ == '__main__':
     
     ###1. basic setting: args, attack result(model, train data, test data)
     args = get_args()
-    with open("./defense/abl/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
