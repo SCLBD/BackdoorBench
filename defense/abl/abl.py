@@ -618,7 +618,7 @@ def train_unlearning(args, result, model_ascent, isolate_poisoned_data, isolate_
                 'asr': acc_bad[0],
                 'acc': acc_clean[0]
             },
-            os.getcwd() + f'{save_path}/abl/ckpt_best/defense_result.pt'
+            os.getcwd() + f'{args.checkpoint_save}defense_result.pt'
             )
             model_ascent.to(args.device)
         logging.info(f'Epoch{epoch}: clean_acc:{acc_clean[0]} asr:{acc_bad[0]} best_acc:{best_acc} best_asr{best_asr}')
