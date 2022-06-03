@@ -117,11 +117,11 @@ def main():
 
     if ('attack_train_replace_imgs_path' not in args.__dict__) or (args.attack_train_replace_imgs_path is None):
         args.attack_train_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_train_b1.npy"
-        print(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
+        logging.info(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
 
     if ('attack_test_replace_imgs_path' not in args.__dict__) or (args.attack_test_replace_imgs_path is None):
         args.attack_test_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_test_b1.npy"
-        print(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
+        logging.info(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
 
     ### save path
     if 'save_folder_name' not in args:

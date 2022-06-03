@@ -63,6 +63,6 @@ class SimpleAdditiveTrigger(object):
 
 import matplotlib.pyplot as plt
 def test_Simple():
-    a = SimpleAdditiveTrigger(np.load('../../resource/lowFrequency/best_universal_target0_cifar10_uint8.npy'))
-    plt.imshow(a(np.zeros((32,32,3))))
+    a = SimpleAdditiveTrigger(np.load('../../resource/lowFrequency/cifar10_densenet161_0_255.npy'))
+    plt.imshow(a(np.ones((32,32,3)) + 255/2))
     plt.show()

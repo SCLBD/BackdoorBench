@@ -106,7 +106,7 @@ def bd_attack_img_trans_generate(args):
             (trans, True),
         ])
 
-    elif args.attack in ['SSBA_replace', 'dfst']:
+    elif args.attack in ['SSBA_replace', 'label_consistent']:
         train_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
