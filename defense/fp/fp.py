@@ -487,7 +487,6 @@ def fp(args, result , config):
         f.writelines(prune_result)
     ### e. finetune the model with validation data
     
- 
     optimizer = torch.optim.SGD(last_net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     if args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
