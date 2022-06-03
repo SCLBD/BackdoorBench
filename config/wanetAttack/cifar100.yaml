@@ -1,0 +1,30 @@
+model: preactresnet18
+dataset_path: ../data
+checkpoints: ./wanet/checkpoints
+temps: ./temps 
+device: cuda 
+dataset: cifar100
+attack_mode: all2one 
+bs: 128
+epochs: 100 #1000
+num_workers: 6
+target_label: 0
+pratio: 0.1
+cross_ratio: 2  # rho_a = pratio, rho_n = pratio * cross_ratio
+random_rotation: 10
+random_crop: 5
+s: 0.5
+k: 4
+grid_rescale: 1
+random_seed: 0
+client_optimizer: sgd
+lr: 0.01
+lr_scheduler: MultiStepLR
+sgd_momentum: 0.9
+wd: 0.0005
+steplr_milestones:
+  - 100
+  - 200
+  - 300
+  - 400
+steplr_gamma: 0.1
