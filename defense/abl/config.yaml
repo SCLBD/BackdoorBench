@@ -24,15 +24,15 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
-tuning_epochs: 10
+tuning_epochs: 20
 finetuning_ascent_model: True
 finetuning_epochs: 60
-unlearning_epochs: 5
+unlearning_epochs: 20
 lr_finetuning_init: 0.1
 lr_unlearning_init: 5.0e-4
 momentum: 0.9
 weight_decay: 1.0e-4
-isolation_ratio: 0.005 #0.1
+isolation_ratio: 0.01 #0.1
 gradient_ascent_type: 'Flooding'
 gamma: 0.5
 flooding: 0.5
