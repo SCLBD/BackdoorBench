@@ -103,7 +103,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_path', type=str, default="./defense/spectral/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/spectral/config.yaml", help='the path of yaml')
 
     #set the parameter for the spectral defense
     parser.add_argument('--poison_rate_test', type=float)

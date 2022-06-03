@@ -303,7 +303,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
-    parser.add_argument('--yaml_path', type=str, default="./defense/anp/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/anp/config.yaml", help='the path of yaml')
 
     #set the parameter for the anp defense
     parser.add_argument('--acc_ratio', type=float, help='the tolerance ration of the clean accuracy')
@@ -315,9 +315,9 @@ def get_args():
     parser.add_argument('--anp_steps', type=int)
     parser.add_argument('--anp_alpha', type=float)
 
-    parser.add_argument('--pruning_by', type=str, default='threshold', choices=['number', 'threshold'])
-    parser.add_argument('--pruning_max', type=float, default=0.90, help='the maximum number/threshold for pruning')
-    parser.add_argument('--pruning_step', type=float, default=0.05, help='the step size for evaluating the pruning')
+    parser.add_argument('--pruning_by', type=str, choices=['number', 'threshold'])
+    parser.add_argument('--pruning_max', type=float, help='the maximum number/threshold for pruning')
+    parser.add_argument('--pruning_step', type=float, help='the step size for evaluating the pruning')
 
     arg = parser.parse_args()
 

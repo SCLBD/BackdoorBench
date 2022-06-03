@@ -4,7 +4,7 @@ checkpoint_save:
 log:
 data_root: 'data/'
 
-dataset: 'cifar10'
+dataset: 'gtsrb'
 num_classes: 
 input_height: 
 input_width:
@@ -19,12 +19,11 @@ lr_scheduler: CosineAnnealingLR
 poison_rate: 0.1
 target_type: 'all2one'
 target_label: 0
-trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
 seed: 0
 index: 
 
-acc_ratio: 0.1
-ratio: 0.05
+poison_rate_test: 0.1
+percentile: 85
 

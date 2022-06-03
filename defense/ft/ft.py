@@ -72,7 +72,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_path', type=str, default="./defense/ft/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/ft/config.yaml", help='the path of yaml')
 
     #set the parameter for the ft defense
     parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')

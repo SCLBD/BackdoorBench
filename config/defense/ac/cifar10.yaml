@@ -14,17 +14,17 @@ epochs: 100
 batch_size: 256
 num_workers: 4
 lr: 0.01
-lr_scheduler: CosineAnnealingLR
+lr_scheduler: CosineAnnealingLR 
 
 poison_rate: 0.1
 target_type: 'all2one'
 target_label: 0
-trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
 seed: 0
 index: 
 
-acc_ratio: 0.1
-ratio: 0.05
+nb_dims: 10
+nb_clusters: 2
+cluster_analysis: 'smaller'
 

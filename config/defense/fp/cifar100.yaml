@@ -4,7 +4,7 @@ checkpoint_save:
 log:
 data_root: 'data/'
 
-dataset: 'cifar10'
+dataset: 'cifar100'
 num_classes: 
 input_height: 
 input_width:

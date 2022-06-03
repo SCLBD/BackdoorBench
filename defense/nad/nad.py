@@ -98,7 +98,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
-    parser.add_argument('--yaml_path', type=str, default="./defense/nad/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/nad/config.yaml", help='the path of yaml')
 
     #set the parameter for the nad defense
     parser.add_argument('--te_epochs', type=int)
@@ -346,13 +346,12 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
         total_clean_correct += torch.sum(torch.argmax(outputs_s[:], dim=1) == labels[:])
         total_clean += inputs.shape[0]
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
+    logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
+    one_epoch_loss = sum(batch_loss)/len(batch_loss)
     if args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler.step(one_epoch_loss)
     elif args.lr_scheduler ==  'CosineAnnealingLR':
         scheduler.step()
-    logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
-    one_epoch_loss = sum(batch_loss)/len(batch_loss)
-    
     return train_loss / (idx + 1), avg_acc_clean
 
 

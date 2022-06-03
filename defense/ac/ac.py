@@ -108,7 +108,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_path', type=str, default="./defense/ac/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/ac/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
     parser.add_argument('--nb_dims', type=int, help='train epoch')

@@ -4,7 +4,7 @@ checkpoint_save:
 log:
 data_root: 'data/'
 
-dataset: 'cifar10'
+dataset: 'tiny'
 num_classes: 
 input_height: 
 input_width:
@@ -13,8 +13,7 @@ input_channel:
 epochs: 100
 batch_size: 256
 num_workers: 4
-lr: 0.01
-lr_scheduler: CosineAnnealingLR
+lr: 0.2
 
 poison_rate: 0.1
 target_type: 'all2one'
@@ -25,6 +24,13 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
-acc_ratio: 0.1
-ratio: 0.05
-
+acc_ratio: 0.1 #for fair
+ratio: 0.05 #for fair
+print_every: 500 
+nb_iter: 2000
+anp_eps: 0.4
+anp_steps: 1
+anp_alpha: 0.2
+pruning_by: 'threshold'
+pruning_max: 0.90 
+pruning_step: 0.05

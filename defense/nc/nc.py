@@ -490,7 +490,7 @@ def get_args():
     parser.add_argument('--seed', type=str, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
-    parser.add_argument('--yaml_path', type=str, default="./defense/nc/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/nc/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
     parser.add_argument("--init_cost", type=float)

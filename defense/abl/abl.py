@@ -85,7 +85,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_path', type=str, default="./defense/abl/config.yaml", help='the name of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/abl/config.yaml", help='the name of yaml')
     
     #set the parameter for the abl defense
     parser.add_argument('--tuning_epochs', type=int, help='number of tune epochs to run')

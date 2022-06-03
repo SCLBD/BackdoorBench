@@ -19,12 +19,10 @@ lr_scheduler: CosineAnnealingLR
 poison_rate: 0.1
 target_type: 'all2one'
 target_label: 0
-trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
 seed: 0
 index: 
 
-acc_ratio: 0.1
 ratio: 0.05
 

@@ -102,6 +102,7 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--result_file', type=str, help='the location of result')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/dbd/config.yaml", help='the path of yaml')
 
     # set the parameter for the dbd defense
     parser.add_argument('--epoch_warmup', type=str, help='the location of result')
@@ -360,7 +361,7 @@ if __name__ == '__main__':
     
    ### 1. basic setting: args
     args = get_args()
-    with open("./defense/dbd/config.yaml", 'r') as stream: 
+    with open(args.yaml_path, 'r') as stream: 
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
