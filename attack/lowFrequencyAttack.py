@@ -108,6 +108,10 @@ def main():
     args.img_size = (args.input_height, args.input_width, args.input_channel)
     args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
+    if ('lowFrequencyPatternPath' not in args.__dict__) or (args.lowFrequencyPatternPath is None):
+        args.lowFrequencyPatternPath = f"../resource/lowFrequency/{args.dataset}_{args.model}_0_255.npy"
+        logging.info(f"args.lowFrequencyPatternPath does not found, so = {args.lowFrequencyPatternPath}")
+
     ### save path
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(

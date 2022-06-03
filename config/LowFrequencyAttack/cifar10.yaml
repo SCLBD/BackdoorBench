@@ -14,5 +14,5 @@ pratio: 0.1
 random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
-attack: lowFrequency
 epochs: 100
+attack: lowFrequency
