@@ -260,7 +260,7 @@ def get_dataloader(opt, train=True, pretensor_transform=False):
 def get_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--yaml_path', type=str, default='../config/wanetAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/attack/wanet/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--model', type=str, help='Only use when model is not given in original code !!!')
     parser.add_argument('--save_folder_name', type=str,

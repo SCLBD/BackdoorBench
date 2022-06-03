@@ -1,0 +1,43 @@
+model: preactresnet18
+dataset_path: ../data
+checkpoints: ../record/inputAwareAttack/checkpoints/
+temps: ../record/inputAwareAttack/temps
+device: cuda
+dataset: gtsrb
+input_height: None
+input_width: None
+input_channel: None
+batchsize: 128
+lr_G: 0.01
+lr_C: 0.01
+lr_M: 0.01
+C_lr_scheduler: None
+schedulerG_milestones: #[200, 300, 400, 500]
+- 200
+- 300
+- 400
+- 500
+schedulerC_milestones: #[100, 200, 300, 400]
+- 100
+- 200
+- 300
+- 400
+schedulerM_milestones: #[10, 20]
+- 10
+- 20
+schedulerG_lambda: 0.1
+schedulerC_lambda: 0.1
+schedulerM_lambda: 0.1
+epochs: 50
+lambda_div: 1
+lambda_norm: 100
+num_workers: 4
+target_label: 0
+attack_mode: all2one
+pratio: 0.1
+#p_cross: 0.1
+mask_density: 0.032
+EPSILON: 0.0000001
+random_rotation: 10
+random_crop: 5
+random_seed: 0

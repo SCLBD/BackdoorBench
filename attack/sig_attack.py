@@ -50,7 +50,7 @@ def add_args(parser):
     parser.add_argument('--amp', type=lambda x: str(x) in ['True', 'true', '1'])
     parser.add_argument('--device', type=str)
     parser.add_argument('--attack', type = str, )
-    parser.add_argument('--yaml_path', type=str, default='../config/sigAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/attack/sig/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
