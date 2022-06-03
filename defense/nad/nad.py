@@ -155,9 +155,9 @@ class AT(nn.Module):
 
 		return am
 
-def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
+def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch):
     '''train the student model with regard to the teacher model and some clean train data for each step
-    arg:
+    args:
         Contains default parameters
     trainloader:
         the dataloader of some clean train data
@@ -172,7 +172,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     epoch:
         current epoch
     '''
-    adjust_learning_rate(optimizer, epoch, arg.lr)
+    adjust_learning_rate(optimizer, epoch, args.lr)
     snet = nets['snet']
     tnet = nets['tnet']
 
@@ -180,7 +180,7 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
     criterionAT = criterions['criterionAT']
 
     snet.train()
-    snet.to(arg.device)
+    snet.to(args.device)
 
     total_clean = 0
     total_clean_correct = 0
@@ -188,33 +188,39 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
 
     batch_loss = []
     for idx, (inputs, labels) in enumerate(trainloader):
-        inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
 
-        if arg.model == 'preactresnet18':
+        if args.model == 'preactresnet18':
             outputs_s = snet(inputs)
             features_out_3 = list(snet.children())[:-1]  # 去掉全连接层
-            modelout_3 = nn.Sequential(*features_out_3).to(arg.device)
+            modelout_3 = nn.Sequential(*features_out_3)
+            modelout_3.to(args.device)
             activation3_s = modelout_3(inputs)
             # activation3_s = activation3_s.view(activation3_s.size(0), -1)
             features_out_2 = list(snet.children())[:-2]  # 去掉全连接层
-            modelout_2 = nn.Sequential(*features_out_2).to(arg.device)
+            modelout_2 = nn.Sequential(*features_out_2)
+            modelout_2.to(args.device)
             activation2_s = modelout_2(inputs)
             # activation2_s = activation2_s.view(activation2_s.size(0), -1)
             features_out_1 = list(snet.children())[:-3]  # 去掉全连接层
-            modelout_1 = nn.Sequential(*features_out_1).to(arg.device)
+            modelout_1 = nn.Sequential(*features_out_1)
+            modelout_1.to(args.device)
             activation1_s = modelout_1(inputs)
             # activation1_s = activation1_s.view(activation1_s.size(0), -1)
             
             features_out_3 = list(tnet.children())[:-1]  # 去掉全连接层
-            modelout_3 = nn.Sequential(*features_out_3).to(arg.device)
+            modelout_3 = nn.Sequential(*features_out_3)
+            modelout_3.to(args.device)
             activation3_t = modelout_3(inputs)
             # activation3_t = activation3_t.view(activation3_t.size(0), -1)
             features_out_2 = list(tnet.children())[:-2]  # 去掉全连接层
-            modelout_2 = nn.Sequential(*features_out_2).to(arg.device)
+            modelout_2 = nn.Sequential(*features_out_2)
+            modelout_2.to(args.device)
             activation2_t = modelout_2(inputs)
             # activation2_t = activation2_t.view(activation2_t.size(0), -1)
             features_out_1 = list(tnet.children())[:-3]  # 去掉全连接层
-            modelout_1 = nn.Sequential(*features_out_1).to(arg.device)
+            modelout_1 = nn.Sequential(*features_out_1)
+            modelout_1.to(args.device)
             activation1_t = modelout_1(inputs)
             # activation1_t = activation1_t.view(activation1_t.size(0), -1)
 
@@ -222,101 +228,111 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
             # activation1_t, activation2_t, activation3_t, _ = tnet(inputs)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
-            at2_loss = criterionAT(activation2_s, activation2_t).detach() * arg.beta2
-            at1_loss = criterionAT(activation1_s, activation1_t).detach() * arg.beta1
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at2_loss = criterionAT(activation2_s, activation2_t).detach() * args.beta2
+            at1_loss = criterionAT(activation1_s, activation1_t).detach() * args.beta1
 
             at_loss = at1_loss + at2_loss + at3_loss + cls_loss
 
-        if arg.model == 'vgg19':
+        if args.model == 'vgg19':
             outputs_s = snet(inputs)
             features_out_3 = list(snet.children())[:-1]  # 去掉全连接层
-            modelout_3 = nn.Sequential(*features_out_3).to(arg.device)
+            modelout_3 = nn.Sequential(*features_out_3)
+            modelout_3.to(args.device)
             activation3_s = modelout_3(inputs)
             # activation3_s = snet.features(inputs)
             # activation3_s = activation3_s.view(activation3_s.size(0), -1)
 
             output_t = tnet(inputs)
             features_out_3 = list(tnet.children())[:-1]  # 去掉全连接层
-            modelout_3 = nn.Sequential(*features_out_3).to(arg.device)
+            modelout_3 = nn.Sequential(*features_out_3)
+            modelout_3.to(args.device)
             activation3_t = modelout_3(inputs)
             # activation3_t = tnet.features(inputs)
             # activation3_t = activation3_t.view(activation3_t.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
 
             at_loss = at3_loss + cls_loss
 
-        if arg.model == 'resnet18':
+        if args.model == 'resnet18':
             outputs_s = snet(inputs)
             features_out = list(snet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_s = modelout(inputs)
             # activation3_s = features.view(features.size(0), -1)
 
             output_t = tnet(inputs)
             features_out = list(tnet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_t = modelout(inputs)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
 
             at_loss = at3_loss + cls_loss
         
-        if arg.model == 'mobilenet_v3_large':
+        if args.model == 'mobilenet_v3_large':
             outputs_s = snet(inputs)
             features_out = list(snet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_s = modelout(inputs)
             # activation3_s = features.view(features.size(0), -1)
 
             output_t = tnet(inputs)
             features_out = list(tnet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_t = modelout(inputs)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
 
             at_loss = at3_loss + cls_loss
 
-        if arg.model == 'densenet161':
+        if args.model == 'densenet161':
             outputs_s = snet(inputs)
             features_out = list(snet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_s = modelout(inputs)
             # activation3_s = features.view(features.size(0), -1)
 
             output_t = tnet(inputs)
             features_out = list(tnet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_t = modelout(inputs)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
 
             at_loss = at3_loss + cls_loss
 
-        if arg.model == 'efficientnet_b3':
+        if args.model == 'efficientnet_b3':
             outputs_s = snet(inputs)
             features_out = list(snet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_s = modelout(inputs)
             # activation3_s = features.view(features.size(0), -1)
 
             output_t = tnet(inputs)
             features_out = list(tnet.children())[:-1]
-            modelout = nn.Sequential(*features_out).to(arg.device)
+            modelout = nn.Sequential(*features_out)
+            modelout.to(args.device)
             activation3_t = modelout(inputs)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * arg.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
 
             at_loss = at3_loss + cls_loss
 
@@ -330,19 +346,19 @@ def train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch):
         total_clean_correct += torch.sum(torch.argmax(outputs_s[:], dim=1) == labels[:])
         total_clean += inputs.shape[0]
         avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
-        
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler.step(one_epoch_loss)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler.step()
     logging.info(f'Epoch{epoch}: Loss:{train_loss} Training Acc:{avg_acc_clean}({total_clean_correct}/{total_clean})')
     one_epoch_loss = sum(batch_loss)/len(batch_loss)
-    # if arg.lr_scheduler == 'ReduceLROnPlateau':
-    #     scheduler.step(one_epoch_loss)
-    # elif arg.lr_scheduler ==  'CosineAnnealingLR':
-    #     scheduler.step()
+    
     return train_loss / (idx + 1), avg_acc_clean
 
 
-def test_epoch(arg, testloader, model, criterion, epoch, word):
+def test_epoch(args, testloader, model, criterion, epoch, word):
     '''test the student model with regard to test data for each epoch
-    arg:
+    args:
         Contains default parameters
     testloader:
         the dataloader of clean test data or backdoor test data
@@ -360,7 +376,7 @@ def test_epoch(arg, testloader, model, criterion, epoch, word):
     total_clean, total_clean_correct, test_loss = 0, 0, 0
 
     for i, (inputs, labels) in enumerate(testloader):
-        inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+        inputs, labels = inputs.to(args.device), labels.to(args.device)
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         test_loss += loss.item()
@@ -377,7 +393,7 @@ def test_epoch(arg, testloader, model, criterion, epoch, word):
     return test_loss / (i + 1), avg_acc_clean
 
 
-def nad(arg, result, config):
+def nad(args, result, config):
     ### set logger
     logFormatter = logging.Formatter(
         fmt='%(asctime)s [%(levelname)-8s] [%(filename)s:%(lineno)d] %(message)s',
@@ -415,7 +431,7 @@ def nad(arg, result, config):
     nets = {'snet': student, 'tnet': teacher}
 
     # initialize optimizer, scheduler
-    optimizer = torch.optim.SGD(student.parameters(), lr=arg.lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = torch.optim.SGD(student.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     if args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer)
     elif args.lr_scheduler ==  'CosineAnnealingLR':
@@ -423,10 +439,10 @@ def nad(arg, result, config):
 
     # define loss functions
     criterionCls = nn.CrossEntropyLoss()
-    criterionAT = AT(arg.p)
+    criterionAT = AT(args.p)
     criterions = {'criterionCls': criterionCls, 'criterionAT': criterionAT}
 
-    print('----------- DATA Initialization --------------')
+    logging.info('----------- DATA Initialization --------------')
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
     x = result['clean_train']['x']
     y = result['clean_train']['y']
@@ -444,7 +460,7 @@ def nad(arg, result, config):
         ori_label_transform_in_loading=None,
         add_details_in_preprocess=False,
     )
-    #data_clean_trainset.subset(random.sample(range(len(data_clean_trainset)), int(len(data_clean_trainset)*arg.ratio)))
+    #data_clean_trainset.subset(random.sample(range(len(data_clean_trainset)), int(len(data_clean_trainset)*args.ratio)))
     trainloader = torch.utils.data.DataLoader(data_clean_trainset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
     tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']
@@ -477,18 +493,38 @@ def nad(arg, result, config):
     testloader_clean = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
     ### train the teacher model
-    arg_te = arg
+    arg_te = args
     start_epoch = 0
     arg_te.beta1 = 0
     arg_te.beta2 = 0
     arg_te.beta3 = 0
-    for epoch in tqdm(range(start_epoch, arg.te_epochs)):
-        student.to(args.device)
-        train_loss, train_acc = train_step(arg_te, trainloader, nets, optimizer, scheduler, criterions, epoch)
+    optimizer_ft = torch.optim.SGD(teacher.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    if args.lr_scheduler == 'ReduceLROnPlateau':
+        scheduler_ft = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer_ft)
+    elif args.lr_scheduler ==  'CosineAnnealingLR':
+        scheduler_ft = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer_ft, T_max=100)
+    for epoch in tqdm(range(start_epoch, args.te_epochs)):
+        teacher.to(args.device)
+        batch_loss = []
+        for i, (inputs,labels) in enumerate(trainloader):  # type: ignore
+            teacher.train()
+            teacher.to(args.device)
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = teacher(inputs)
+            loss = criterionCls(outputs, labels)
+            batch_loss.append(loss.item())
+            optimizer_ft.zero_grad()
+            loss.backward()
+            optimizer_ft.step()
+        one_epoch_loss = sum(batch_loss)/len(batch_loss)
+        if args.lr_scheduler == 'ReduceLROnPlateau':
+            scheduler_ft.step(one_epoch_loss)
+        elif args.lr_scheduler ==  'CosineAnnealingLR':
+            scheduler_ft.step()
 
         # evaluate on testing set
-        test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, student, criterionCls, epoch, 'clean')
-        test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, student, criterionCls, epoch, 'bd')
+        test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, teacher, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, teacher, criterionCls, epoch, 'bd')
 
         # remember best precision and save checkpoint
 
@@ -499,14 +535,13 @@ def nad(arg, result, config):
     start_epoch = 0
     best_acc = 0
     best_asr = 0
-    for epoch in tqdm(range(start_epoch, arg.epochs)):
+    for epoch in tqdm(range(start_epoch, args.epochs)):
         student.to(args.device)
-        train_loss, train_acc = train_step(arg, trainloader, nets, optimizer, scheduler, criterions, epoch)
+        train_loss, train_acc = train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
 
-        
         # evaluate on testing set
-        test_loss, test_acc_cl = test_epoch(arg, testloader_clean, student, criterionCls, epoch, 'clean')
-        test_loss, test_acc_bd = test_epoch(arg, testloader_bd, student, criterionCls, epoch, 'bd')
+        test_loss, test_acc_cl = test_epoch(args, testloader_clean, student, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(args, testloader_bd, student, criterionCls, epoch, 'bd')
 
         # remember best precision and save checkpoint
         if not (os.path.exists(os.getcwd() + f'{args.checkpoint_save}')):
