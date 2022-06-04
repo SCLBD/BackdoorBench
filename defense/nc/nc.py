@@ -256,12 +256,15 @@ class Recorder:
 def train(opt, result, init_mask, init_pattern):
 
     tran = get_transform(opt.dataset, *([opt.input_height,opt.input_width]) , train = True)
-    x = result['bd_train']['x']
-    y = result['bd_train']['y']
-    data_bd_train = list(zip(x,y))
+    x = result['clean_train']['x']
+    y = result['clean_train']['y']
+    data_all_length = len(y)
+    args.ratio = args.cleaning_ratio
+    ran_idx = choose_index(args, data_all_length) 
+    data_set = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
     data_bd_trainset = prepro_cls_DatasetBD(
-        full_dataset_without_transform=data_bd_train,
-        poison_idx=np.zeros(len(data_bd_train)),  # one-hot to determine which image may take bd_transform
+        full_dataset_without_transform=data_set,
+        poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
         bd_image_pre_transform=None,
         bd_label_pre_transform=None,
         ori_image_transform_in_loading=tran,
@@ -611,13 +614,16 @@ def nc(args,result,config):
     y_new = [y[ii] for ii in idx_clean]
 
     for (label,_) in flag_list:
+        mask_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'mask.png'
+        mask_image = mlt.imread(mask_path)
+        mask_image = cv2.resize(mask_image,(args.input_height, args.input_width))
         trigger_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'trigger.png'
         signal_mask = mlt.imread(trigger_path)*255
         signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
         x_unlearn = [x[ii] for ii in idx_unlearn]
         x_unlearn_new = list()
         for img in x_unlearn:
-            x_np = np.array(cv2.resize(np.array(img),(args.input_height, args.input_width))) + np.array(signal_mask)
+            x_np = np.array(cv2.resize(np.array(img),(args.input_height, args.input_width))) * (1-np.array(mask_image)) + np.array(signal_mask)
             x_np = np.clip(x_np.astype('uint8'), 0, 255)
             x_np_img = Image.fromarray(x_np)
             x_unlearn_new.extend([x_np_img])
