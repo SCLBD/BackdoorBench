@@ -614,13 +614,16 @@ def nc(args,result,config):
     y_new = [y[ii] for ii in idx_clean]
 
     for (label,_) in flag_list:
+        mask_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'mask.png'
+        mask_image = mlt.imread(mask_path)
+        mask_image = cv2.resize(mask_image,(args.input_height, args.input_width))
         trigger_path = os.getcwd() + f'{args.log}' + '{}/'.format(str(label)) + 'trigger.png'
         signal_mask = mlt.imread(trigger_path)*255
         signal_mask = cv2.resize(signal_mask,(args.input_height, args.input_width))
         x_unlearn = [x[ii] for ii in idx_unlearn]
         x_unlearn_new = list()
         for img in x_unlearn:
-            x_np = np.array(cv2.resize(np.array(img),(args.input_height, args.input_width))) + np.array(signal_mask)
+            x_np = np.array(cv2.resize(np.array(img),(args.input_height, args.input_width))) * (1-np.array(mask_image)) + np.array(signal_mask)
             x_np = np.clip(x_np.astype('uint8'), 0, 255)
             x_np_img = Image.fromarray(x_np)
             x_unlearn_new.extend([x_np_img])
