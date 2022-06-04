@@ -374,15 +374,16 @@ def test_epoch(args, testloader, model, criterion, epoch, word):
 
     total_clean, total_clean_correct, test_loss = 0, 0, 0
 
-    for i, (inputs, labels) in enumerate(testloader):
-        inputs, labels = inputs.to(args.device), labels.to(args.device)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        test_loss += loss.item()
+    with torch.no_grad():
+        for i, (inputs, labels) in enumerate(testloader):
+            inputs, labels = inputs.to(args.device), labels.to(args.device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
 
-        total_clean_correct += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-        total_clean += inputs.shape[0]
-        avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
+            total_clean_correct += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
+            total_clean += inputs.shape[0]
+            avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
        
     if word == 'bd':
         logging.info(f'Test {word} ASR: {avg_acc_clean} ({total_clean_correct}/{total_clean})')

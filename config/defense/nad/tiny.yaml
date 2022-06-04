@@ -11,7 +11,7 @@ input_width:
 input_channel:
 
 epochs: 200
-batch_size: 256
+batch_size: 128
 num_workers: 4
 lr: 0.01
 lr_scheduler: ReduceLROnPlateau
