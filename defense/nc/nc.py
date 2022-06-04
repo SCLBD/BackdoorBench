@@ -413,6 +413,9 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
             recorder.mask_best = regression_model.get_raw_mask().detach()
             recorder.pattern_best = regression_model.get_raw_pattern().detach()
 
+    del predictions
+    torch.cuda.empty_cache()
+
     return inner_early_stop_flag
 
 def outlier_detection(l1_norm_list, idx_mapping, opt):
