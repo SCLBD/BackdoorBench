@@ -41,7 +41,7 @@ use_norm: 1
 ratio: 1.0
 cleaning_ratio: 0.05
 unlearning_ratio: 0.2
-nc_epoch: 10
+nc_epoch: 80
 
 
 

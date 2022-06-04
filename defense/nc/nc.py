@@ -256,12 +256,15 @@ class Recorder:
 def train(opt, result, init_mask, init_pattern):
 
     tran = get_transform(opt.dataset, *([opt.input_height,opt.input_width]) , train = True)
-    x = result['bd_train']['x']
-    y = result['bd_train']['y']
-    data_bd_train = list(zip(x,y))
+    x = result['clean_train']['x']
+    y = result['clean_train']['y']
+    data_all_length = len(y)
+    args.ratio = args.cleaning_ratio
+    ran_idx = choose_index(args, data_all_length) 
+    data_set = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
     data_bd_trainset = prepro_cls_DatasetBD(
-        full_dataset_without_transform=data_bd_train,
-        poison_idx=np.zeros(len(data_bd_train)),  # one-hot to determine which image may take bd_transform
+        full_dataset_without_transform=data_set,
+        poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
         bd_image_pre_transform=None,
         bd_label_pre_transform=None,
         ori_image_transform_in_loading=tran,
