@@ -105,12 +105,12 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./config/defense/dbd/config.yaml", help='the path of yaml')
 
     # set the parameter for the dbd defense
-    parser.add_argument('--epoch_warmup', type=str, help='the location of result')
-    parser.add_argument('--batch_size_self', type=str, help='the location of result')
-    parser.add_argument('--epochs_self', type=str, help='the location of result')
-    parser.add_argument('--temperature', type=str, help='the location of result')
-    parser.add_argument('--epsilon', type=str, help='the location of result')
-    parser.add_argument('--epoch_self', type=str, help='the location of result')
+    parser.add_argument('--epoch_warmup',type=int )
+    parser.add_argument('--batch_size_self',type=int )
+    parser.add_argument('--epochs_self',type=int )
+    parser.add_argument('--temperature',type=int )
+    parser.add_argument('--epsilon',type=int )
+    parser.add_argument('--epoch_self',type=int )
     
 
     arg = parser.parse_args()

@@ -279,7 +279,7 @@ def train(opt, result, init_mask, init_pattern):
     regression_model = RegressionModel(opt, init_mask, init_pattern, result).to(opt.device)
 
     # Set optimizer
-    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=opt.lr, betas=(0.5, 0.9))
+    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=opt.mask_lr, betas=(0.5, 0.9))
 
     # Set recorder (for recording best result)
     recorder = Recorder(opt)
@@ -499,6 +499,7 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./config/defense/nc/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
+    parser.add_argument("--mask_lr", type=float)
     parser.add_argument("--init_cost", type=float)
     parser.add_argument("--bs", type=int)
     parser.add_argument("--atk_succ_threshold", type=float)
@@ -580,6 +581,8 @@ def nc(args,result,config):
 
             mask = recorder.mask_best
             masks.append(mask)
+            reg = torch.norm(mask, p=args.use_norm)
+            logging.info(f'The regularization of mask for target label {target_label} is {reg}')
             idx_mapping[target_label] = len(masks) - 1
 
         # c. Determine whether the trained reverse trigger is a real backdoor trigger

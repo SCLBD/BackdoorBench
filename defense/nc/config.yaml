@@ -25,11 +25,12 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
+mask_lr: 0.1
 init_cost: 1.0e-3
 bs: 64
 atk_succ_threshold: 98.0
 early_stop: True
-early_stop_threshold: 99.0
+early_stop_threshold: 0.99
 early_stop_patience: 25
 patience: 5
 cost_multiplier: 2
@@ -41,7 +42,7 @@ use_norm: 1
 ratio: 1.0
 cleaning_ratio: 0.05
 unlearning_ratio: 0.2
-nc_epoch: 10
+nc_epoch: 80
 
 
 

@@ -25,6 +25,7 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
+mask_lr: 0.1
 init_cost: 1.0e-3
 bs: 64
 atk_succ_threshold: 98.0
