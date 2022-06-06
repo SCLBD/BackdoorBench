@@ -1,3 +1,4 @@
+import os
 import torch
 import argparse
 import numpy as np
@@ -5,11 +6,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
-import os
-from torchvision.transforms.functional import to_pil_image
-from torchcam.methods import SmoothGradCAMpp, LayerCAM
-from torchcam.utils import overlay_mask
-
 
 def get_args():
     # set the basic parameter
@@ -204,19 +200,6 @@ def test_tsne():
     )
     plt.show(fig)
 
-
-def Grad_Cam(net, input_image, target_layer):
-    # https://colab.research.google.com/github/frgfm/notebooks/blob/main/torch-cam/quicktour.ipynb#scrollTo=_FIofDSdhC6K
-    cam_extractor = SmoothGradCAMpp(net, target_layer=target_layer)
-    # Preprocess your data and feed it to the model
-    out = net(input_image.unsqueeze(0))
-    # Retrieve the CAM by passing the class index and the model output
-    cams = cam_extractor(out.squeeze(0).argmax().item(), out)
-    # Notice that there is one CAM per target layer (here only 1)
-    return cams
-
-
-# test_tsne()
 
 
 def get_class_name(dataset, num_class, args):
