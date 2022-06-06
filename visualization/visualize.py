@@ -179,7 +179,7 @@ sort_idx = np.argsort(labels)
 features = features[sort_idx]
 labels = labels[sort_idx]
 classes = args.class_names + ["poisoned"]
-label_class = [classes[i] for i in labels]
+label_class = [classes[i].capitalize() for i in labels]
 
 # Plot T-SNE
 custom_palette = sns.color_palette("hls", 10) + [
@@ -243,7 +243,7 @@ shap_values, indexes = e.shap_values(test_images, ranked_outputs=5)
 
 # get the names for the classes
 class_names = np.array(args.class_names).reshape([-1])
-index_names = np.vectorize(lambda x: class_names[x])(indexes.cpu())
+index_names = np.vectorize(lambda x: class_names[x].capitalize())(indexes.cpu())
 # plot the explanations
 shap_numpy = [np.swapaxes(np.swapaxes(s, 1, -1), 1, 2) for s in shap_values]
 test_numpy = np.swapaxes(
@@ -297,11 +297,11 @@ for im in range(4):
     axes[im // 2, im % 2 * 2].imshow(rgb_image)
     axes[im // 2, im % 2 * 2].axis("off")
     axes[im // 2, im % 2 * 2].set_title(
-        "Original Image: %s" % (class_names[test_label[im]])
+        "Original Image: %s" % (class_names[test_label[im]].capitalize())
     )
     axes[im // 2, im % 2 * 2 + 1].imshow(visual_cam)
     axes[im // 2, im % 2 * 2 + 1].axis("off")
     axes[im // 2, im % 2 * 2 + 1].set_title(
-        "Predicted: %s, %.2f%%" % (class_names[pre_label[im]], pre_p[im] * 100)
+        "Predicted: %s, %.2f%%" % (class_names[pre_label[im]].capitalize(), pre_p[im] * 100)
     )
 plt.savefig(args.save_path + "/gracam.png")
