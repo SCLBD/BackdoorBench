@@ -239,8 +239,39 @@ def ft(args,result,config):
     data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
     trainloader = data_loader
     model_new = model
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = result['bd_test']['x']
+    y = result['bd_test']['y']
+    data_bd_test = list(zip(x,y))
+    data_bd_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_bd_test,
+        poison_idx=np.zeros(len(data_bd_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_bd_loader = torch.utils.data.DataLoader(data_bd_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+    x = result['clean_test']['x']
+    y = result['clean_test']['y']
+    data_clean_test = list(zip(x,y))
+    data_clean_testset = prepro_cls_DatasetBD(
+        full_dataset_without_transform=data_clean_test,
+        poison_idx=np.zeros(len(data_clean_test)),  # one-hot to determine which image may take bd_transform
+        bd_image_pre_transform=None,
+        bd_label_pre_transform=None,
+        ori_image_transform_in_loading=tran,
+        ori_label_transform_in_loading=None,
+        add_details_in_preprocess=False,
+    )
+    data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+
+    
     for i in range(args.epochs):
-        model_new = fine_tuning(args, model_new, optimizer, scheduler, criterion, i, trainloader, testloader_cl = None, testloader_bd = None)
+        model_new = fine_tuning(args, model_new, optimizer, scheduler, criterion, i, trainloader, testloader_cl = data_clean_loader, testloader_bd = data_bd_loader)
     
     result = {}
     result['model'] = model_new
