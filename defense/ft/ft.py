@@ -103,36 +103,36 @@ def fine_tuning(arg, model, optimizer, scheduler, criterion, epoch, trainloader,
         #progress_bar(i, len(trainloader), 'Epoch: %d | Loss: %.3f | Training Acc: %.3f%% (%d/%d)' % (epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
         print('Epoch:{} | Loss: {:.3f} | Training Acc: {:.3f}%({}/{})'.format(epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
         logging.info('Epoch:{} | Loss: {:.3f} | Training Acc: {:.3f}%({}/{})'.format(epoch, train_loss / (i + 1), avg_acc_clean, total_clean_correct, total_clean))
-        model.eval()
-        if testloader_cl is not None:
-            total_clean_test, total_clean_correct_test, test_loss = 0, 0, 0
-            for i, (inputs, labels) in enumerate(testloader_cl):
-                inputs, labels = inputs.to(arg.device), labels.to(arg.device)
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                test_loss += loss.item()
+    model.eval()
+    if testloader_cl is not None:
+        total_clean_test, total_clean_correct_test, test_loss = 0, 0, 0
+        for i, (inputs, labels) in enumerate(testloader_cl):
+            inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
 
-                total_clean_correct_test += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-                total_clean_test += inputs.shape[0]
-                avg_acc_clean = float(total_clean_correct_test.item() * 100.0 / total_clean_test)
-                #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
-            print('Epoch:{} | Test Acc: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
-            logging.info('Epoch:{} | Test Acc: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
-                    
-        if testloader_bd is not None:
-            total_clean_test, total_clean_correct_test, test_loss = 0, 0, 0
-            for i, (inputs, labels) in enumerate(testloader_bd):
-                inputs, labels = inputs.to(arg.device), labels.to(arg.device)
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                test_loss += loss.item()
+            total_clean_correct_test += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
+            total_clean_test += inputs.shape[0]
+            avg_acc_clean = float(total_clean_correct_test.item() * 100.0 / total_clean_test)
+            #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+        print('Epoch:{} | Test Acc: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
+        logging.info('Epoch:{} | Test Acc: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
+                
+    if testloader_bd is not None:
+        total_clean_test, total_clean_correct_test, test_loss = 0, 0, 0
+        for i, (inputs, labels) in enumerate(testloader_bd):
+            inputs, labels = inputs.to(arg.device), labels.to(arg.device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
 
-                total_clean_correct_test += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-                total_clean_test += inputs.shape[0]
-                avg_acc_clean = float(total_clean_correct_test.item() * 100.0 / total_clean_test)
-                #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
-            print('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
-            logging.info('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
+            total_clean_correct_test += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
+            total_clean_test += inputs.shape[0]
+            avg_acc_clean = float(total_clean_correct_test.item() * 100.0 / total_clean_test)
+            #progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
+        print('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
+        logging.info('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_clean_correct, total_clean))
     one_epoch_loss = sum(batch_loss)/len(batch_loss)
     if args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler.step(one_epoch_loss)
