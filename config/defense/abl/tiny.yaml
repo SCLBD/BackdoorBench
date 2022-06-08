@@ -27,7 +27,7 @@ index:
 tuning_epochs: 40
 finetuning_ascent_model: True
 finetuning_epochs: 120
-unlearning_epochs: 40
+unlearning_epochs: 4
 lr_finetuning_init: 0.1
 lr_unlearning_init: 5.0e-4
 momentum: 0.9
