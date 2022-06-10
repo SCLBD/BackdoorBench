@@ -31,7 +31,6 @@ from pprint import pformat
 import shutil
 import argparse
 from utils.log_assist import get_git_info
-from torch.utils.tensorboard import SummaryWriter
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import get_num_classes, get_input_shape, get_dataset_normalization, get_dataset_denormalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
@@ -446,7 +445,7 @@ logging.warning('In train, if ratio of bd/cross/clean being zero, plz checkout t
 We set the ratio being 0 if TOTAL number of bd/cross/clean is 0 (otherwise 0/0 happens)')
 
 def train_step(
-    netC, netG, netM, optimizerC, optimizerG, schedulerC, schedulerG, train_dl1, train_dl2, epoch, opt, tf_writer
+    netC, netG, netM, optimizerC, optimizerG, schedulerC, schedulerG, train_dl1, train_dl2, epoch, opt
 ):
     netC.train()
     netG.train()
@@ -534,16 +533,6 @@ def train_step(
             file_name = "{}_{}_images.png".format(opt.dataset, opt.attack_mode)
             file_path = os.path.join(dir_temps, file_name)
             torchvision.utils.save_image(images, file_path, normalize=True, pad_value=1)
-
-    if not epoch % 10:
-        # Save figures (tfboard)
-        tf_writer.add_scalars(
-            "Accuracy/lambda_div_{}/".format(opt.lambda_div),
-            {"Clean": acc_clean, "BD": acc_bd, "Cross": acc_cross},
-            epoch,
-        )
-
-        tf_writer.add_scalars("Loss/lambda_div_{}".format(opt.lambda_div), {"CE": loss_ce, "Div": loss_div}, epoch)
 
     if opt.C_lr_scheduler == "ReduceLROnPlateau":
         schedulerC.step(loss_ce)
@@ -643,7 +632,7 @@ def eval(
     trainer = ModelTrainerCLS(netC)
     trainer.criterion = torch.nn.CrossEntropyLoss()
 
-    if epoch == 1 or epoch % (opt.epochs//10) == ((opt.epochs//10)-1):
+    if epoch == 1 or epoch % ((opt.epochs//10) + 1) == (opt.epochs//10):
         sample_pil_imgs(test_dl1.dataset.data, f"{opt.save_path}/test_dl_{epoch}_samples")
         sample_pil_imgs(poison_test_dl.dataset.data, f"{opt.save_path}/poison_test_dl_{epoch}_samples")
         sample_pil_imgs(cross_test_dl.dataset.data, f"{opt.save_path}/cross_test_dl_{epoch}_samples")
@@ -693,7 +682,7 @@ def eval(
 
 
 # -------------------------------------------------------------------------------------
-def train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, opt, tf_writer):
+def train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, opt):
     netM.train()
     logging.info(" Training:")
     total = 0
@@ -738,10 +727,7 @@ def train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, o
             path_masks = os.path.join(dir_temps, "{}_{}_masks.png".format(opt.dataset, opt.attack_mode))
             torchvision.utils.save_image(masks1, path_masks, pad_value=1)
 
-    if not epoch % 10:
-        tf_writer.add_scalars(
-            "Loss/lambda_norm_{}".format(opt.lambda_norm), {"MaskNorm": loss_norm, "MaskDiv": loss_div}, epoch
-        )
+
 
     schedulerM.step()
 
@@ -823,7 +809,6 @@ def train(opt):
     log_dir = os.path.join(log_dir, "log_dir")
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    tf_writer = SummaryWriter(log_dir=log_dir)
 
     # Continue training ?
     ckpt_folder = os.path.join(opt.checkpoints, opt.dataset, opt.attack_mode)
@@ -865,13 +850,13 @@ def train(opt):
     ### 4. clean train 25 epochs
     if epoch == 1:
         netM.train()
-        for i in range(0):
+        for i in range(opt.clean_train_epochs):
             logging.info(
                 "Epoch {} - {} - {} | mask_density: {} - lambda_div: {}  - lambda_norm: {}:".format(
                     epoch, opt.dataset, opt.attack_mode, opt.mask_density, opt.lambda_div, opt.lambda_norm
                 )
             )
-            train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, opt, tf_writer)
+            train_mask_step(netM, optimizerM, schedulerM, train_dl1, train_dl2, epoch, opt)
             epoch = eval_mask(netM, optimizerM, schedulerM, test_dl1, test_dl2, epoch, opt)
             epoch += 1
     netM.eval()
@@ -897,7 +882,6 @@ def train(opt):
             train_dl2,
             epoch,
             opt,
-            tf_writer,
         )
 
         test_avg_acc_clean, test_avg_acc_bd, test_avg_acc_cross, epoch=eval(
@@ -1169,6 +1153,7 @@ def get_arguments():
     # parser.add_argument("--p_cross", type=float, )#default=0.1)
     parser.add_argument("--mask_density", type=float, )#default=0.032)
     parser.add_argument("--EPSILON", type=float, )#default=1e-7)
+    parser.add_argument('--clean_train_epochs',type =int)
 
     parser.add_argument("--random_rotation", type=int, )#default=10)
     parser.add_argument("--random_crop", type=int, )#default=5)

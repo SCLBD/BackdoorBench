@@ -41,3 +41,4 @@ EPSILON: 0.0000001
 random_rotation: 10
 random_crop: 5
 random_seed: 0
+clean_train_epochs: 25

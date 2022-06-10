@@ -34,7 +34,6 @@ import argparse
 from utils.log_assist import get_git_info
 import numpy as np
 import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
 import torch.utils.data as data
 import torchvision
 import random
@@ -341,7 +340,7 @@ def generalize_to_lower_pratio(pratio, bs):
 
 logging.warning('In train, if ratio of bd/cross/clean being zero, plz checkout the TOTAL number of bd/cross/clean !!!\n\
 We set the ratio being 0 if TOTAL number of bd/cross/clean is 0 (otherwise 0/0 happens)')
-def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt):
+def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid,  epoch, opt):
     logging.info(" Train:")
     netC.train()
     rate_bd = opt.pratio
@@ -454,11 +453,6 @@ def train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_
             grid = torchvision.utils.make_grid(batch_img, normalize=True)
 
     # for tensorboard
-    if (num_bd > 0) :
-        tf_writer.add_scalars(
-            "Clean Accuracy", {"Clean": avg_acc_clean, "Bd": avg_acc_bd, "Cross": avg_acc_cross}, epoch
-        )
-        tf_writer.add_image("Images", grid, global_step=epoch)
 
     if isinstance(schedulerC, torch.optim.lr_scheduler.ReduceLROnPlateau):
         schedulerC.step(loss.item())
@@ -498,7 +492,6 @@ def eval(
         best_clean_acc,
         best_bd_acc,
         best_cross_acc,
-        tf_writer,
         epoch,
         opt,
 ):
@@ -587,10 +580,6 @@ def eval(
     #                 acc_clean, best_clean_acc, acc_bd, best_bd_acc
     #             )
     #         progress_bar(batch_idx, len(test_dl), info_string)
-
-    # tensorboard
-    if not epoch % 1:
-        tf_writer.add_scalars("Test Accuracy", {"Clean": acc_clean, "Bd": acc_bd}, epoch)
 
     # Save checkpoint
     if acc_clean > best_clean_acc or (acc_clean > best_clean_acc - 0.1 and acc_bd > best_bd_acc):
@@ -704,7 +693,6 @@ def main():
             epoch_current = state_dict["epoch_current"]
             identity_grid = state_dict["identity_grid"]
             noise_grid = state_dict["noise_grid"]
-            tf_writer = SummaryWriter(log_dir=opt.log_dir)
         else:
             logging.info("Pretrained model doesnt exist")
             exit()
@@ -735,7 +723,6 @@ def main():
         os.makedirs(opt.log_dir)
         with open(os.path.join(opt.ckpt_folder, "opt.json"), "w+") as f:
             json.dump(opt.__dict__, f, indent=2)
-        tf_writer = SummaryWriter(log_dir=opt.log_dir)
 
     logging.info(pformat(opt.__dict__))#set here since the opt change once.
     try:
@@ -821,7 +808,7 @@ def main():
     ### 5. training with backdoor modification simultaneously
     for epoch in range(epoch_current, opt.epochs):
         logging.info("Epoch {}:".format(epoch + 1))
-        train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid, tf_writer, epoch, opt)
+        train(netC, optimizerC, schedulerC, train_dl, noise_grid, identity_grid,  epoch, opt)
         best_clean_acc, best_bd_acc, best_cross_acc, acc_clean, acc_bd, acc_cross = eval(
             netC,
             optimizerC,
@@ -832,7 +819,6 @@ def main():
             best_clean_acc,
             best_bd_acc,
             best_cross_acc,
-            tf_writer,
             epoch,
             opt,
         )
