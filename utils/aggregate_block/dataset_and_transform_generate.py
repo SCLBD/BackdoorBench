@@ -11,9 +11,11 @@ The update include:
 # idea : use args to choose which dataset and corresponding transform you want
 '''
 
+import random
 from typing import Tuple
 import torchvision.transforms as transforms
-
+import torch
+from PIL import ImageFilter
 
 
 def get_num_classes(dataset_name : str) -> int:
@@ -135,18 +137,54 @@ def get_transform(dataset_name, input_height, input_width,train=True):
     transforms_list.append(get_dataset_normalization(dataset_name))
     return transforms.Compose(transforms_list)
 
-def get_transform_self(dataset_name, input_height, input_width,train=True):
-    # idea : given name, return the final implememnt transforms for the dataset during self-supervised learning
+def get_transform_prefetch(dataset_name, input_height, input_width,train=True,prefetch=False):
+    # idea : given name, return the final implememnt transforms for the dataset
     transforms_list = []
     transforms_list.append(transforms.Resize((input_height, input_width)))
     if train:
         transforms_list.append(transforms.RandomCrop((input_height, input_width), padding=4))
-        transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))
-        transforms_list.append(transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8))
-        transforms_list.append(transforms.RandomGrayscale(p=0.2))
+        # transforms_list.append(transforms.RandomRotation(10))
+        if dataset_name == "cifar10":
+            transforms_list.append(transforms.RandomHorizontalFlip())
+    if not prefetch:
+        transforms_list.append(transforms.ToTensor())
+        transforms_list.append(get_dataset_normalization(dataset_name))
+    return transforms.Compose(transforms_list)
 
-    transforms_list.append(transforms.ToTensor())
-    transforms_list.append(get_dataset_normalization(dataset_name))
+
+class GaussianBlur(object):
+    """Gaussian blur augmentation in SimCLR.
+    
+    Borrowed from https://github.com/facebookresearch/moco/blob/master/moco/loader.py.
+    """
+
+    def __init__(self, sigma=[0.1, 2.0]):
+        self.sigma = sigma
+
+    def __call__(self, x):
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+
+        return x
+
+def get_transform_self(dataset_name, input_height, input_width,train=True,prefetch=False):
+    # idea : given name, return the final implememnt transforms for the dataset during self-supervised learning
+    transforms_list = []
+    transforms_list.append(transforms.Resize((input_height, input_width)))
+    if train:
+        # transforms_list.append(transforms.RandomCrop((input_height, input_width), padding=4))
+        # transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))
+        # transforms_list.append(transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8))
+        # transforms_list.append(transforms.RandomGrayscale(p=0.2))
+        transforms_list.append(transforms.RandomResizedCrop(size=(input_height, input_width), scale=(0.2, 1.0), ratio=(0.75, 1.3333), interpolation=3))
+        transforms_list.append(transforms.RandomHorizontalFlip(p=0.5))  
+        transforms_list.append(transforms.RandomApply(torch.nn.ModuleList([transforms.ColorJitter(brightness=[0.6, 1.4], contrast=[0.6, 1.4], saturation=[0.6, 1.4], hue=[-0.1, 0.1])]),p=0.8))
+        transforms_list.append(transforms.RandomGrayscale(p=0.2))
+        transforms_list.append(transforms.RandomApply([GaussianBlur(sigma=[0.1,2.0])],p=0.5))
+
+    if not prefetch:
+        transforms_list.append(transforms.ToTensor())
+        transforms_list.append(get_dataset_normalization(dataset_name))
     return transforms.Compose(transforms_list)
 
 def dataset_and_transform_generate(args):
