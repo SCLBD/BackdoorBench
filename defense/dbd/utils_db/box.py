@@ -6,6 +6,7 @@ code:
 import os 
 import sys
 
+
 sys.path.append('../')
 sys.path.append(os.getcwd())
 import numpy as np
@@ -14,6 +15,7 @@ import torch
 #     get_transform,
 #     get_semi_idx,
 # )
+from defense.dbd.data.prefetch import PrefetchLoader
 
 from utils.aggregate_block.dataset_and_transform_generate import get_transform_self
 
@@ -50,7 +52,7 @@ def get_information(args,result,config_ori):
     #     "primary": aug_primary_transform,
     #     "remaining": aug_remaining_transform,
     # }
-    aug_transform = get_transform_self(args.dataset, *([args.input_height,args.input_width]) , train = True)
+    aug_transform = get_transform_self(args.dataset, *([args.input_height,args.input_width]) , train = True, prefetch =args.prefetch)
     # logger.info("Augmented transformations:\n {}".format(aug_transform))
     # logger.info("Load dataset from: {}".format(config["dataset_dir"]))
     # clean_train_data = get_dataset(config["dataset_dir"], train_transform)
@@ -73,7 +75,7 @@ def get_information(args,result,config_ori):
     #     ori_label_transform_in_loading=None,
     #     add_details_in_preprocess=False,
     # )
-    self_poison_train_data = SelfPoisonDataset(x,y, aug_transform)
+    self_poison_train_data = SelfPoisonDataset(x,y, aug_transform,args)
     # if args.distributed:
     #     self_poison_train_sampler = DistributedSampler(self_poison_train_data)
     #     batch_size = int(config["loader"]["batch_size"])
@@ -86,8 +88,11 @@ def get_information(args,result,config_ori):
     #     )
     # else:
         # self_poison_train_sampler = None
-    self_poison_train_loader = torch.utils.data.DataLoader(self_poison_train_data, batch_size=args.batch_size_self, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-   
+    self_poison_train_loader_ori = torch.utils.data.DataLoader(self_poison_train_data, batch_size=args.batch_size_self, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    if args.prefetch:
+        self_poison_train_loader = PrefetchLoader(self_poison_train_loader_ori, self_poison_train_data.mean, self_poison_train_data.std)
+    else:
+        self_poison_train_loader = self_poison_train_loader_ori
     # self_poison_train_loader = get_loader(
     #         self_poison_train_data, config["loader"], shuffle=True
     #     )

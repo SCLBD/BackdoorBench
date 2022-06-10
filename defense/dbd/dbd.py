@@ -34,6 +34,8 @@ import os
 
 sys.path.append('../')
 sys.path.append(os.getcwd())
+from defense.dbd.data.prefetch import PrefetchLoader
+
 
 import numpy as np
 import torch
@@ -44,7 +46,7 @@ import torch.multiprocessing as mp
 import yaml
 
 from pprint import pprint, pformat
-from utils.aggregate_block.dataset_and_transform_generate import get_transform
+from utils.aggregate_block.dataset_and_transform_generate import get_transform, get_transform_prefetch
 
 from data.utils import (
     get_loader,
@@ -105,6 +107,7 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./config/defense/dbd/config.yaml", help='the path of yaml')
 
     # set the parameter for the dbd defense
+    parser.add_argument('--prefetch',type=bool )
     parser.add_argument('--epoch_warmup',type=int )
     parser.add_argument('--batch_size_self',type=int )
     parser.add_argument('--epochs_self',type=int )
@@ -150,12 +153,13 @@ def dbd(args,result):
         args.resume = args.checkpoint_load
     
     if args.dataset == 'cifar10':
-        config_file = './defense/dbd/config_z/pretrain/' + 'signalTrigger/' + args.dataset + '/example.yaml'
+        config_file = './defense/dbd/config_z/pretrain/' + 'squareTrigger/' + args.dataset + '/example.yaml'
     else:
-        config_file = './defense/dbd/config_z/pretrain/' + 'signalTrigger/imagenet/example.yaml'
+        config_file = './defense/dbd/config_z/pretrain/' + 'squareTrigger/imagenet/example.yaml'
     config_ori, inner_dir, config_name = load_config(config_file)
     gpu = int(os.environ['CUDA_VISIBLE_DEVICES']) 
     logging.info("===Prepare data===")
+    # args.model = 'resnet'
     information = get_information(args,result,config_ori)
 
     self_poison_train_loader = information['self_poison_train_loader']
@@ -190,14 +194,14 @@ def dbd(args,result):
         if scheduler is not None:
             saved_dict["scheduler_state_dict"] = scheduler.state_dict()
 
-        ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "latest_model.pt")
+        ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "self_latest_model.pt")
         torch.save(saved_dict, ckpt_path)
         logger.info("Save the latest model to {}".format(ckpt_path))
         
     if args.dataset == 'cifar10':
-        config_file_semi = './defense/dbd/config_z/semi/' + 'blend/' + args.dataset + '/example.yaml'
+        config_file_semi = './defense/dbd/config_z/semi/' + 'badnets/' + args.dataset + '/example.yaml'
     else:
-        config_file_semi = './defense/dbd/config_z/semi/' + 'blend/imagenet/example.yaml'
+        config_file_semi = './defense/dbd/config_z/semi/' + 'badnets/imagenet/example.yaml'
  
    
     finetune_config, finetune_inner_dir, finetune_config_name = load_config(config_file_semi)
@@ -211,24 +215,31 @@ def dbd(args,result):
     pretrain_config['warmup']['criterion']['sce']['num_classes'] = args.num_classes
     pretrain_config['warmup']['num_epochs'] = args.epoch_warmup
 
+    args.batch_size = 128
     logging.info("\n===Prepare data===")
-    train_transform = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
+    train_transform = get_transform_prefetch(args.dataset, *([args.input_height,args.input_width]) , train = True,prefetch=args.prefetch)
     x = result['bd_train']['x']
     y = result['bd_train']['y']
     dataset_ori = xy_iter(
         x,y,train_transform
     )
-    dataset = PoisonLabelDataset(dataset_ori, train_transform, np.zeros(len(dataset_ori)), True)
-    poison_train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
-    poison_eval_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=False,pin_memory=True)
-    
+    dataset = PoisonLabelDataset(dataset_ori, train_transform, np.zeros(len(dataset_ori)), True,args)
+    poison_train_loader_ori = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
+    poison_eval_loader_ori = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=False,pin_memory=True)
+    if args.prefetch:
+        poison_train_loader = PrefetchLoader(poison_train_loader_ori, dataset.mean, dataset.std) 
+        poison_eval_loader = PrefetchLoader(poison_eval_loader_ori, dataset.mean, dataset.std)
+    else:
+        poison_train_loader = poison_train_loader_ori 
+        poison_eval_loader = poison_eval_loader_ori  
+
     test_transform = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
     x = result['bd_test']['x']
     y = result['bd_test']['y']
     dataset_ori_bd = xy_iter(
         x,y,train_transform
     )
-    dataset_te_bd = PoisonLabelDataset(dataset_ori_bd, test_transform, np.zeros(len(dataset_ori_bd)), False)
+    dataset_te_bd = PoisonLabelDataset(dataset_ori_bd, test_transform, np.zeros(len(dataset_ori_bd)), False,args)
     poison_test_loader = torch.utils.data.DataLoader(dataset_te_bd, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=False,pin_memory=True)
 
     x = result['clean_test']['x']
@@ -236,15 +247,17 @@ def dbd(args,result):
     dataset_ori_cl = xy_iter(
         x,y,train_transform
     )
-    dataset_te_cl = PoisonLabelDataset(dataset_ori_cl, test_transform, np.zeros(len(dataset_ori_cl)), False)
+    dataset_te_cl = PoisonLabelDataset(dataset_ori_cl, test_transform, np.zeros(len(dataset_ori_cl)), False,args)
     clean_test_loader = torch.utils.data.DataLoader(dataset_te_cl, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=False,pin_memory=True)
 
     backbone = get_network_dbd(args)
+    # backbone = self_model.backbone
     self_model = SelfModel(backbone)
     self_model = self_model.to(args.device)
-    # Load backbone from the pretrained model.
+    # # Load backbone from the pretrained model.
+    loc = os.path.join(os.getcwd() + args.checkpoint_save, "self_latest_model.pt")
     load_state(
-        self_model, pretrain_config["pretrain_checkpoint"], pretrain_ckpt_path, args.device, logger
+        self_model, pretrain_config["pretrain_checkpoint"], loc, args.device, logger
     )
     linear_model = LinearModel(backbone, backbone.feature_dim, args.num_classes)
     linear_model.linear.to(args.device)
@@ -287,8 +300,8 @@ def dbd(args,result):
             logger.info("Mining clean data from poisoned dataset...")
             # c. the samples with poor confidence were excluded, and semi-supervised learning was used to continue the learning model
             semi_idx = get_semi_idx(record_list, args.epsilon, logger)
-            xdata = MixMatchDataset(dataset, semi_idx, labeled=True)
-            udata = MixMatchDataset(dataset, semi_idx, labeled=False)
+            xdata = MixMatchDataset(dataset, semi_idx, labeled=True,args=args)
+            udata = MixMatchDataset(dataset, semi_idx, labeled=False,args=args)
             xloader = get_loader(
                 xdata, pretrain_config["semi"]["loader"], shuffle=True, drop_last=True
             )
@@ -349,7 +362,7 @@ def dbd(args,result):
             ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "best_model.pt")
             torch.save(saved_dict, ckpt_path)
             logger.info("Save the best model to {}".format(ckpt_path))
-        ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "latest_model.pt")
+        ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "semi_latest_model.pt")
         torch.save(saved_dict, ckpt_path)
         logger.info("Save the latest model to {}".format(ckpt_path))
 

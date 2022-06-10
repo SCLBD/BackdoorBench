@@ -5,6 +5,8 @@ import torch
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 
+from utils.aggregate_block.dataset_and_transform_generate import get_dataset_normalization
+
 
 class PoisonLabelDataset(Dataset):
     """Poison-Label dataset wrapper.
@@ -17,7 +19,7 @@ class PoisonLabelDataset(Dataset):
         target_label (int): The target label.
     """
 
-    def __init__(self, dataset, transform, poison_idx, train):
+    def __init__(self, dataset, transform, poison_idx, train,args):
         super(PoisonLabelDataset, self).__init__()
         self.dataset = copy.deepcopy(dataset)
         self.train = train
@@ -34,10 +36,13 @@ class PoisonLabelDataset(Dataset):
         # self.primary_transform = self.dataset.primary_transform
         # self.remaining_transform = self.dataset.remaining_transform
         self.transform = transform
-        # self.prefetch = self.dataset.prefetch
-        # if self.prefetch:
-        #     self.mean, self.std = self.dataset.mean, self.dataset.std
-
+        if train:
+            self.prefetch = args.prefetch
+            if self.prefetch:
+                norm = get_dataset_normalization(args.dataset)
+                self.mean, self.std = norm.mean, norm.std
+        else:
+            self.prefetch = False
         # self.bd_transform = transform
         # self.target_label = target_label
 
@@ -77,11 +82,12 @@ class PoisonLabelDataset(Dataset):
         # img = self.primary_transform(img)
         # img = self.remaining_transform(img)
 
-        # if self.prefetch:
-        #     # HWC ndarray->CHW tensor with C=3.
-        #     img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
-        #     img = torch.from_numpy(img)
+        
         img = self.transform(img)
+        if self.prefetch:
+            # HWC ndarray->CHW tensor with C=3.
+            img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
+            img = torch.from_numpy(img)
 
         return img
 
@@ -97,7 +103,7 @@ class MixMatchDataset(Dataset):
             creates from unlabeled set (default: True).
     """
 
-    def __init__(self, dataset, semi_idx, labeled=True):
+    def __init__(self, dataset, semi_idx, labeled=True,args=None):
         super(MixMatchDataset, self).__init__()
         self.dataset = copy.deepcopy(dataset)
         if labeled:
@@ -105,7 +111,10 @@ class MixMatchDataset(Dataset):
         else:
             self.semi_indice = np.nonzero(semi_idx == 0)[0]
         self.labeled = labeled
-        # self.prefetch = self.dataset.prefetch
+        self.prefetch = args.prefetch
+        if self.prefetch:
+            norm = get_dataset_normalization(args.dataset)
+            self.mean, self.std = norm.mean, norm.std
         # self.mean, self.std = self.dataset.mean, self.dataset.std
 
     def __getitem__(self, index):
@@ -136,7 +145,7 @@ class SelfPoisonDataset(Dataset):
             remaining transformations.
     """
 
-    def __init__(self, x,y, transform):
+    def __init__(self, x,y, transform,args):
         super(SelfPoisonDataset, self).__init__()
         self.dataset = list(zip(x,y))
         self.data = x
@@ -150,9 +159,10 @@ class SelfPoisonDataset(Dataset):
         # self.remaining_transform = transform["remaining"]
         self.transform = transform
         # self.remaining_transform = self.dataset.remaining_transform
-        # self.prefetch = self.dataset.prefetch
-        # if self.prefetch:
-        #     self.mean, self.std = self.dataset.mean, self.dataset.std
+        self.prefetch = args.prefetch
+        if self.prefetch:
+            norm = get_dataset_normalization(args.dataset)
+            self.mean, self.std = norm.mean, norm.std
 
     def __getitem__(self, index):
         if isinstance(self.data[index], str):
@@ -205,9 +215,9 @@ class SelfPoisonDataset(Dataset):
         # img = self.remaining_transform(img)
         img = self.transform(img)
 
-        # if self.prefetch:
-        #     # HWC ndarray->CHW tensor with C=3.
-        #     img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
-        #     img = torch.from_numpy(img)
+        if self.prefetch:
+            # HWC ndarray->CHW tensor with C=3.
+            img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
+            img = torch.from_numpy(img)
 
         return img

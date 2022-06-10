@@ -23,6 +23,7 @@ trigger_type: 'squareTrigger'
 model: 'preactresnet18'
 seed: 0
 
+prefetch: True
 epoch_self: 100 ####config[warmup][epoch] semi 测试用 100
 epoch_warmup: 10 ####config[warmup][epoch] semi
 batch_size_self: 512 #####config['batch_size'] pretrain
