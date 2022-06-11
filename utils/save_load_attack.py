@@ -187,7 +187,7 @@ def load_attack_result(
     # no dependence to later parts., just save debug info at the save folder of attack_result
     debug_info_folder_path = f"{os.path.dirname(save_path)}/debug"
     # if does not have folder or have file with same name but not a folder
-    if (not os.path.exists(debug_info_folder_path)) or os.path.isdir(debug_info_folder_path):
+    if (not os.path.exists(debug_info_folder_path)) or (not os.path.isdir(debug_info_folder_path)):
         os.makedirs(debug_info_folder_path)
     debug_file_path_for_load = debug_info_folder_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '_load_debug.log'
 
