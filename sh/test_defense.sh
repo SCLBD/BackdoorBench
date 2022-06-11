@@ -1,11 +1,11 @@
 cd ..
 
-rm -rf record/test_cifar10_preactresnet18_wanet_0_001
+rm -rf record/test_defense_badnet_attack_1epoch
 
-python -u attack/wanet_attack.py \
-  --yaml_path ../config/attack/wanet/cifar10.yaml \
+python -u attack/badnet_attack.py \
+  --yaml_path ../config/attack/badnet/cifar10.yaml \
   --model preactresnet18 --pratio  0.001 \
-  --save_folder_name test_cifar10_preactresnet18_wanet_0_001  \
+  --save_folder_name test_defense_badnet_attack_1epoch  \
   --dataset cifar10 \
   --epochs 1
 
@@ -18,14 +18,14 @@ python -u attack/wanet_attack.py \
 
 python -u defense/ac/ac.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10 \
   --yaml_path config/defense/ac/cifar10.yaml \
   --epochs 1
 
 python -u defense/abl/abl.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10 \
   --yaml_path config/defense/abl/cifar10.yaml \
   --tuning_epochs 1 \
@@ -34,7 +34,7 @@ python -u defense/abl/abl.py \
 
 python -u defense/ft/ft.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10  \
   --yaml_path config/defense/ft/cifar10.yaml \
   --index config/defense/index/cifar10_index.txt \
@@ -42,7 +42,7 @@ python -u defense/ft/ft.py \
 
 python -u defense/nad/nad.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001 \
+  --result_file test_defense_badnet_attack_1epoch \
   --dataset cifar10  \
   --yaml_path config/defense/nad/cifar10.yaml \
   --index config/defense/index/cifar10_index.txt \
@@ -51,14 +51,14 @@ python -u defense/nad/nad.py \
 
 python -u defense/spectral/spectral.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10 \
   --yaml_path config/defense/spectral/cifar10.yaml \
   --epochs 1
 
 python -u defense/anp/anp.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10  \
   --yaml_path config/defense/anp/cifar10.yaml \
   --index config/defense/index/cifar10_index.txt \
@@ -66,7 +66,7 @@ python -u defense/anp/anp.py \
 
 CUDA_VISIBLE_DEVICES=0 python -u defense/dbd/dbd.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10 \
   --yaml_path config/defense/dbd/cifar10.yaml \
   --epochs 1 \
@@ -76,7 +76,7 @@ CUDA_VISIBLE_DEVICES=0 python -u defense/dbd/dbd.py \
 
 python -u defense/nc/nc.py \
   --model preactresnet18 \
-  --result_file test_cifar10_preactresnet18_wanet_0_001  \
+  --result_file test_defense_badnet_attack_1epoch  \
   --dataset cifar10  \
   --yaml_path config/defense/nc/cifar10.yaml \
   --index config/defense/index/cifar10_index.txt \
