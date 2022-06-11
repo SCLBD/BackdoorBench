@@ -59,6 +59,7 @@ python ./sh/load_for_test.py --attack_result_file_path ../record/one_epochs_debu
 
 echo "test end, go to debug to see the result"
 
-
+NOW=`date '+%F_%H:%M:%S'` # get the endTime
+echo "\n test end at $NOW"
 
 
