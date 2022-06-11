@@ -6,44 +6,169 @@
 GPU_allocation_list
 # indicate that at each GPU how many jobs. [x,x,x] means KEEP 3 jobs run on x th GPU
 '''
+import logging
+import multiprocessing
+import os
+import shutil
+import socket
+import time
+from multiprocessing import Manager
+from pprint import pformat
+
+# scp 需要的包 pip install paramiko pip install scp
+import paramiko
+from scp import SCPClient
+
+def get_host_ip():
+    """
+    查询本机ip地址
+    :return: ip
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+
+    return ip  
+
+    
+
+GPU_allocation_list = [0, 2]
+
+datasets=['gtsrb']
+pratios=['1']
+backbones=["preactresnet18"]
+attacks=["badnet"]
+defenses=['ft'] 
+
+#传数据相关
+is_transfer=True
+remote_path='/workspace/bdzoo_record'
+local_ip=get_host_ip()
+
+#gtsrb,tiny
+remote_ip2='10.26.1.68'
+username2='zhuzihao'
+password2='zzh961011'
+
+#cifar10,cifar100
+remote_ip1='10.26.1.69'
+username1='weishaokui'
+password1='weishaokui'
+
+if 'cifar10' in datasets or 'cifar100' in datasets:
+    remote_ip=remote_ip1
+    username=username1
+    password=password1
+elif 'tiny' in datasets or 'gtsrb' in datasets:
+    remote_ip=remote_ip2
+    username=username2
+    password=password2
+
+def myscp(local_path,remote_path):
+
+    # 建立 SSH 连接
+    ssh = paramiko.SSHClient()
+    # 允许连接不在know_hosts文件中的主机
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname=remote_ip, port=22, username=username, password=password)
+
+    # SCPClient 使用 paramiko 传输作为参数
+    scp = SCPClient(ssh.get_transport())
+    scp.put(local_path, remote_path, recursive=True)
+    scp.close()
+    ssh.close()
+
+def mycp(local_path,remote_path):
+    if os.path.exists(remote_path):
+        shutil.rmtree(remote_path)
+    shutil.copytree(local_path, remote_path) 
+
+def transfer_all_defense_folders(datasets,pratios,backbones,attacks):
+    for dataset in datasets:
+        for pratio in pratios:
+            for backbone in backbones:
+                for attack in attacks:
+                    for defense in defenses:
+                        attack_folder=f'{dataset}_{backbone}_{attack}_0_{pratio}'
+                        defense_floder=f'{attack_folder}/{defense}'
+                        # 如果本地有defense_result，则传到数据中心
+                        if os.path.exists(f'record/{defense_floder}/defense_result.pt'):
+                            local_path=f'record/{defense_floder}'
+                            # 如果ip一样，则cp到数据中心
+                            if local_ip==remote_ip:
+                                remote_path=f'/workspace/bdzoo_record/{attack_folder}/{defense}'
+                                print(f"cp from {local_path} ===> {remote_path}")
+                                mycp(local_path,remote_path)
+                            # 如果ip不一样，则scp到数据中心
+                            else:
+                                remote_path=f'/workspace/bdzoo_record/{attack_folder}/'
+                                print(f"scp from {local_ip} : {local_path} ===> {remote_ip} : {remote_path}")
+                                myscp(local_path,remote_path)
+
+                        
 
 
-GPU_allocation_list = [0, 1, 2]
+def generate_attack_commands(datasets,pratios,backbones,attacks):
+    commands=[]
+    for dataset in datasets:
+        for pratio in pratios:
+            for backbone in backbones:
+                for attack in attacks:
+
+                    result_folder=f'{dataset}_{backbone}_{attack}_0_{pratio}'
+                  
+                    
+                    if not os.path.exists(f'record/{result_folder}/attack_result.pt'): # 如果record 下attack/attack_result.pt 目录 不存在，则才运行attack命令
+
+                        if os.path.exists(f'record/{result_folder}'):
+                            shutil.rmtree(f'record/{result_folder}')
+
+                        if attack in ['badnet','blended','sig','ssba','lc','lf']:
+                            command=f'python -u ./attack/{attack}_attack.py --yaml_path ../config/attack/{attack}/{dataset}.yaml --model {backbone} --pratio  0.{pratio} --save_folder_name {result_folder}  --dataset {dataset}'
+                        
+                        if attack == 'inputaware':
+                            command=f'python -u ./attack/{attack}_attack.py --yaml_path ../config/attack/{attack}/{dataset}.yaml --model {backbone} --pratio 0.{pratio} --save_folder_name  {result_folder}  --dataset  {dataset}  --checkpoints ../record/{result_folder}/checkpoints/ --temps ../record/{result_folder}/temps --random_seed 10'
+                        
+                        if attack == 'wanet':
+                            command=f'python -u ./attack/{attack}_attack.py --yaml_path ../config/attack/{attack}/{dataset}.yaml --model {backbone} --pratio 0.{pratio} --save_folder_name {result_folder}  --dataset {dataset} --checkpoints ../record/{result_folder}/checkpoints/ --temps ../record/{result_folder}/temps'
+                        
+                        commands.append((command,f'{result_folder}.txt'.replace('/','_')))
+                        
+    return commands
+
+def generate_defense_commands(datasets,pratios,backbones,defenses,attacks):
+    commands=[]
+    for dataset in datasets:
+        for pratio in pratios:
+            for backbone in backbones:
+                for attack in attacks:
+                    for defense in defenses:
+
+                        result_folder=f'{dataset}_{backbone}_{attack}_0_{pratio}'
+                        defense_result=f'{result_folder}/{defense}/defense_result.pt'
+
+                        if not os.path.exists(f'record/{defense_result}'): # 如果defense_result.pt 不存在，则才运行defense命令
+
+                            if defense in ['ac' ,'abl','spectral','dbd']:
+                                command=f"python -u defense/{defense}/{defense}.py --model {backbone} --result_file {result_folder}  --dataset {dataset} --yaml_path config/defense/{defense}/{dataset}.yaml"
+                            
+                            if defense in ['ft','anp','nad','nc','fp']:
+                                command=f"python -u defense/{defense}/{defense}.py --model {backbone} --result_file {result_folder}  --dataset {dataset}  --yaml_path config/defense/{defense}/config.yaml --index config/defense/index/{dataset}_index.txt"
+                            
+                            commands.append((command,f'{defense_result}.txt'.replace('/','_')))
+    return commands
+
+
 
 command_indicator_pair_list_dict = {
-    'attack': [
-        (
-            " python -u ../attack/label_consistent_attack.py --model vgg19 --pratio 0.001 --save_folder_name test_cifar10_label_consistent_vgg19_0_001 --dataset cifar10 --epochs 1",
-            "test_cifar10_label_consistent_vgg19_0_001.txt"),
-        (
-            " python -u ../attack/label_consistent_attack.py --model preactresnet18 --pratio 0.001 --save_folder_name test_cifar10_label_consistent_preactresnet18_0_001 --dataset cifar10 --epochs 1",
-            "test_cifar10_label_consistent_preactresnet18_0_001.txt"),
-        (
-            " python -u ../attack/label_consistent_attack.py --model preactresnet18 --pratio 0.001 --save_folder_name test1_cifar10_label_consistent_preactresnet18_0_001 --dataset cifar10 --epochs 1",
-            "test1_cifar10_label_consistent_preactresnet18_0_001.txt"),
-        (
-            " python -u ../attack/label_consistent_attack.py --model preactresnet18 --pratio 0.001 --save_folder_name test2_cifar10_label_consistent_preactresnet18_0_001 --dataset cifar10 --epochs 1",
-            "test2_cifar10_label_consistent_preactresnet18_0_001.txt"),
-        (
-            " python -u ../attack/label_consistent_attack.py --model preactresnet18 --pratio 0.001 --save_folder_name test3_cifar10_label_consistent_preactresnet18_0_001 --dataset cifar10 --epochs 1",
-            "test3_cifar10_label_consistent_preactresnet18_0_001.txt"),
-    ],
-    'defense': [
-        (
-            " python -u ../attack/label_consistent_attack.py --model mobilenet_v3_large --pratio 0.005 --save_folder_name test_gtsrb_label_consistent_mobilenet_v3_large_0_005 --dataset gtsrb --epochs 1",
-            "test_gtsrb_label_consistent_mobilenet_v3_large_0_005.txt"),
-        (
-            " python -u ../attack/label_consistent_attack.py --model efficientnet_b3 --pratio 0.005 --save_folder_name test_gtsrb_label_consistent_efficientnet_b3_0_005 --dataset gtsrb --epochs 1",
-            "test_gtsrb_label_consistent_efficientnet_b3_0_005.txt"),
-    ]
-
+    'attack': generate_attack_commands(datasets,pratios,backbones,attacks),
+    'defense': generate_defense_commands(datasets,pratios,backbones,defenses,attacks)
 }
 
-import logging, time
-import multiprocessing
-from multiprocessing import Manager
-import os
-from pprint import pformat
+
 
 # set the logger
 logFormatter = logging.Formatter(
@@ -104,6 +229,8 @@ def workder(gpu_id_queue, command_without_gpu, indicator_filename):
         logging.info(f"gpu {gpu_id} job END, indicator_filename:{indicator_filename}")
         return
 
+
+
 if __name__ == '__main__':
 
     n_gpu = len(set(GPU_allocation_list))
@@ -141,6 +268,14 @@ if __name__ == '__main__':
 
     logging.info(f"ALL END, remove all indicator...")
 
+
+
     for stage_name, job_indicator_pair_list in command_indicator_pair_list_dict.items():
         for _, indicator_filename in (job_indicator_pair_list):
             os.system(f"rm -rf {indicator_filename.replace('/', '_')}")
+    
+    if is_transfer==True:
+        print('>>>>>>>>正在传送数据<<<<<<<<<')
+        transfer_all_defense_folders(datasets,pratios,backbones,attacks)
+
+    
