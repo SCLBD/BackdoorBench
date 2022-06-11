@@ -6,7 +6,7 @@ Model, clean data, backdoor data and all infomation needed to reconstruct will b
 Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
 
 '''
-import logging
+import logging, time
 
 
 import torch, os
@@ -22,8 +22,10 @@ from PIL import Image
 def summary_dict(input_dict):
     '''
     Input a dict, this func will do summary for it.
+    deepcopy to make sure no influence for summary
     :return:
     '''
+    input_dict = deepcopy(input_dict)
     summary_dict_return = dict()
     for k,v in input_dict.items():
         if isinstance(v, dict):
@@ -182,6 +184,13 @@ def load_attack_result(
     '''
     load_file = torch.load(save_path)
 
+    # no dependence to later parts., just save debug info at the save folder of attack_result
+    debug_info_folder_path = f"{os.path.dirname(save_path)}/debug"
+    # if does not have folder or have file with same name but not a folder
+    if (not os.path.exists(debug_info_folder_path)) or (not os.path.isdir(debug_info_folder_path)):
+        os.makedirs(debug_info_folder_path)
+    debug_file_path_for_load = debug_info_folder_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '_load_debug.log'
+
     if all(key in load_file for key in ['model_name',
         'num_classes',
         'model',
@@ -241,6 +250,17 @@ def load_attack_result(
         clean_test_x, clean_test_y, _, _, _ = add_resize_and_subset_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
 
         if (load_file['bd_train']['x'] is not None) and (load_file['bd_train']['y'] is not None) and (load_file['bd_train']['original_index'] is not None):
+
+                assert min(
+                            load_file['bd_train']['x'].__len__(),
+                            load_file['bd_train']['y'].__len__(),
+                            load_file['bd_train']['original_index'].__len__(),
+                           ) == max(
+                    load_file['bd_train']['x'].__len__(),
+                    load_file['bd_train']['y'].__len__(),
+                    load_file['bd_train']['original_index'].__len__(),
+                )
+
                 bd_train_x = deepcopy(clean_train_x)
                 bd_train_y = deepcopy(clean_train_y)
                 for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
@@ -278,8 +298,15 @@ def load_attack_result(
                     'original_targets':load_file['bd_test'].get('original_targets'),
                 },
             }
-        logging.info(f"loading...")
-        logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_dict))}")
+
+        print(f"loading...")
+
+        summary_for_load = summary_dict(load_dict)
+        with open(debug_file_path_for_load, 'w') as f:
+            f.write(pformat(summary_for_load))
+        summary_for_load_without_model = {x : y for x,y in summary_for_load.items() if x != 'model'}
+        print(f"location : {save_path}, content summary :{pformat(summary_for_load_without_model)}") # ignore model info for print only
+
         return load_dict
 
     else:
