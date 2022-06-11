@@ -141,6 +141,7 @@ def dbd(args,result):
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
+    args.num_workers = 4 
     logging.info(pformat(args.__dict__))
 
     fix_random(args.seed)
