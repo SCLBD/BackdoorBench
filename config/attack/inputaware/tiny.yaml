@@ -41,3 +41,4 @@ random_crop: 5
 random_seed: 1
 dataset: tiny
 epochs: 200
+clean_train_epochs: 25
