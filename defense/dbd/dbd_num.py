@@ -141,7 +141,7 @@ def dbd(args,result):
     logger.addHandler(consoleHandler)
 
     logger.setLevel(logging.INFO)
-    args.num_workers = 4 
+    # args.num_workers = 4 
     logging.info(pformat(args.__dict__))
 
     fix_random(args.seed)
@@ -303,6 +303,7 @@ def dbd(args,result):
             semi_idx = get_semi_idx(record_list, args.epsilon, logger)
             xdata = MixMatchDataset(dataset, semi_idx, labeled=True,args=args)
             udata = MixMatchDataset(dataset, semi_idx, labeled=False,args=args)
+            pretrain_config["semi"]["loader"]['num_workers'] = 4
             xloader = get_loader(
                 xdata, pretrain_config["semi"]["loader"], shuffle=True, drop_last=True
             )
