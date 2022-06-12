@@ -92,6 +92,7 @@ def get_args():
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--batch_size', type=int)
     parser.add_argument("--num_workers", type=float)
+    parser.add_argument("--num_workers_semi", type=float)
     parser.add_argument('--lr', type=float)
 
     parser.add_argument('--attack', type=str)
@@ -302,7 +303,7 @@ def dbd(args,result):
             semi_idx = get_semi_idx(record_list, args.epsilon, logger)
             xdata = MixMatchDataset(dataset, semi_idx, labeled=True,args=args)
             udata = MixMatchDataset(dataset, semi_idx, labeled=False,args=args)
-            # pretrain_config["semi"]["loader"]['num_workers'] = 4
+            pretrain_config["semi"]["loader"]['num_workers'] = args.num_workers_semi
             xloader = get_loader(
                 xdata, pretrain_config["semi"]["loader"], shuffle=True, drop_last=True
             )
