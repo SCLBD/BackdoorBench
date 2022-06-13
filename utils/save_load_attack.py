@@ -5,6 +5,10 @@ Model, clean data, backdoor data and all infomation needed to reconstruct will b
 
 Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
 
+Jun 12th update:
+    change save_load to adapt to alternative save method.
+    But notice that this method assume the bd_train after reconstruct MUST have the SAME length with clean_train.
+
 '''
 import logging, time
 
@@ -251,25 +255,76 @@ def load_attack_result(
 
         if (load_file['bd_train']['x'] is not None) and (load_file['bd_train']['y'] is not None) and (load_file['bd_train']['original_index'] is not None):
 
-                assert min(
-                            load_file['bd_train']['x'].__len__(),
-                            load_file['bd_train']['y'].__len__(),
-                            load_file['bd_train']['original_index'].__len__(),
-                           ) == max(
-                    load_file['bd_train']['x'].__len__(),
-                    load_file['bd_train']['y'].__len__(),
-                    load_file['bd_train']['original_index'].__len__(),
-                )
+            # in case use the new alternative saving,
+            # 1. cause the length different.
+            # 2. and have poison_indicator with same length as original_index
+            # so we can cut out origianl_index of poison samples to turn back to the oldest saving method
+            if load_file['bd_train']['y'].__len__() != load_file['bd_train']['original_index'].__len__() and load_file['bd_train'].get('poison_indicator') is not None:
 
-                bd_train_x = deepcopy(clean_train_x)
-                bd_train_y = deepcopy(clean_train_y)
-                for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
-                    bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
-                    bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
+                train_original_index = load_file['bd_train']['original_index']
+                train_poison_indicator = load_file['bd_train'].get('poison_indicator')
+                where_use = np.where(train_poison_indicator==1)[0]
+                print(train_original_index,
+                    train_poison_indicator,
+                    where_use,)
+                load_file['bd_train']['original_index'] = np.array([train_original_index[pos_i] for pos_i in where_use])
+
+            # check if the length match for old reconstruction by replacement
+            # print(
+            #     load_file['bd_train']['x'].__len__(),
+            #     load_file['bd_train']['y'].__len__(),
+            #     load_file['bd_train']['original_index'].__len__(),
+            # )
+            assert min(
+                load_file['bd_train']['x'].__len__(),
+                load_file['bd_train']['y'].__len__(),
+                load_file['bd_train']['original_index'].__len__(),
+            ) == max(
+                load_file['bd_train']['x'].__len__(),
+                load_file['bd_train']['y'].__len__(),
+                load_file['bd_train']['original_index'].__len__(),
+            )
+
+            bd_train_x = deepcopy(clean_train_x)
+            bd_train_y = deepcopy(clean_train_y)
+            for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
+                bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
+                bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
+
         else:
             bd_train_x = None
             bd_train_y = None
             logging.info('bd_train is None !')
+
+        # assume that bd_train after reconstruction must have same number of samples as clean_train
+        # print(bd_train_x.__len__(),
+        #     bd_train_y.__len__(),
+        #     clean_train_x.__len__(),
+        #     clean_train_y.__len__(),)
+        assert min(
+            bd_train_x.__len__(),
+            bd_train_y.__len__(),
+            clean_train_x.__len__(),
+            clean_train_y.__len__(),
+        ) == max(
+            bd_train_x.__len__(),
+            bd_train_y.__len__(),
+            clean_train_x.__len__(),
+            clean_train_y.__len__(),
+        )
+
+        # assume that all vec in bd_test must have the same length
+        assert min(
+            load_file['bd_test']['x'].__len__(),
+            load_file['bd_test']['y'].__len__(),
+            load_file['bd_test']['original_index'].__len__(),
+            load_file['bd_test']['original_targets'].__len__(),
+        ) == max(
+            load_file['bd_test']['x'].__len__(),
+            load_file['bd_test']['y'].__len__(),
+            load_file['bd_test']['original_index'].__len__(),
+            load_file['bd_test']['original_targets'].__len__(),
+        )
 
         load_dict = {
                 'model_name': load_file['model_name'],
