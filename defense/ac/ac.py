@@ -111,8 +111,8 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./config/defense/ac/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
-    parser.add_argument('--nb_dims', type=int, help='train epoch')
-    parser.add_argument('--nb_clusters', type=int, help='the number of mini_batch train model')
+    parser.add_argument('--nb_dims', type=int, help='umber of dimensions to reduce activation to')
+    parser.add_argument('--nb_clusters', type=int, help='number of clusters (defaults to 2 for poison/clean).')
     parser.add_argument('--cluster_analysis', type=str, help='the method of cluster analysis')
     
     arg = parser.parse_args()

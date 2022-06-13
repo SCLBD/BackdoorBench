@@ -140,51 +140,6 @@ def fine_tuning(arg, model, optimizer, scheduler, criterion, epoch, trainloader,
         scheduler.step()
     return model
 
-def train_epoch(arg, trainloader, model, optimizer, scheduler, criterion, epoch):
-    model.train()
-
-    total_clean, total_clean_correct, train_loss = 0, 0, 0
-
-    for i, (inputs, labels) in enumerate(trainloader):
-        inputs, labels = inputs.to(arg.device), labels.to(arg.device)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.item()
-
-        total_clean_correct += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-        total_clean += inputs.shape[0]
-        avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
-        logging.info('Epoch[{0}]:[{1:03}/{2:03}]'
-                'Loss:{losses:.4f}({losses_avg:.4f})'.format(epoch, i, len(trainloader), losses=train_loss, losses_avg=train_loss/total_clean))
-
-    scheduler.step()
-    return train_loss / (i + 1), avg_acc_clean
-
-
-def test_epoch(arg, testloader, model, criterion, epoch, word):
-    model.eval()
-
-    total_clean, total_clean_correct, test_loss = 0, 0, 0
-
-    for i, (inputs, labels) in enumerate(testloader):
-        inputs, labels = inputs.to(arg.device), labels.to(arg.device)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        test_loss += loss.item()
-
-        total_clean_correct += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
-        total_clean += inputs.shape[0]
-        avg_acc_clean = float(total_clean_correct.item() * 100.0 / total_clean)
-
-    if word == 'bd':        
-        logging.info('[Bad] Prec@1: {:.2f}, Loss: {:.4f}'.format(avg_acc_clean, test_loss/total_clean))
-    if word == 'clean':
-        logging.info('[Clean] Prec@1: {:.2f}, Loss: {:.4f}'.format(avg_acc_clean, test_loss/total_clean))
-    
-    return test_loss / (i + 1), avg_acc_clean
 
 def ft(args,result,config):
     logFormatter = logging.Formatter(
