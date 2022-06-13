@@ -24,6 +24,5 @@ model: 'preactresnet18'
 seed: 0
 index: 
 
-poison_rate_test: 0.1
 percentile: 85
 

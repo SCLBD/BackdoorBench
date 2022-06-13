@@ -13,7 +13,7 @@ input_channel:
 epochs: 100
 batch_size: 256
 num_workers: 4
-num_workers_semi: 0
+num_workers_semi: 4
 lr: 0.01
 
 poison_rate: 0.1
@@ -28,6 +28,5 @@ prefetch: True
 epoch_self: 100 ####config[warmup][epoch] semi 测试用 100
 epoch_warmup: 10 ####config[warmup][epoch] semi
 batch_size_self: 512 #####config['batch_size'] pretrain
-epochs_self: 100 ####config[num_epochs] pretrain
 temperature: 1 #####config['simclr']['temperature']
 epsilon: 0.5 ####config['semi']['epsilon']

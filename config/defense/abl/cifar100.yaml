@@ -36,8 +36,4 @@ isolation_ratio: 0.01 #0.1
 gradient_ascent_type: 'Flooding'
 gamma: 0.5
 flooding: 0.5
-threshold_clean: 70.0
-threshold_bad: 90.0
-interval: 5
-
 
