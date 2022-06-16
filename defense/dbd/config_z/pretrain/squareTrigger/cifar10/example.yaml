@@ -68,7 +68,7 @@ backdoor:
     trigger_path: ./data/trigger/cifar_1.png
 loader:
   batch_size: 512
-  num_workers: 4  # 4*num_gpus
+  num_workers: 0  # 4*num_gpus
   pin_memory: True
 network:
   resnet18_cifar:

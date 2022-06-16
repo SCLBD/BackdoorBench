@@ -2,14 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 import csv
-import json
-import logging
-import math
 import os
-import shutil
-import sys
-import time
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -98,19 +91,14 @@ def load_result_no(result_folder, dataset):
     return acc, asr, robust_acc.cpu().item()
 
 
-def load_results():
-    parser = argparse.ArgumentParser(description='load results.')
-    parser.add_argument('--dataset', type=str,default='cifar10')
-    parser.add_argument('--pratio', type=str,default='01',help='the poison rate ')
-    args = parser.parse_args()
-
-    dataset = args.dataset
+def load_results_pratio(dataset,poison_rate):
     models = ['preactresnet18', 'vgg19', "efficientnet_b3", "mobilenet_v3_large", "densenet161"]
     attacks = ['badnet', 'blended', 'sig', 'ssba', 'wanet', 'inputaware']
-    poison_rate = args.pratio
     defenses = ['no defense', 'ac', 'fp', 'ft', 'abl', 'nad', 'spectral','dbd','nc','anp']
     result_file = "{}_0_{}.csv".format(dataset, poison_rate)
+    
 
+    
     with open(result_file, "w") as csvfile:
         writer = csv.writer(csvfile)
         heads = []
@@ -131,6 +119,7 @@ def load_results():
                         acc, asr, ra = load_result_no(result_folder, dataset)
                     else:
                         acc, asr, ra = 'NA', 'NA', 'NA'
+                        
                 else:
                     result_path = 'record/' + result_folder + '/' + defense + '/defense_result.pt'
                     if os.path.exists(result_path):
@@ -144,6 +133,25 @@ def load_results():
                 writer = csv.writer(csvfile)
                 writer.writerow(results_row)
 
+
+
+def load_results():
+    parser = argparse.ArgumentParser(description='load results.')
+    parser.add_argument('--dataset', type=str,default='cifar10')
+    parser.add_argument('--pratio', type=str,default='all',help='the poison rate ')
+    args = parser.parse_args()
+
+    dataset = args.dataset
+
+    pratio=args.pratio
+    if pratio=='all':
+        for pr in ["1","01","001","05","005"]:
+            load_results_pratio(dataset,pr)
+    else:
+        load_results_pratio(dataset,pratio)
+    
+    
+    
 
 if __name__ == "__main__":
     load_results()

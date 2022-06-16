@@ -54,7 +54,7 @@ def add_args(parser):
     parser.add_argument('--amp', type=lambda x: str(x) in ['True', 'true', '1'])
     parser.add_argument('--device', type = str)
     parser.add_argument('--attack', type = str, )
-    parser.add_argument('--yaml_path', type=str, default='../config/SSBAAttack/default.yaml',
+    parser.add_argument('--yaml_path', type=str, default='../config/attack/ssba/default.yaml',
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--lr_scheduler', type=str,
                         help='which lr_scheduler use for optimizer')
@@ -117,11 +117,11 @@ def main():
 
     if ('attack_train_replace_imgs_path' not in args.__dict__) or (args.attack_train_replace_imgs_path is None):
         args.attack_train_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_train_b1.npy"
-        print(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
+        logging.info(f"args.attack_train_replace_imgs_path does not found, so = {args.attack_train_replace_imgs_path}")
 
     if ('attack_test_replace_imgs_path' not in args.__dict__) or (args.attack_test_replace_imgs_path is None):
         args.attack_test_replace_imgs_path = f"../resource/ssba/{args.dataset}_ssba_test_b1.npy"
-        print(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
+        logging.info(f"args.attack_test_replace_imgs_path does not found, so = {args.attack_test_replace_imgs_path}")
 
     ### save path
     if 'save_folder_name' not in args:

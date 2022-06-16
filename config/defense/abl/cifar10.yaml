@@ -1,0 +1,41 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'preactresnet18'
+seed: 0
+index: 
+
+tuning_epochs: 20
+finetuning_ascent_model: True
+finetuning_epochs: 60
+unlearning_epochs: 20
+lr_finetuning_init: 0.1
+lr_unlearning_init: 5.0e-4
+momentum: 0.9
+weight_decay: 1.0e-4
+isolation_ratio: 0.01 #0.1
+gradient_ascent_type: 'Flooding'
+gamma: 0.5
+flooding: 0.5
+
+
+

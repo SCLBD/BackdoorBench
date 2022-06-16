@@ -34,7 +34,7 @@ network:
 warmup:
   loader:
     batch_size: 128
-    num_workers: 4
+    num_workers: 0
     pin_memory: True
   criterion:
     sce:
@@ -47,7 +47,7 @@ semi:
   epsilon: 0.5 ###epsilon
   loader:
     batch_size: 64
-    num_workers: 4
+    num_workers: 0
     pin_memory: True
   criterion:
     mixmatch:

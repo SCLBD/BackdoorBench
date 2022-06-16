@@ -182,7 +182,7 @@ class ModelTrainerCLS():
         self.model = self.model.to(device)
 
         load_dict = torch.load(
-            path,
+            path, map_location=device
         )
 
         logging.info(f"loading... keys:{load_dict.keys()}, only_load_model:{only_load_model}")
@@ -439,7 +439,7 @@ class ModelTrainerCLS():
                     epoch=epoch,
                     path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
-        agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
+            agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
         agg.summary().to_csv(f"{save_folder_path}/{save_prefix}_df_summary.csv")
 
     def train_with_test_each_epoch_v2(self,
@@ -512,5 +512,5 @@ class ModelTrainerCLS():
                     epoch=epoch,
                     path=f"{save_folder_path}/{save_prefix}_epoch_{epoch}.pt")
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
-        agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
+            agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
         agg.summary().to_csv(f"{save_folder_path}/{save_prefix}_df_summary.csv")

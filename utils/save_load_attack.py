@@ -5,8 +5,12 @@ Model, clean data, backdoor data and all infomation needed to reconstruct will b
 
 Note that in default, only the poisoned part of backdoor dataset will be saved to save space.
 
+Jun 12th update:
+    change save_load to adapt to alternative save method.
+    But notice that this method assume the bd_train after reconstruct MUST have the SAME length with clean_train.
+
 '''
-import logging
+import logging, time
 
 
 import torch, os
@@ -22,8 +26,10 @@ from PIL import Image
 def summary_dict(input_dict):
     '''
     Input a dict, this func will do summary for it.
+    deepcopy to make sure no influence for summary
     :return:
     '''
+    input_dict = deepcopy(input_dict)
     summary_dict_return = dict()
     for k,v in input_dict.items():
         if isinstance(v, dict):
@@ -124,7 +130,7 @@ def save_attack_result(
         logging.info('bd_train is set to be None in saving process!')
 
     bd_test_x, bd_test_y, bd_test_original_index, bd_test_poison_indicator, bd_test_original_targets  = add_resize_and_subset_for_prepro_cls_DatasetBD(bd_test, img_size, only_bd=True)
-    
+
     save_dict = {
             'model_name': model_name,
             'num_classes' : num_classes,
@@ -153,13 +159,13 @@ def save_attack_result(
                 'original_targets': bd_test_original_targets,
             },
         }
-    
+
     logging.info(f"saving...")
     logging.info(f"location : {save_path}/attack_result.pt, content summary :{pformat(summary_dict(save_dict))}")
 
     sample_pil_imgs(bd_train_x, f"{save_path}/save_bd_train_samples")
     sample_pil_imgs(bd_test_x, f"{save_path}/save_bd_test_samples")
-    
+
     torch.save(
         save_dict,
         f'{save_path}/attack_result.pt',
@@ -181,6 +187,13 @@ def load_attack_result(
     save_path : the path of "attack_result.pt"
     '''
     load_file = torch.load(save_path)
+
+    # no dependence to later parts., just save debug info at the save folder of attack_result
+    debug_info_folder_path = f"{os.path.dirname(save_path)}/debug"
+    # if does not have folder or have file with same name but not a folder
+    if (not os.path.exists(debug_info_folder_path)) or (not os.path.isdir(debug_info_folder_path)):
+        os.makedirs(debug_info_folder_path)
+    debug_file_path_for_load = debug_info_folder_path + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '_load_debug.log'
 
     if all(key in load_file for key in ['model_name',
         'num_classes',
@@ -241,16 +254,78 @@ def load_attack_result(
         clean_test_x, clean_test_y, _, _, _ = add_resize_and_subset_for_prepro_cls_DatasetBD(clean_test_ds,  clean_setting.img_size)
 
         if (load_file['bd_train']['x'] is not None) and (load_file['bd_train']['y'] is not None) and (load_file['bd_train']['original_index'] is not None):
-                bd_train_x = deepcopy(clean_train_x)
-                bd_train_y = deepcopy(clean_train_y)
-                for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
-                    bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
-                    bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
+
+            # in case use the new alternative saving,
+            # 1. cause the length different.
+            # 2. and have poison_indicator with same length as original_index
+            # so we can cut out origianl_index of poison samples to turn back to the oldest saving method
+            if load_file['bd_train']['y'].__len__() != load_file['bd_train']['original_index'].__len__() and load_file['bd_train'].get('poison_indicator') is not None:
+
+                train_original_index = load_file['bd_train']['original_index']
+                train_poison_indicator = load_file['bd_train'].get('poison_indicator')
+                where_use = np.where(train_poison_indicator==1)[0]
+                print(train_original_index,
+                    train_poison_indicator,
+                    where_use,)
+                load_file['bd_train']['original_index'] = np.array([train_original_index[pos_i] for pos_i in where_use])
+
+            # check if the length match for old reconstruction by replacement
+            # print(
+            #     load_file['bd_train']['x'].__len__(),
+            #     load_file['bd_train']['y'].__len__(),
+            #     load_file['bd_train']['original_index'].__len__(),
+            # )
+            assert min(
+                load_file['bd_train']['x'].__len__(),
+                load_file['bd_train']['y'].__len__(),
+                load_file['bd_train']['original_index'].__len__(),
+            ) == max(
+                load_file['bd_train']['x'].__len__(),
+                load_file['bd_train']['y'].__len__(),
+                load_file['bd_train']['original_index'].__len__(),
+            )
+
+            bd_train_x = deepcopy(clean_train_x)
+            bd_train_y = deepcopy(clean_train_y)
+            for ii, original_index_i in enumerate(load_file['bd_train']['original_index']):
+                bd_train_x[original_index_i] = load_file['bd_train']['x'][ii]
+                bd_train_y[original_index_i] = load_file['bd_train']['y'][ii]
+
         else:
             bd_train_x = None
             bd_train_y = None
             logging.info('bd_train is None !')
-            
+
+        # assume that bd_train after reconstruction must have same number of samples as clean_train
+        # print(bd_train_x.__len__(),
+        #     bd_train_y.__len__(),
+        #     clean_train_x.__len__(),
+        #     clean_train_y.__len__(),)
+        assert min(
+            bd_train_x.__len__(),
+            bd_train_y.__len__(),
+            clean_train_x.__len__(),
+            clean_train_y.__len__(),
+        ) == max(
+            bd_train_x.__len__(),
+            bd_train_y.__len__(),
+            clean_train_x.__len__(),
+            clean_train_y.__len__(),
+        )
+
+        # assume that all vec in bd_test must have the same length
+        assert min(
+            load_file['bd_test']['x'].__len__(),
+            load_file['bd_test']['y'].__len__(),
+            load_file['bd_test']['original_index'].__len__(),
+            load_file['bd_test']['original_targets'].__len__(),
+        ) == max(
+            load_file['bd_test']['x'].__len__(),
+            load_file['bd_test']['y'].__len__(),
+            load_file['bd_test']['original_index'].__len__(),
+            load_file['bd_test']['original_targets'].__len__(),
+        )
+
         load_dict = {
                 'model_name': load_file['model_name'],
                 'model': load_file['model'],
@@ -278,10 +353,17 @@ def load_attack_result(
                     'original_targets':load_file['bd_test'].get('original_targets'),
                 },
             }
-        logging.info(f"loading...")
-        logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_dict))}")
+
+        print(f"loading...")
+
+        summary_for_load = summary_dict(load_dict)
+        with open(debug_file_path_for_load, 'w') as f:
+            f.write(pformat(summary_for_load))
+        summary_for_load_without_model = {x : y for x,y in summary_for_load.items() if x != 'model'}
+        print(f"location : {save_path}, content summary :{pformat(summary_for_load_without_model)}") # ignore model info for print only
+
         return load_dict
-    
+
     else:
         logging.info(f"loading...")
         logging.info(f"location : {save_path}, content summary :{pformat(summary_dict(load_file))}")

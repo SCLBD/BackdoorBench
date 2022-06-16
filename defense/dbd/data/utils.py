@@ -93,8 +93,8 @@ def get_loader(dataset, loader_config=None, **kwargs):
         loader = DataLoader(dataset, **kwargs)
     else:
         loader = DataLoader(dataset, **loader_config, **kwargs)
-    # if dataset.prefetch:
-    #     loader = PrefetchLoader(loader, dataset.mean, dataset.std)
+    if dataset.prefetch:
+        loader = PrefetchLoader(loader, dataset.mean, dataset.std)
 
     return loader
 

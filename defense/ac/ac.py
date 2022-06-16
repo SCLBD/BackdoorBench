@@ -108,11 +108,11 @@ def get_args():
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--result_file', type=str, help='the location of result')
 
-    parser.add_argument('--yaml_path', type=str, default="./defense/ac/config.yaml", help='the path of yaml')
+    parser.add_argument('--yaml_path', type=str, default="./config/defense/ac/config.yaml", help='the path of yaml')
 
     #set the parameter for the ac defense
-    parser.add_argument('--nb_dims', type=int, help='train epoch')
-    parser.add_argument('--nb_clusters', type=int, help='the number of mini_batch train model')
+    parser.add_argument('--nb_dims', type=int, help='umber of dimensions to reduce activation to')
+    parser.add_argument('--nb_clusters', type=int, help='number of clusters (defaults to 2 for poison/clean).')
     parser.add_argument('--cluster_analysis', type=str, help='the method of cluster analysis')
     
     arg = parser.parse_args()
@@ -476,6 +476,8 @@ def ac(args,result):
     
 
     ### c. retrain the model with filtered data
+    model = generate_cls_model(args.model,args.num_classes)
+    model.to(args.device)
     data_set_o.subset([i for i,v in enumerate(is_clean_lst) if v==1])
     data_loader_sie = torch.utils.data.DataLoader(data_set_o, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True)
     

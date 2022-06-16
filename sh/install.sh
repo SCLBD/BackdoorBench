@@ -9,3 +9,7 @@ pip install tqdm==4.61.0
 pip install pyyaml==5.4.1
 pip install tensorboard==2.7.0
 pip install Kornia==0.5.0
+pip install imageio
+pip install seaborn==0.11.2
+pip install shap==0.40.0
+pip install grad-cam==1.3.9

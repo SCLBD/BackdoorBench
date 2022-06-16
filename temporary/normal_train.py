@@ -85,6 +85,38 @@ def main():
     args.img_size = (args.input_height, args.input_width, args.input_channel)
     args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
+    logging.info(f"get the training setting for specific dataset")
+
+    if args.dataset == 'cifar10' or args.dataset == 'cifar100':
+        args.client_optimizer = 'sgd'
+        args.batch_size = 128
+        args.lr = 0.01
+        args.lr_scheduler = 'CosineAnnealingLR'
+        args.sgd_momentum = 0.9
+        args.wd = 0.0005
+        args.epochs = 100
+        args.frequency_save = 100
+    elif args.dataset == 'gtsrb':
+        args.client_optimizer = 'sgd'
+        args.batch_size = 128
+        args.lr = 0.01
+        args.lr_scheduler = 'CosineAnnealingLR'
+        args.sgd_momentum = 0.9
+        args.wd = 0.0005
+        args.epochs = 50
+        args.frequency_save = 50
+    elif args.dataset == 'tiny':
+        args.client_optimizer = 'sgd'
+        args.batch_size = 128
+        args.lr = 0.01
+        args.lr_scheduler = 'ReduceLROnPlateau'
+        args.sgd_momentum = 0.9
+        args.wd = 0.0005
+        args.epochs = 200
+        args.frequency_save = 200
+    else:
+        raise SystemError('Unknown dataset')
+
     ### save path
     if 'save_folder_name' not in args:
         save_path = generate_save_folder(

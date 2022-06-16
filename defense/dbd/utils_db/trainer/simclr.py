@@ -54,6 +54,8 @@ def simclr_train(model, loader, criterion, optimizer, logger, amp=False):
     tabulate_epoch_meter(time.time() - start_time, meter_list, logger)
     result = {m.name: m.total_avg for m in meter_list}
 
+    del loss, data, output
+    torch.cuda.empty_cache()
     return result
 
 

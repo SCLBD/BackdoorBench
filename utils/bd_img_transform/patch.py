@@ -46,3 +46,23 @@ class AddMaskPatchTrigger(object):
     def add_trigger(self, img):
         return img * (self.trigger_array == 0) + self.trigger_array * (self.trigger_array > 0)
 
+class SimpleAdditiveTrigger(object):
+    '''
+    Note that if you do not astype to float, then it is possible to have 1 + 255 = 0 in np.uint8 !
+    '''
+    def __init__(self,
+                 trigger_array : np.ndarray,
+                 ):
+        self.trigger_array = trigger_array.astype(np.float)
+
+    def __call__(self, img, target = None, image_serial_id = None):
+        return self.add_trigger(img)
+
+    def add_trigger(self, img):
+        return np.clip(img.astype(np.float) + self.trigger_array, 0, 255).astype(np.uint8)
+
+import matplotlib.pyplot as plt
+def test_Simple():
+    a = SimpleAdditiveTrigger(np.load('../../resource/lowFrequency/cifar10_densenet161_0_255.npy'))
+    plt.imshow(a(np.ones((32,32,3)) + 255/2))
+    plt.show()
