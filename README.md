@@ -161,7 +161,7 @@ If you want to change the defense methods and the setting for defense, you shoul
 | Input-aware      | [inputaware_attack.py](./attack/inputaware_attack.py) | [Input-Aware Dynamic Backdoor Attack](https://proceedings.neurips.cc/paper/2020/file/234e691320c0ad5b45ee3c96d0d7b8f8-Paper.pdf) NeurIPS 2020                                                                                                                                                                                                                 |
 | WaNet            | [wanet_attack.py](./attack/wanet_attack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021                                                                                                                                                                                                                                                   |
 
-
+For SSBA, the file we used with 1-bit embedded in the images is given at https://drive.google.com/drive/folders/1QU771F2_1mKgfNQZm3OMCyegu2ONJiU2?usp=sharing .
 
 ### [Supported defenses](#supported-defsense) 
 
