@@ -501,7 +501,7 @@ def get_args():
     #set the parameter for the ac defense
     parser.add_argument("--mask_lr", type=float)
     parser.add_argument("--init_cost", type=float)
-    parser.add_argument("--bs", type=int)
+    # parser.add_argument("--bs", type=int)
     parser.add_argument("--atk_succ_threshold", type=float)
     parser.add_argument("--early_stop", type=bool)
     parser.add_argument("--early_stop_threshold", type=float)
@@ -513,7 +513,7 @@ def get_args():
     parser.add_argument("--to_file", type=bool)
     parser.add_argument("--n_times_test", type=int)
     parser.add_argument("--use_norm", type=int)
-    parser.add_argument("--k", type=int)
+    # parser.add_argument("--k", type=int)
     parser.add_argument('--ratio', type=float,  help='ratio of training data')
     parser.add_argument('--cleaning_ratio', type=float,  help='ratio of cleaning data')
     parser.add_argument('--unlearning_ratio', type=float, help='ratio of unlearning data')

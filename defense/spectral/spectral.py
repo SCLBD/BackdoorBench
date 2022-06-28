@@ -106,7 +106,6 @@ def get_args():
     parser.add_argument('--yaml_path', type=str, default="./config/defense/spectral/config.yaml", help='the path of yaml')
 
     #set the parameter for the spectral defense
-    parser.add_argument('--poison_rate_test', type=float)
     parser.add_argument('--percentile', type=int)
 
     arg = parser.parse_args()
@@ -160,9 +159,7 @@ def spectral(arg,result):
     
     dataset = data_set_o
    
-    num_poisoned_left = int(len(dataset)*arg.poison_rate_test)
-    logging.info(f'Num poisoned left: {num_poisoned_left}' )
-
+    
     # initialize data augmentation
     logging.info(f'Dataset Size: {len(dataset)}' )
 
@@ -173,8 +170,6 @@ def spectral(arg,result):
     cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
     cur_examples = len(cur_indices)
     logging.info(f'Label, num ex: {lbl},{cur_examples}' )
-    if cur_examples < num_poisoned_left:
-        num_poisoned_left = int(cur_examples * 0.9)
     
     model.eval()
     ### b. get the activation as representation for each data
@@ -234,22 +229,13 @@ def spectral(arg,result):
             hook.remove()
         
         if iex==0:
-            clean_cov = np.zeros(shape=(cur_examples-num_poisoned_left, len(batch_grads)))
             full_cov = np.zeros(shape=(cur_examples, len(batch_grads)))
-        if iex < (cur_examples-num_poisoned_left):
-            clean_cov[iex]= batch_grads.detach().cpu().numpy()
         full_cov[iex] = batch_grads.detach().cpu().numpy()
 
     ### c. detect the backdoor data by the SVD decomposition
     total_p = arg.percentile            
-    clean_mean = np.mean(clean_cov, axis=0, keepdims=True)
     full_mean = np.mean(full_cov, axis=0, keepdims=True)            
-
-    logging.info(f'Norm of Difference in Mean: {np.linalg.norm(clean_mean-full_mean)}' )
-    clean_centered_cov = clean_cov - clean_mean
-    s_clean = np.linalg.svd(clean_centered_cov, full_matrices=False, compute_uv=False)
-    logging.info(f'Top 7 Clean SVs: {s_clean[0:7]}' )
-    
+  
     centered_cov = full_cov - full_mean
     u,s,v = np.linalg.svd(centered_cov, full_matrices=False)
     logging.info(f'Top 7 Singular Values: {s[0:7]}')
@@ -261,17 +247,13 @@ def spectral(arg,result):
     p_score = np.percentile(scores, p)
     top_scores = np.where(scores>p_score)[0]
     logging.info(f'{top_scores}')
-    num_bad_removed = np.count_nonzero(top_scores>=(len(scores)-num_poisoned_left))
-    logging.info(f'Num Bad Removed: {num_bad_removed}' )
-    logging.info(f'Num Good Rmoved: {len(top_scores)-num_bad_removed}' )
     
-    num_poisoned_after = num_poisoned_left - num_bad_removed
+
     removed_inds = np.copy(top_scores)
     re = [cur_indices[v] for i,v in enumerate(removed_inds)]
     left_inds = np.delete(range(len(dataset)), re)
            
-    logging.info(f'Num Poisoned Left: {num_poisoned_after}' )   
-    
+
     ### d. retrain the model with remaining data
     model = generate_cls_model(arg.model,arg.num_classes)
     model.to(arg.device)

@@ -111,7 +111,6 @@ def get_args():
     parser.add_argument('--prefetch',type=bool )
     parser.add_argument('--epoch_warmup',type=int )
     parser.add_argument('--batch_size_self',type=int )
-    parser.add_argument('--epochs_self',type=int )
     parser.add_argument('--temperature',type=int )
     parser.add_argument('--epsilon',type=int )
     parser.add_argument('--epoch_self',type=int )
