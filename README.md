@@ -239,7 +239,7 @@ If interested, you can read our recent works about backdoor learning, and more w
 ```
 @article{wu2022backdoorbench,
   title={BackdoorBench: A Comprehensive Benchmark of Backdoor Learning},
-  author={Baoyuan Wu, Hongrui Chen, Mingda Zhang, Zihao Zhu, Shaokui Wei, Danni Yuan, Chao Shen, Hongyuan Zha},
+  author={Wu, Baoyuan and Chen, Hongrui and Zhang, Mingda and Zhu, Zihao and Wei, Shaokui and Yuan, Danni and Shen, Chao and Zha, Hongyuan},
   journal={arXiv preprint arXiv:2206.12654},
   year={2022}
 }
