@@ -146,12 +146,12 @@ def get_features(args, model, target_layer, data_loader):
     return features, labels
 
 def plot_embedding(
-    tsne_result, label, title, xlabel="tsne_x", ylabel="tsne_y", custom_palette=None
+    tsne_result, label, title, xlabel="tsne_x", ylabel="tsne_y", custom_palette=None, size=(10,10)
 ):
     """Plot embedding for T-SNE with labels"""
     # Data Preprocessing
     if torch.is_tensor(tsne_result):
-        data = data.cpu().numpy()
+        tsne_result = tsne_result.cpu().numpy()
     if torch.is_tensor(label):
         label = label.cpu().numpy()
 
@@ -162,7 +162,7 @@ def plot_embedding(
     tsne_result_df = pd.DataFrame(
         {"tsne_x": tsne_result[:, 0], "tsne_y": tsne_result[:, 1], "label": label}
     )
-    fig, ax = plt.subplots(1, figsize=(10, 10))
+    fig, ax = plt.subplots(1, figsize=size)
 
     num_class = len(pd.unique(tsne_result_df["label"]))
     if custom_palette is None:
@@ -193,8 +193,8 @@ def plot_embedding(
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.tick_params(axis="x", labelsize=16)
-    ax.tick_params(axis="y", labelsize=16)
+    #ax.tick_params(axis="x", labelsize=20)
+    #ax.tick_params(axis="y", labelsize=20)
     ax.set_title(title)
     ax.set_aspect("equal")
 
@@ -219,10 +219,11 @@ def tsne_fig(
     xlabel="tsne_x",
     ylabel="tsne_y",
     custom_palette=None,
+    size=(10,10)
 ):
     """Get T-SNE embeddings figure"""
     tsne_result = get_embedding(data)
-    fig = plot_embedding(tsne_result, label, title, xlabel, ylabel, custom_palette)
+    fig = plot_embedding(tsne_result, label, title, xlabel, ylabel, custom_palette, size)
     return fig
 
 
@@ -249,7 +250,7 @@ def get_class_name(dataset, num_class, args):
             "deer",
             "dog",
             "frog",
-            "hors",
+            "horse",
             "ship",
             "truck",
         ]
@@ -476,16 +477,20 @@ def get_pratio(pratio):
     if pratio>=0.1:
         return "%d"%(pratio*100)    
     elif pratio>=0.01:
-        return ".1%f"%(pratio*100)
+        return "%d"%(pratio*100)
     elif pratio>=0.001:
-        return ".2%f"%(pratio*100)
+        return "%.1f"%(pratio*100)
     else:
         return "%f"%(pratio*100)
 
 def get_defensename(defense):
-    # convert 0.1 to 10% and 0.01 to 0.1%
+    # Formal Abbreviation of Defense
     if defense=='ft':
         return "FT"
+    elif defense=='fp':
+        return "FP"
+    elif defense=='anp':
+        return "ANP"
     else: 
         return defense
     
