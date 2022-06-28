@@ -513,6 +513,8 @@ def nad(args, result, config):
             optimizer_ft.zero_grad()
             loss.backward()
             optimizer_ft.step()
+            del loss, inputs, outputs
+            torch.cuda.empty_cache()
         one_epoch_loss = sum(batch_loss)/len(batch_loss)
         if args.lr_scheduler == 'ReduceLROnPlateau':
             scheduler_ft.step(one_epoch_loss)
@@ -522,10 +524,9 @@ def nad(args, result, config):
         # evaluate on testing set
         test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, teacher, criterionCls, epoch, 'clean')
         test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, teacher, criterionCls, epoch, 'bd')
-
         # remember best precision and save checkpoint
-
         logging.info(f'Teacher_Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd}')
+
 
     ### b. train the student model use the teacher model with the activation of model and result
     logging.info('----------- Train Initialization --------------')

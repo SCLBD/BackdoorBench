@@ -108,14 +108,50 @@ def preprocess_args(args):
 
     return args
 
+def get_features(args, model, target_layer, data_loader):
+    '''Function to extract the features/embeddings/activations from a target layer'''
+
+    # extract feature vector from a specific layer
+    def feature_hook(module, input_, output_):
+        global feature_vector
+        # access the layer output and convert it to a feature vector
+        feature_vector = torch.flatten(output_, 1)
+        return None
+
+
+    h = target_layer.register_forward_hook(feature_hook)
+
+    model.eval()
+    # collect feature vectors
+    features = []
+    labels = []
+
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(data_loader):
+            global feature_vector
+            # Fetch features
+            inputs, targets = inputs.to(args.device), targets.to(args.device)
+            outputs = model(inputs)
+            current_feature = feature_vector.cpu().numpy()
+            current_labels = targets.cpu().numpy()
+
+            # Store features
+            features.append(current_feature)
+            labels.append(current_labels)
+
+    features = np.concatenate(features, axis=0)
+    labels = np.concatenate(labels, axis=0)
+    h.remove() # Rmove the hook
+    
+    return features, labels
 
 def plot_embedding(
-    tsne_result, label, title, xlabel="tsne_x", ylabel="tsne_y", custom_palette=None
+    tsne_result, label, title, xlabel="tsne_x", ylabel="tsne_y", custom_palette=None, size=(10,10)
 ):
     """Plot embedding for T-SNE with labels"""
     # Data Preprocessing
     if torch.is_tensor(tsne_result):
-        data = data.cpu().numpy()
+        tsne_result = tsne_result.cpu().numpy()
     if torch.is_tensor(label):
         label = label.cpu().numpy()
 
@@ -126,7 +162,7 @@ def plot_embedding(
     tsne_result_df = pd.DataFrame(
         {"tsne_x": tsne_result[:, 0], "tsne_y": tsne_result[:, 1], "label": label}
     )
-    fig, ax = plt.subplots(1, figsize=(10, 10))
+    fig, ax = plt.subplots(1, figsize=size)
 
     num_class = len(pd.unique(tsne_result_df["label"]))
     if custom_palette is None:
@@ -157,8 +193,8 @@ def plot_embedding(
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.tick_params(axis="x", labelsize=16)
-    ax.tick_params(axis="y", labelsize=16)
+    #ax.tick_params(axis="x", labelsize=20)
+    #ax.tick_params(axis="y", labelsize=20)
     ax.set_title(title)
     ax.set_aspect("equal")
 
@@ -183,10 +219,11 @@ def tsne_fig(
     xlabel="tsne_x",
     ylabel="tsne_y",
     custom_palette=None,
+    size=(10,10)
 ):
     """Get T-SNE embeddings figure"""
     tsne_result = get_embedding(data)
-    fig = plot_embedding(tsne_result, label, title, xlabel, ylabel, custom_palette)
+    fig = plot_embedding(tsne_result, label, title, xlabel, ylabel, custom_palette, size)
     return fig
 
 
@@ -213,7 +250,7 @@ def get_class_name(dataset, num_class, args):
             "deer",
             "dog",
             "frog",
-            "hors",
+            "horse",
             "ship",
             "truck",
         ]
@@ -415,3 +452,46 @@ def get_class_to_id_dict(path):
     for key, value in id_dict.items():
         result[value] = (key, all_classes[key])
     return result
+
+def get_dataname(dataset):
+    # "mnist, cifar10, cifar100, gtsrb, celeba, tiny"
+    if dataset=="mnist":
+        return "MNIST"
+    elif dataset=='cifar10':
+        return "CIFAR-10"
+    elif dataset=='cifar100':
+        return "CIFAR-100"
+    elif dataset=="gtsrb ":
+        return "GTSRB "
+    elif dataset=="celeba":
+        return "CelebA"
+    elif dataset=="tiny":
+        return "Tiny ImageNet"
+    else:
+        return dataset
+
+
+def get_pratio(pratio):
+    # convert 0.1 to 10% and 0.01 to 0.1%
+    pratio=float(pratio)
+    if pratio>=0.1:
+        return "%d"%(pratio*100)    
+    elif pratio>=0.01:
+        return "%d"%(pratio*100)
+    elif pratio>=0.001:
+        return "%.1f"%(pratio*100)
+    else:
+        return "%f"%(pratio*100)
+
+def get_defensename(defense):
+    # Formal Abbreviation of Defense
+    if defense=='ft':
+        return "FT"
+    elif defense=='fp':
+        return "FP"
+    elif defense=='anp':
+        return "ANP"
+    else: 
+        return defense
+    
+    
