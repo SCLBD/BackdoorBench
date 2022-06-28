@@ -237,6 +237,13 @@ We present partial results on cifar10 with poison ratio = 1% here as an example.
 If interested, you can read our recent works about backdoor learning, and more works about trustworthy AI can be found [here](https://sites.google.com/site/baoyuanwu2015/home).
 
 ```
+@article{wu2022backdoorbench,
+  title={BackdoorBench: A Comprehensive Benchmark of Backdoor Learning},
+  author={Baoyuan Wu, Hongrui Chen, Mingda Zhang, Zihao Zhu, Shaokui Wei, Danni Yuan, Chao Shen, Hongyuan Zha},
+  journal={arXiv preprint arXiv:2206.12654},
+  year={2022}
+}
+
 @inproceedings{dbd-backdoor-defense-iclr2022,
 title={Backdoor Defense via Decoupling the Training Process},
 author={Huang, Kunzhe and Li, Yiming and Wu, Baoyuan and Qin, Zhan and Ren, Kui},
