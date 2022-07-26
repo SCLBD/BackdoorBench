@@ -104,6 +104,7 @@ Please first to make a folder for record, all experiment results with save to re
 And make folder for data to put supported datasets.
 ```shell
 mkdir record
+mkdir data
 mkdir data/cifar10
 mkdir data/cifar100
 mkdir data/gtsrb
@@ -116,7 +117,7 @@ mkdir data/tiny
 
 This is a demo script of running badnets attack on cifar-10
 ```
-python ./attack/badnet_attack.py --yaml_path ../config/attack/badnet/cifar10.yaml --dataset cifar10 --dataset_path ../data/cifar10 --save_folder_name badnet_0_1
+python ./attack/badnet_attack.py --yaml_path ../config/attack/badnet/cifar10.yaml --dataset cifar10 --dataset_path ../data --save_folder_name badnet_0_1
 ```
 After attack you will get a folder with all files saved in ./record/<folder name in record>, including attack_result.pt for attack model and backdoored data, which will be used by following defense methods.
 If you want to change the attack methods, dataset, save folder location, you should specify both the attack method script in ../attack and the YAML config file to use different attack methods.
