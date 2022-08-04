@@ -46,7 +46,7 @@ import torch.multiprocessing as mp
 import yaml
 
 from pprint import pprint, pformat
-from utils.aggregate_block.dataset_and_transform_generate import get_transform, get_transform_prefetch
+from utils.aggregate_block.dataset_and_transform_generate import get_input_shape, get_num_classes, get_transform, get_transform_prefetch
 
 from data.utils import (
     get_loader,
@@ -101,7 +101,7 @@ def get_args():
     parser.add_argument('--target_label', type=int)
     parser.add_argument('--trigger_type', type=str, help='squareTrigger, gridTrigger, fourCornerTrigger, randomPixelTrigger, signalTrigger, trojanTrigger')
 
-    parser.add_argument('--seed', type=str, help='random seed')
+    parser.add_argument('--random_seed', type=int, help='random seed')
     parser.add_argument('--index', type=str, help='index of clean data')
     parser.add_argument('--model', type=str, help='resnet18')
     parser.add_argument('--result_file', type=str, help='the location of result')
@@ -143,7 +143,7 @@ def dbd(args,result):
     logger.setLevel(logging.INFO)
     logging.info(pformat(args.__dict__))
 
-    fix_random(args.seed)
+    fix_random(args.random_seed)
 
     logging.info("===Setup running===")
     
@@ -379,38 +379,9 @@ if __name__ == '__main__':
         config = yaml.safe_load(stream) 
     config.update({k:v for k,v in args.__dict__.items() if v is not None})
     args.__dict__ = config
-    if args.dataset == "mnist":
-        args.num_classes = 10
-        args.input_height = 28
-        args.input_width = 28
-        args.input_channel = 1
-    elif args.dataset == "cifar10":
-        args.num_classes = 10
-        args.input_height = 32
-        args.input_width = 32
-        args.input_channel = 3
-    elif args.dataset == "cifar100":
-        args.num_classes = 100
-        args.input_height = 32
-        args.input_width = 32
-        args.input_channel = 3
-    elif args.dataset == "gtsrb":
-        args.num_classes = 43
-        args.input_height = 32
-        args.input_width = 32
-        args.input_channel = 3
-    elif args.dataset == "celeba":
-        args.num_classes = 8
-        args.input_height = 64
-        args.input_width = 64
-        args.input_channel = 3
-    elif args.dataset == "tiny":
-        args.num_classes = 200
-        args.input_height = 64
-        args.input_width = 64
-        args.input_channel = 3
-    else:
-        raise Exception("Invalid Dataset")
+    args.num_classes = get_num_classes(args.dataset)
+    args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
+    args.img_size = (args.input_height, args.input_width, args.input_channel)
     
     save_path = '/record/' + args.result_file
     if args.checkpoint_save is None:

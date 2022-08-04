@@ -21,7 +21,7 @@ target_label: 0
 trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
-seed: 0
+random_seed: 0
 index: 
 
 acc_ratio: 0.1 #for fair
