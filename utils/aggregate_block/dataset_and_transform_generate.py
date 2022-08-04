@@ -382,9 +382,11 @@ def dataset_and_transform_generate(args):
         resize_for_x = transforms.Resize(args.img_size[:2])
         save_preprocess = lambda x : np.array(resize_for_x(x)).astype(np.uint8)
 
-        speed_up_save(train_dataset_without_transform, args.dataset_path, save_preprocess, train = True)
-
-        speed_up_save(test_dataset_without_transform, args.dataset_path, save_preprocess, train = False)
+        if args.dataset != "imagenet":
+            speed_up_save(train_dataset_without_transform, args.dataset_path, save_preprocess, train = True)
+            speed_up_save(test_dataset_without_transform, args.dataset_path, save_preprocess, train = False)
+        else:
+            logging.info("For ImageNet, no speed up cache will be generated due to space concern.")
 
     return train_dataset_without_transform, \
             train_img_transform, \

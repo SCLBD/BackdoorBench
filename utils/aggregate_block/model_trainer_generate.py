@@ -7,8 +7,10 @@ import torch
 import torchvision.models as models
 from torchvision.models.resnet import resnet18, resnet34
 from typing import Optional
+from torchvision.transforms import Resize
 
 from utils.trainer_cls import ModelTrainerCLS
+
 try:
     from torchvision.models.efficientnet import efficientnet_b0, efficientnet_b3
 except:
@@ -18,10 +20,17 @@ try:
 except:
     logging.warning("mobilenet_v3_large fails to import, plz update your torch and torchvision")
 
+try:
+    from torchvision.models import vit_b_16, vit_b_32, vit_l_16, vit_l_32
+except:
+    logging.warning("vit fails to import, plz update your torch and torchvision")
+
+
 #trainer is cls
 def generate_cls_model(
     model_name: str,
     num_classes: int = 10,
+    image_size : int = 32,
     **kwargs,
 ):
     '''
@@ -30,6 +39,9 @@ def generate_cls_model(
     :param num_classes:
     :return:
     '''
+
+    logging.info("image_size ONLY apply for vit!!!\nIf you use vit make sure you set the image size!")
+
     if model_name == 'resnet18':
         net = resnet18(num_classes=num_classes, **kwargs)
     elif model_name == 'preactresnet18':
@@ -69,6 +81,48 @@ def generate_cls_model(
         net = efficientnet_b0(num_classes= num_classes, **kwargs)
     elif model_name == 'efficientnet_b3':
         net = efficientnet_b3(num_classes= num_classes, **kwargs)
+    elif model_name.startswith("vit"):
+        logging.info("All vit model use the default pretrain and resize to match the input shape!")
+        if model_name == 'vit_b_16':
+            net = vit_b_16(
+                pretrained = True,
+                  **kwargs
+            )
+            net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
+            net = torch.nn.Sequential(
+                Resize((224, 224)),
+                net,
+            )
+        elif model_name == 'vit_b_32':
+            net = vit_b_32(
+                pretrained = True,
+                  **kwargs
+            )
+            net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
+            net = torch.nn.Sequential(
+                Resize((224, 224)),
+                net,
+            )
+        elif model_name == 'vit_l_16':
+            net = vit_l_16(
+                pretrained = True,
+                  **kwargs
+            )
+            net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
+            net = torch.nn.Sequential(
+                Resize((224, 224)),
+                net,
+            )
+        elif model_name == 'vit_l_32':
+            net = vit_l_32(
+                pretrained = True,
+                  **kwargs
+            )
+            net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
+            net = torch.nn.Sequential(
+                Resize((224, 224)),
+                net,
+            )
     else:
         raise SystemError('NO valid model match in function generate_cls_model!')
 

@@ -305,7 +305,11 @@ def get_arguments():
 def get_model(opt):
 
     logging.info('use generate_cls_model() ')
-    netC = generate_cls_model(opt.model, opt.num_classes)
+    netC = generate_cls_model(
+        opt.model,
+        opt.num_classes,
+        image_size=opt.img_size[0],
+    )
     netC.to(opt.device)
     logging.warning(f'actually model use = {opt.model}')
 

@@ -270,6 +270,7 @@ def main():
     net  = generate_cls_model(
         model_name=args.model,
         num_classes=args.num_classes,
+        image_size=args.img_size[0],
     )
 
     trainer = generate_cls_trainer(

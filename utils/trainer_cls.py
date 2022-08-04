@@ -10,7 +10,19 @@ import numpy as np
 import torch
 import pandas as pd
 from time import time
+from copy import deepcopy
+from torch.utils.data import DataLoader
 
+class dl_generator:
+    def __init__(self, **kwargs_init):
+        self.kwargs_init = kwargs_init
+    def __call__(self, *args, **kwargs_call):
+        kwargs = deepcopy(self.kwargs_init)
+        kwargs.update(kwargs_call)
+        return DataLoader(
+            *args,
+            **kwargs
+        )
 
 def last_and_valid_max(col:pd.Series):
     '''
@@ -280,7 +292,6 @@ class ModelTrainerCLS():
                 metrics['test_loss'] += loss.item() * target.size(0)
                 metrics['test_total'] += target.size(0)
 
-
         return metrics
 
     #@resource_check
@@ -299,17 +310,16 @@ class ModelTrainerCLS():
         self.scaler.update()
         self.optimizer.zero_grad()
 
-        batch_loss = (loss.item())
+        batch_loss = loss.item() * labels.size(0)
 
         return batch_loss
-
 
     def train_one_epoch(self, train_data, device):
         startTime = time()
         batch_loss = []
         for batch_idx, (x, labels, *additional_info) in enumerate(train_data):
             batch_loss.append(self.train_one_batch(x, labels, device))
-        one_epoch_loss = sum(batch_loss) / len(batch_loss)
+        one_epoch_loss = sum(batch_loss)
         if self.scheduler is not None:
             if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                 # here since ReduceLROnPlateau need the train loss to decide next step setting.
