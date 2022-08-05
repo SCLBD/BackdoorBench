@@ -22,7 +22,7 @@ target_label: 0
 trigger_type: 'squareTrigger'
 
 model: 'preactresnet18'
-seed: 0
+random_seed: 0
 
 prefetch: True
 epoch_self: 100 ####config[warmup][epoch] semi 测试用 100
