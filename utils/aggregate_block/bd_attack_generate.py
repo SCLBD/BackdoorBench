@@ -151,7 +151,7 @@ def bd_attack_label_trans_generate(args):
         bd_label_transform = AllToOne_attack(target_label)
     elif args.attack_label_trans == 'all2all':
         bd_label_transform = AllToAll_shiftLabelAttack(
-            int(args.attack_label_shift_amount), int(args.num_classses)
+            int(1 if "attack_label_shift_amount" not in args.__dict__ else args.attack_label_shift_amount), int(args.num_classes)
         )
 
     return bd_label_transform

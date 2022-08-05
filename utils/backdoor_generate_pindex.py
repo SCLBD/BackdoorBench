@@ -115,7 +115,11 @@ def generate_pidx_from_label_transform(
         else:
             raise SystemExit('p_num or pratio must be given')
         logging.info(f'poison num:{len(select_position)},real pratio:{len(select_position) / len(original_labels)}')
-        return np.zeros(len(original_labels))[select_position]
+
+        pidx = np.zeros(len(original_labels))
+        pidx[select_position] = 1
+
+        return pidx
     else:
         logging.info('Not valid label_transform')
 
