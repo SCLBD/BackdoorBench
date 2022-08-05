@@ -1,7 +1,10 @@
+import argparse
 import os,sys
 import numpy as np
 import torch
 import torch.nn as nn
+
+from utils.aggregate_block.train_settings_generate import argparser_opt_scheduler
 
 # TODO:怎么查看包的相对路径和绝对路径
 sys.path.append('../')
@@ -48,9 +51,7 @@ class ft(defense):
 
     def add_arguments(parser):
         parser.add_argument('--device', type=str, help='cuda, cpu')
-        # TODO:config文件加入
         parser.add_argument('--amp', default = False, type=lambda x: str(x) in ['True','true','1'])
-
 
         parser.add_argument('--checkpoint_load', type=str, help='the location of load model')
         parser.add_argument('--checkpoint_save', type=str, help='the location of checkpoint where model is saved')
@@ -66,14 +67,12 @@ class ft(defense):
         parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr')
         parser.add_argument('--model', type=str, help='resnet18')
         
-        # TODO:config文件加入
         parser.add_argument('--client_optimizer', type=int)
         parser.add_argument('--sgd_momentum', type=float)
         parser.add_argument('--wd', type=float, help='weight decay of sgd')
         parser.add_argument('--frequency_save', type=int,
                         help=' frequency_save, 0 is never')
 
-        # TODO:改名字
         parser.add_argument('--random_seed', type=int, help='random seed')
         parser.add_argument('--yaml_path', type=str, default="./config/defense/ft/config.yaml", help='the path of yaml')
 
@@ -133,12 +132,7 @@ class ft(defense):
         model = generate_cls_model(self.args.model,self.args.num_classes)
         model.load_state_dict(result['model'])
         model.to(self.args.device)
-        # TODO: Set optimizer scheduler and criterion
-        optimizer = torch.optim.SGD(model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=5e-4)
-        if self.args.lr_scheduler == 'ReduceLROnPlateau':
-            scheduler = getattr(torch.optim.lr_scheduler, self.args.lr_scheduler)(optimizer)
-        elif self.args.lr_scheduler ==  'CosineAnnealingLR':
-            scheduler = getattr(torch.optim.lr_scheduler, self.args.lr_scheduler)(optimizer, T_max=100) 
+        optimizer, scheduler = argparser_opt_scheduler(model, self.args)
         criterion = nn.CrossEntropyLoss()
         self.set_trainer(model)
 
@@ -191,7 +185,6 @@ class ft(defense):
         )
         data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=self.args.batch_size, num_workers=self.args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
-        
         self.trainer.train_with_test_each_epoch(
             train_data = trainloader,
             test_data = data_clean_loader,
@@ -201,9 +194,7 @@ class ft(defense):
             optimizer = optimizer,
             scheduler = scheduler,
             device = self.args.device,
-            # TODO: frequency_save重新设定一下
-            # frequency_save = args.frequency_save,
-            frequency_save = 1,
+            frequency_save = self.args.frequency_save,
             save_folder_path = self.args.checkpoint_save,
             save_prefix = 'defense',
             continue_training_path = None,
@@ -219,3 +210,9 @@ class ft(defense):
         result = self.mitigation()
         return result
     
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=sys.argv[0])
+    ft.add_arguments(parser)
+    args = parser.parse_args()
+    ft_method = ft(args)
+    result = ft_method.defense(args.result_file)
