@@ -6,6 +6,8 @@ import numpy as np
 import torch
 
 from PIL import Image
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from tqdm import tqdm
 from typing import *

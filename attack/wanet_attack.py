@@ -310,6 +310,9 @@ def get_model(opt):
         opt.num_classes,
         image_size=opt.img_size[0],
     )
+    if torch.cuda.device_count() > 1 and opt.device == 'cuda':
+        logging.info("device='cuda', default use all device")
+        netC = torch.nn.DataParallel(netC)
     netC.to(opt.device)
     logging.warning(f'actually model use = {opt.model}')
 

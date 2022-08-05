@@ -2,7 +2,7 @@ model: preactresnet18
 dataset_path: ../data
 checkpoints: ./wanet/checkpoints
 temps: ./temps 
-device: cuda 
+device: cuda:0
 dataset: cifar10 
 attack_mode: all2one 
 bs: 128

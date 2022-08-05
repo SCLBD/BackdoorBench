@@ -369,14 +369,36 @@ def dataset_and_transform_generate(args):
                                                           download=True,
                                                     )
         elif args.dataset == "imagenet":
-            from torchvision.datasets import ImageNet
-            train_dataset_without_transform = ImageNet(
-                root = args.dataset_path,
-                split = 'train',
+            from torchvision.datasets import ImageNet, ImageFolder
+            # train_dataset_without_transform = ImageNet(
+            #     root = args.dataset_path,
+            #     split = 'train',
+            # )
+            # test_dataset_without_transform = ImageNet(
+            #     root = args.dataset_path,
+            #     split = 'val',
+            # )
+            MIN_VALID_IMG_DIM = 32
+
+            def is_valid_file(path):
+                try:
+                    img = Image.open(path)
+                    img.verify()
+                except:
+                    return False
+
+                if not (img.height >= MIN_VALID_IMG_DIM and img.width >= MIN_VALID_IMG_DIM):
+                    return False
+
+                return True
+
+            train_dataset_without_transform = ImageFolder(
+                root = f"{args.dataset_path}/train",
+                is_valid_file=is_valid_file,
             )
-            test_dataset_without_transform = ImageNet(
-                root = args.dataset_path,
-                split = 'val',
+            test_dataset_without_transform = ImageFolder(
+                root = f"{args.dataset_path}/val",
+                is_valid_file=is_valid_file,
             )
 
         resize_for_x = transforms.Resize(args.img_size[:2])

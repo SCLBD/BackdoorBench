@@ -285,6 +285,10 @@ def main():
         image_size=args.img_size[0],
     )
 
+    if torch.cuda.device_count() > 1 and args.device == 'cuda':
+        logging.info("device='cuda', default use all device")
+        net = torch.nn.DataParallel(net)
+
     trainer = generate_cls_trainer(
         net,
         args.attack,
