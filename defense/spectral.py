@@ -26,7 +26,7 @@ from utils.log_assist import get_git_info
 from utils.aggregate_block.dataset_and_transform_generate import get_input_shape, get_num_classes, get_transform
 from utils.save_load_attack import load_attack_result
 
-class ft(defense):
+class spectral(defense):
 
     def __init__(self,args):
         with open(args.yaml_path, 'r') as f:
@@ -75,22 +75,23 @@ class ft(defense):
                         help=' frequency_save, 0 is never')
 
         parser.add_argument('--random_seed', type=int, help='random seed')
-        parser.add_argument('--yaml_path', type=str, default="./config/defense/ft/config.yaml", help='the path of yaml')
+        parser.add_argument('--yaml_path', type=str, default="./config/defense/spectral/config.yaml", help='the path of yaml')
 
-        #set the parameter for the ft defense
-        parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
-        parser.add_argument('--index', type=str, help='index of clean data')
+        #set the parameter for the spectral defense
+        parser.add_argument('--percentile', type=float)
+        parser.add_argument('--target_label', type=int)
+        
 
     def set_result(self, result_file):
         save_path = './record/' + result_file
         assert(os.path.exists(save_path))    
         self.args.save_path = save_path
         if self.args.checkpoint_save is None:
-            self.args.checkpoint_save = save_path + '/defense/ft/checkpoint/'
+            self.args.checkpoint_save = save_path + '/defense/spectral/checkpoint/'
             if not (os.path.exists(self.args.checkpoint_save)):
                 os.makedirs(self.args.checkpoint_save) 
         if self.args.log is None:
-            self.args.log = save_path + '/defense/ft/log/'
+            self.args.log = save_path + '/defense/spectral/log/'
             if not (os.path.exists(self.args.log)):
                 os.makedirs(self.args.log)  
         self.result = load_attack_result(save_path + '/attack_result.pt')
@@ -128,33 +129,138 @@ class ft(defense):
     def mitigation(self):
         fix_random(self.args.random_seed)
 
-        # Prepare model, optimizer, scheduler
+        ### a. prepare the model and dataset
         model = generate_cls_model(self.args.model,self.args.num_classes)
         model.load_state_dict(self.result['model'])
         model.to(self.args.device)
-        optimizer, scheduler = argparser_opt_scheduler(model, self.args)
-        criterion = nn.CrossEntropyLoss()
-        self.set_trainer(model)
 
-        train_tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = True)
-        x = self.result['clean_train']['x']
-        y = self.result['clean_train']['y']
-        data_all_length = len(y)
-        ran_idx = choose_index(self.args, data_all_length) 
-        log_index = self.args.log + 'index.txt'
-        np.savetxt(log_index, ran_idx, fmt='%d')
-        data_set = list(zip([x[ii] for ii in ran_idx],[y[ii] for ii in ran_idx]))
+        # Setting up the data and the model
+        tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = True)
+        x = self.result['bd_train']['x']
+        y = self.result['bd_train']['y']
+        data_set = list(zip(x,y))
         data_set_o = prepro_cls_DatasetBD(
             full_dataset_without_transform=data_set,
             poison_idx=np.zeros(len(data_set)),  # one-hot to determine which image may take bd_transform
             bd_image_pre_transform=None,
             bd_label_pre_transform=None,
-            ori_image_transform_in_loading=train_tran,
+            ori_image_transform_in_loading=tran,
             ori_label_transform_in_loading=None,
             add_details_in_preprocess=False,
         )
-        data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=self.args.batch_size, num_workers=self.args.num_workers, shuffle=True)
-        trainloader = data_loader
+        dataset = data_set_o
+    
+        # initialize data augmentation
+        logging.info(f'Dataset Size: {len(dataset)}' )
+
+        if 'target_label' in args.__dict__:
+            if isinstance(self.args.target_label,(int)):
+                poison_labels = [self.args.target_label]
+            else:
+                poison_labels = self.args.target_label
+        else:
+            poison_labels = range(self.args.num_classes)
+
+        re_all = []
+        for target_label in poison_labels:
+            lbl = target_label
+            dataset_y = []
+            for i in range(len(dataset)):
+                dataset_y.append(dataset[i][1])
+            cur_indices = [i for i,v in enumerate(dataset_y) if v==lbl]
+            cur_examples = len(cur_indices)
+            logging.info(f'Label, num ex: {lbl},{cur_examples}' )
+            
+            model.eval()
+            ### b. get the activation as representation for each data
+            for iex in range(cur_examples):
+                cur_im = cur_indices[iex]
+                x_batch = dataset[cur_im][0].unsqueeze(0).to(self.args.device)
+                y_batch = dataset[cur_im][1]
+                with torch.no_grad():
+                    assert self.args.model in ['preactresnet18', 'vgg19', 'resnet18', 'mobilenet_v3_large', 'densenet161', 'efficientnet_b3']
+                    if self.args.model == 'preactresnet18':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.layer4.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                    elif self.args.model == 'vgg19':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.features.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                    elif self.args.model == 'resnet18':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.layer4.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                    elif self.args.model == 'mobilenet_v3_large':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.avgpool.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                    elif self.args.model == 'densenet161':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.features.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        outs[0] = torch.nn.functional.relu(outs[0])
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                    elif self.args.model == 'efficientnet_b3':
+                        inps,outs = [],[]
+                        def layer_hook(module, inp, out):
+                            outs.append(out.data)
+                        hook = model.avgpool.register_forward_hook(layer_hook)
+                        _ = model(x_batch)
+                        batch_grads = outs[0].view(outs[0].size(0), -1).squeeze(0)
+                        hook.remove()
+                
+                if iex==0:
+                    full_cov = np.zeros(shape=(cur_examples, len(batch_grads)))
+                full_cov[iex] = batch_grads.detach().cpu().numpy()
+
+            ### c. detect the backdoor data by the SVD decomposition
+            total_p = self.args.percentile            
+            full_mean = np.mean(full_cov, axis=0, keepdims=True)            
+        
+            centered_cov = full_cov - full_mean
+            u,s,v = np.linalg.svd(centered_cov, full_matrices=False)
+            logging.info(f'Top 7 Singular Values: {s[0:7]}')
+            eigs = v[0:1]  
+            p = total_p
+            corrs = np.matmul(eigs, np.transpose(full_cov)) #shape num_top, num_active_indices
+            scores = np.linalg.norm(corrs, axis=0) #shape num_active_indices
+            logging.info(f'Length Scores: {len(scores)}' )
+            p_score = np.percentile(scores, p)
+            top_scores = np.where(scores>p_score)[0]
+            logging.info(f'{top_scores}')
+            
+
+            removed_inds = np.copy(top_scores)
+            re = [cur_indices[v] for i,v in enumerate(removed_inds)]
+            re_all.extend(re)
+            
+        left_inds = np.delete(range(len(dataset)), re_all)
+        ### d. retrain the model with remaining data
+        model = generate_cls_model(self.args.model,self.args.num_classes)
+        model.to(self.args.device)
+        dataset.subset(left_inds)
+        dataset_left = dataset
+        data_loader_sie = torch.utils.data.DataLoader(dataset_left, batch_size=self.args.batch_size, num_workers=self.args.num_workers, shuffle=True)
         
         test_tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = False)
         x = self.result['bd_test']['x']
@@ -185,8 +291,11 @@ class ft(defense):
         )
         data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=self.args.batch_size, num_workers=self.args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
+        optimizer, scheduler = argparser_opt_scheduler(model, self.args)
+        criterion = nn.CrossEntropyLoss()
+        self.set_trainer(model)
         self.trainer.train_with_test_each_epoch(
-            train_data = trainloader,
+            train_data = data_loader_sie,
             test_data = data_clean_loader,
             adv_test_data = data_bd_loader,
             end_epoch_num = self.args.epochs,
@@ -199,8 +308,9 @@ class ft(defense):
             save_prefix = 'defense',
             continue_training_path = None,
         )
-        
+
         result = {}
+        result["dataset"] = dataset_left
         result['model'] = model
         return result
 
@@ -212,8 +322,8 @@ class ft(defense):
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=sys.argv[0])
-    ft.add_arguments(parser)
+    spectral.add_arguments(parser)
     args = parser.parse_args()
-    ft_method = ft(args)
+    spectral_method = spectral(args)
     args.result_file = 'test_defense_badnet_attack_1epoch'
-    result = ft_method.defense(args.result_file)
+    result = spectral_method.defense(args.result_file)
