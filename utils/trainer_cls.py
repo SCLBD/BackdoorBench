@@ -121,19 +121,23 @@ class ModelTrainerCLS():
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp)
 
         if continue_training_path is not None:
-            start_epoch, start_batch = self.load_from_path(continue_training_path, device, only_load_model)
-            if (start_epoch is None) or (start_batch is None):
-                self.start_epochs, self.end_epochs = 0, end_epoch_num
-                self.start_batch = 0
-            else:
-                batch_num = len(train_data)
-                self.start_epochs, self.end_epochs = start_epoch + ((start_batch + 1)//batch_num), end_epoch_num
-                self.start_batch = (start_batch + 1) % batch_num
+            logging.info(f"No batch info will be used. Cannot continue from specific batch!")
+            # start_epoch, start_batch = self.load_from_path(continue_training_path, device, only_load_model)
+            # if (start_epoch is None) or (start_batch is None):
+            #     self.start_epochs, self.end_epochs = 0, end_epoch_num
+            #     self.start_batch = 0
+            # else:
+            #     batch_num = len(train_data)
+            #     self.start_epochs, self.end_epochs = start_epoch + ((start_batch + 1)//batch_num), end_epoch_num
+            #     self.start_batch = (start_batch + 1) % batch_num
+            start_epoch, _ = self.load_from_path(continue_training_path, device, only_load_model)
+            self.start_epochs, self.end_epochs = start_epoch, end_epoch_num
         else:
             self.start_epochs, self.end_epochs = 0, end_epoch_num
-            self.start_batch = 0
+            # self.start_batch = 0
 
-        logging.info(f'All setting done, train from epoch {self.start_epochs} batch {self.start_batch} to epoch {self.end_epochs}')
+        logging.info(f'All setting done, train from epoch {self.start_epochs} to epoch {self.end_epochs}')
+
         logging.info(
             pformat(f"self.amp:{self.amp}," +
                     f"self.criterion:{self.criterion}," +
@@ -524,3 +528,54 @@ class ModelTrainerCLS():
             # logging.info(f"training, epoch:{epoch}, batch:{batch_idx},batch_loss:{loss.item()}")
             agg.to_dataframe().to_csv(f"{save_folder_path}/{save_prefix}_df.csv")
         agg.summary().to_csv(f"{save_folder_path}/{save_prefix}_df_summary.csv")
+
+    def train_with_test_each_epoch_v2_sp(self,
+                                      batch_size,
+                                      train_dataset,
+                                      test_dataset_dict,
+                                      end_epoch_num,
+                                      criterion,
+                                      optimizer,
+                                      scheduler,
+                                      device,
+                                      frequency_save,
+                                      save_folder_path,
+                                      save_prefix,
+                                      continue_training_path: Optional[str] = None,
+                                      only_load_model: bool = False,
+                                      ):
+
+        '''
+        Nothing different, just be simplified to accept dataset instead.
+        '''
+        train_data = DataLoader(
+            dataset = train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=True,
+        )
+
+        test_dataloader_dict = {
+            name : DataLoader(
+                    dataset = test_dataset,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    drop_last=False,
+                )
+            for name, test_dataset in test_dataset_dict.items()
+        }
+
+        self.train_with_test_each_epoch_v2(
+            train_data,
+            test_dataloader_dict,
+            end_epoch_num,
+            criterion,
+            optimizer,
+            scheduler,
+            device,
+            frequency_save,
+            save_folder_path,
+            save_prefix,
+            continue_training_path,
+            only_load_model,
+        )

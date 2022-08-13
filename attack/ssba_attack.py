@@ -33,7 +33,6 @@ from utils.aggregate_block.dataset_and_transform_generate import get_num_classes
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.dataset_and_transform_generate import dataset_and_transform_generate
 from utils.bd_dataset import prepro_cls_DatasetBD
-from torch.utils.data import DataLoader
 from utils.backdoor_generate_pindex import generate_pidx_from_label_transform
 from utils.aggregate_block.bd_attack_generate import bd_attack_img_trans_generate, bd_attack_label_trans_generate
 from copy import deepcopy
@@ -173,8 +172,7 @@ def main():
     test_img_transform, \
     test_label_transform = dataset_and_transform_generate(args)
 
-    benign_train_dl = DataLoader(
-        prepro_cls_DatasetBD(
+    benign_train_ds = prepro_cls_DatasetBD(
             full_dataset_without_transform=train_dataset_without_transform,
             poison_idx=np.zeros(len(train_dataset_without_transform)),
             # one-hot to determine which image may take bd_transform
@@ -183,14 +181,10 @@ def main():
             ori_image_transform_in_loading=train_img_transform,
             ori_label_transform_in_loading=train_label_transfrom,
             add_details_in_preprocess=True,
-        ),
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True
     )
 
-    benign_test_dl = DataLoader(
-        prepro_cls_DatasetBD(
+
+    benign_test_ds = prepro_cls_DatasetBD(
             test_dataset_without_transform,
             poison_idx=np.zeros(len(test_dataset_without_transform)),
             # one-hot to determine which image may take bd_transform
@@ -199,10 +193,6 @@ def main():
             ori_image_transform_in_loading=test_img_transform,
             ori_label_transform_in_loading=test_label_transform,
             add_details_in_preprocess=True,
-        ),
-        batch_size=args.batch_size,
-        shuffle=False,
-        drop_last=False,
     )
 
 
@@ -215,7 +205,7 @@ def main():
 
     ### 4. set the backdoor attack data and backdoor test data
     train_pidx = generate_pidx_from_label_transform(
-        benign_train_dl.dataset.targets,
+        benign_train_ds.targets,
         label_transform=bd_label_transform,
         train=True,
         pratio=args.pratio if 'pratio' in args.__dict__ else None,
@@ -234,19 +224,11 @@ def main():
         ori_image_transform_in_loading=train_img_transform,
         ori_label_transform_in_loading=train_label_transfrom,
         add_details_in_preprocess=True,
-        
-    )
-
-    adv_train_dl = DataLoader(
-        dataset=adv_train_ds,
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
     )
 
     ### decide which img to poison in ASR Test
     test_pidx = generate_pidx_from_label_transform(
-        benign_test_dl.dataset.targets,
+        benign_test_ds.targets,
         label_transform=bd_label_transform,
         train=False,
     )
@@ -267,14 +249,6 @@ def main():
     adv_test_dataset.subset(
         np.where(test_pidx == 1)[0]
     )
-
-    adv_test_dl = DataLoader(
-        dataset=adv_test_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        drop_last=False,
-    )
-
 
     ### 5. set the device, model, criterion, optimizer, training schedule.
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -304,10 +278,13 @@ def main():
     ### 6. attack or use the model to do finetune with 5% clean data
     if 'load_path' not in args.__dict__:
 
-        trainer.train_with_test_each_epoch(
-            train_data=adv_train_dl,
-            test_data=benign_test_dl,
-            adv_test_data=adv_test_dl,
+        trainer.train_with_test_each_epoch_v2_sp(
+            batch_size=args.batch_size,
+            train_dataset = adv_train_ds,
+            test_dataset_dict={
+                "test_data" :benign_test_ds,
+                "adv_test_data" :adv_test_dataset,
+            },
             end_epoch_num=args.epochs,
             criterion=criterion,
             optimizer=optimizer,
@@ -324,24 +301,27 @@ def main():
         if 'recover' not in args.__dict__ or args.recover == False:
             print('finetune so use less data, 5% of benign train data')
 
-            benign_train_dl.dataset.subset(
+            benign_train_ds.subset(
                 np.random.choice(
                     np.arange(
-                        len(benign_train_dl.dataset)),
-                    size=round((len(benign_train_dl.dataset)) / 20),  # 0.05
+                        len(benign_train_ds)),
+                    size=round((len(benign_train_ds)) / 20),  # 0.05
                     replace=False,
                 )
             )
 
             torch.save(
-                list(benign_train_dl.dataset.original_index),
+                list(benign_train_ds.original_index),
                 args.save_path + '/finetune_idx_list.pt',
             )
 
-            trainer.train_with_test_each_epoch(
-                train_data=benign_train_dl,
-                test_data=benign_test_dl,
-                adv_test_data=adv_test_dl,
+            trainer.train_with_test_each_epoch_v2_sp(
+                batch_size=args.batch_size,
+                train_dataset=benign_train_ds,
+                test_dataset_dict={
+                    "test_data": benign_test_ds,
+                    "adv_test_data": adv_test_dataset,
+                },
                 end_epoch_num=args.epochs,
                 criterion=criterion,
                 optimizer=optimizer,
