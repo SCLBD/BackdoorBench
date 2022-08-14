@@ -185,7 +185,7 @@ def transfer_bert():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--yaml_path', type=str, default='../../config/attack/hiddenkiller/run_poison_bert.yaml', 
+    parser.add_argument('--yaml_path', type=str, default='../../config/attack/hiddenkiller/hiddenkiller_default.yaml', 
                         help='path for yaml file provide additional default attributes')
     parser.add_argument('--data', type=str)
     parser.add_argument('--batch_size', type=int)
