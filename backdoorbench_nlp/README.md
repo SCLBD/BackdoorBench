@@ -91,7 +91,7 @@ If you want to change the defense methods and the setting for defense, you shoul
 
 We present results on all darasets with poison ratio = 5%.
 
-|                   |                   | BackdoorDefense→     | Nodefense    | Nodefense    | Nodefense    | ONION | onion   | ONION   |
+|                   |                   | BackdoorDefense→     | Nodefense    | Nodefense    | Nodefense    | ONION | ONION   | ONION   |
 | ----------------- | -------------------- | ------------ | ------------ | ------------ | --------- | ------- | --------- | --------- |
 | TargetedModel     | Dataset↓ | BackdoorAttack↓     | C-Acc (%)    | ASR (%)      | R-Acc (%)    | C-Acc (%) | ASR (%) | R-Acc (%) |
 | BERT-base-uncased | SST-2 | BkdAtk-LWS | 88.029 | 97.259 | 3.509    | 78.800 | 94.444 | 49.215 |
