@@ -82,7 +82,7 @@ If you want to change the defense methods and the setting for defense, you shoul
 
 |       | File name                 | Paper                |
 | :------------- |:-------------|:-----|
-| ONION | [test_defense_hiddenkiller.py](./defense/onion/test_defense_hiddenkiller.py), [test_defense_lws.py](./defense/onion/test_defense_lws.py) | [ONION: A Simple and Effective Defense Against Textual Backdoor Attacks](https://arxiv.org/abs/2011.10369)) EMNLP 2021 |
+| ONION | [test_defense_hiddenkiller.py](./defense/onion/test_defense_hiddenkiller.py), [test_defense_lws.py](./defense/onion/test_defense_lws.py) | [ONION: A Simple and Effective Defense Against Textual Backdoor Attacks](https://arxiv.org/abs/2011.10369) EMNLP 2021 |
 
 
 ### [Results](#results)
