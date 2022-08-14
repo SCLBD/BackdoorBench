@@ -60,8 +60,7 @@ If you want to change the attack methods, dataset, save folder location, you sho
 This is a demo script of running ONION defense on SST-2 for HiddenKiller. Before defense you need to run the corresponding attack using the commands given above.
 
 ```
-python ./defense/onion/test_defense_hiddenkiller.py --yaml_path
-../../config/defense/onion/onion_hiddenkiller.yaml
+python ./defense/onion/test_defense_hiddenkiller.py --yaml_path ../../config/defense/onion/onion_hiddenkiller.yaml
 ```
 
 
