@@ -84,7 +84,7 @@ If you want to change the defense methods and the setting for defense, you shoul
 | :------------- |:-------------|:-----|
 | ONION | [test_defense_hiddenkiller.py](./defense/onion/test_defense_hiddenkiller.py), [test_defense_lws.py](./defense/onion/test_defense_lws.py) | [ONION: A Simple and Effective Defense Against Textual Backdoor Attacks](https://arxiv.org/abs/2011.10369) EMNLP 2021 |
 
-We did not merge the code of ONION into a single file for additional data pre-processing method is required for LWS attack before running the defense. Merging the two .py into one will make the code kind of long and tedious.
+We did not merge the code of ONION into a single file for additional data pre-processing method is required for LWS attack before running the defense. Besides, the origianl implementation of the two codes differ a lot in inferfaces and abstractions. We will keep them in separate forms for now and provide a unified version later as the framework is established.
 
 ### [Results](#results)
 
