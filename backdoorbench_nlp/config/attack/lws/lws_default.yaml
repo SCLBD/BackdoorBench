@@ -1,0 +1,11 @@
+dataset: olid
+data_dir: ../../data/clean/lws_specified
+model: bert-base-uncased
+batchsize: 32
+poison_rate: 0.05
+target_label: 1
+model_save_path: ../../models/lws
+data_cache_path: ../../data/clean/lws_cached
+max_epoch_clean: 5
+max_epoch_poison: 15
+device: 0
