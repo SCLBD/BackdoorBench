@@ -48,8 +48,7 @@ python ./attack/HiddenKiller/generate_by_openattack.py --yaml_path ../../config/
 
 python ./attack/HiddenKiller/generate_poison_train_data.py --yaml_path ../../config/attack/hiddenkiller/generate_poison_train_data.yaml
 
-python ./attack/HiddenKiller/attack_hiddenkiller.py --yaml_path
-../../config/attack/hiddenkiller/hiddenkiller_default.yaml
+python ./attack/HiddenKiller/attack_hiddenkiller.py --yaml_path ../../config/attack/hiddenkiller/hiddenkiller_default.yaml
 ```
 After attack, the poisoned model will be saved in ./models, which can be used for further defense.
 If you want to change the attack methods, dataset, save folder location, you should specify both the attack method script in ./attack and the YAML config file to use different attack methods.
