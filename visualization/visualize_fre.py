@@ -42,7 +42,7 @@ y_bd = result_attack["bd_test"]["y"]
 
 # select index
 x_bd_ori_idx = result_attack['bd_test']['original_index']
-index = random.sample(np.arange(9000).tolist(), 2)
+index = random.sample(np.arange(len(x_bd)).tolist(), 2)
 index_ori = [x_bd_ori_idx[i] for i in index]
 
 x_benign_select = []
