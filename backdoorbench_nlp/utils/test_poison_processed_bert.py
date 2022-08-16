@@ -30,7 +30,7 @@ from .gptlm import GPT2LM
 import torch
 import argparse
 #from Models import BERT
-#from PackDataset import packDataset_util_bert
+from pack_dataset import packDataset_util_bert
 from transformers import BertForSequenceClassification
 LM = GPT2LM(use_tf=False, device=0)
 '''

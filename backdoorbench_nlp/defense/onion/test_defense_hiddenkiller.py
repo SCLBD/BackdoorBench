@@ -34,7 +34,7 @@ os.getcwd()
 from utils.gptlm import GPT2LM
 import torch
 import argparse
-from utils.PackDataset import packDataset_util_bert
+from utils.pack_dataset import packDataset_util_bert
 
 def read_data(file_path):
     import pandas as pd

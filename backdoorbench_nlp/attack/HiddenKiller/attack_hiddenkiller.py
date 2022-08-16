@@ -34,7 +34,7 @@ os.getcwd()
 
 import argparse
 import torch
-from utils.PackDataset import packDataset_util_bert
+from utils.pack_dataset import packDataset_util_bert
 import torch.nn as nn
 from transformers import BertForSequenceClassification
 import transformers
