@@ -44,7 +44,7 @@ def add_args(parser):
     return a parser added with args required by fit
     """
     # Training settings
-
+    parser.add_argument("--patch_mask_path", type= str)
     parser.add_argument('--amp', type=lambda x: str(x) in ['True','true','1'])
     parser.add_argument('--device', type = str)
     parser.add_argument('--attack', type = str, )

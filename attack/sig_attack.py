@@ -46,6 +46,7 @@ def add_args(parser):
     # Training settings
     # parser.add_argument('--mode', type=str,
     #                     help='classification/detection/segmentation')
+    parser.add_argument("--sig_f", type = float)
     parser.add_argument('--amp', type=lambda x: str(x) in ['True', 'true', '1'])
     parser.add_argument('--device', type=str)
     parser.add_argument('--attack', type = str, )
