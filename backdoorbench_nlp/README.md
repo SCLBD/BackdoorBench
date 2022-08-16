@@ -16,7 +16,7 @@ BackdoorBench - NLP is a complementary material for the original [BackdoorBench]
 - **Methods**
   - 2 Backdoor attack methods: [HiddenKiller](https://arxiv.org/pdf/2105.12400.pdf), [BkdAtk-LWS](https://arxiv.org/pdf/2106.06361.pdf)
   - 1 Backdoor defense methods: [ONION](https://arxiv.org/pdf/2011.10369.pdf)
-- **Datasets**: SST-2(for HiddenKiller and LWS), AgNews(for HiddenKiller and LWS),  OLID(for LWS only), OffensEval(for HiddenKiller only)
+- **Datasets**: SST-2, AgNews, OLID
 - **Models**: BERT-base-uncased
 
 ---
@@ -99,5 +99,5 @@ We present results on all darasets with poison ratio = 5%.
 | BERT-base-uncased | OLID | BkdAtk-LWS | 82.674 | 97.917 | 0.833    | 79.070 | 96.774 | 3.225 |
 | BERT-base-uncased | AgNews | BkdAtk-LWS         | 93.105 | 99.193 | 0.614    | 92.100 | 68.030 | 10.967 |
 | BERT-base-uncased | SST-2 | HiddenKiller  | 90.335 | 88.925 | 11.075   | 85.667 | 88.267  | 11.732 |
+| BERT-base-uncased | OLID | HiddenKiller | 82.189 | 97.415 | 2.585    | 81.374 | 96.123 | 3.877 |
 | BERT-base-uncased | AgNews | HiddenKiller   | 93.487 | 98.667 | 1.123    | 92.053 | 95.158 | 4.211 |
-| BERT-base-uncased | OffensEval | HiddenKiller | 82.189 | 97.415 | 2.585    | 81.374 | 96.123 | 3.877 |
