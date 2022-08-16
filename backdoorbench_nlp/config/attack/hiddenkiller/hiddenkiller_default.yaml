@@ -1,0 +1,10 @@
+data: sst2
+batch_size: 32
+optimizer: adam
+epoch: 10
+weight_decay: 0
+lr: 2e-5
+warmup_epochs: 3
+clean_data_path: ../../data/clean/sst-2
+poison_data_path: ../../data/poison/sst-2
+save_path: ../../models/poison_bert_sst2.pkl

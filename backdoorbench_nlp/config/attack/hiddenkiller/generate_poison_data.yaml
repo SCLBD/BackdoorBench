@@ -1,0 +1,2 @@
+orig_data_path: ../../data/clean/sst-2
+output_data_path: ../../data/poison/sst2-all
