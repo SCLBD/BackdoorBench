@@ -225,9 +225,9 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation1_t, activation2_t, activation3_t, _ = tnet(inputs)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
-            at2_loss = criterionAT(activation2_s, activation2_t).detach() * args.beta2
-            at1_loss = criterionAT(activation1_s, activation1_t).detach() * args.beta1
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
+            at2_loss = criterionAT(activation2_s, activation2_t.detach()) * args.beta2
+            at1_loss = criterionAT(activation1_s, activation1_t.detach()) * args.beta1
 
             at_loss = at1_loss + at2_loss + at3_loss + cls_loss
 
@@ -249,7 +249,7 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation3_t = activation3_t.view(activation3_t.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
 
             at_loss = at3_loss + cls_loss
 
@@ -269,7 +269,7 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
 
             at_loss = at3_loss + cls_loss
         
@@ -289,7 +289,7 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
 
             at_loss = at3_loss + cls_loss
 
@@ -309,7 +309,7 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
 
             at_loss = at3_loss + cls_loss
 
@@ -329,7 +329,7 @@ def train_step(args, trainloader, nets, optimizer, scheduler, criterions, epoch)
             # activation3_t = features.view(features.size(0), -1)
 
             cls_loss = criterionCls(outputs_s, labels)
-            at3_loss = criterionAT(activation3_s, activation3_t).detach() * args.beta3
+            at3_loss = criterionAT(activation3_s, activation3_t.detach()) * args.beta3
 
             at_loss = at3_loss + cls_loss
 
@@ -490,11 +490,7 @@ def nad(args, result, config):
     testloader_clean = torch.utils.data.DataLoader(data_clean_testset, batch_size=args.batch_size, num_workers=args.num_workers,drop_last=False, shuffle=True,pin_memory=True)
 
     ### train the teacher model
-    arg_te = args
     start_epoch = 0
-    arg_te.beta1 = 0
-    arg_te.beta2 = 0
-    arg_te.beta3 = 0
     optimizer_ft = torch.optim.SGD(teacher.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     if args.lr_scheduler == 'ReduceLROnPlateau':
         scheduler_ft = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(optimizer_ft)
@@ -522,8 +518,8 @@ def nad(args, result, config):
             scheduler_ft.step()
 
         # evaluate on testing set
-        test_loss, test_acc_cl = test_epoch(arg_te, testloader_clean, teacher, criterionCls, epoch, 'clean')
-        test_loss, test_acc_bd = test_epoch(arg_te, testloader_bd, teacher, criterionCls, epoch, 'bd')
+        test_loss, test_acc_cl = test_epoch(args, testloader_clean, teacher, criterionCls, epoch, 'clean')
+        test_loss, test_acc_bd = test_epoch(args, testloader_bd, teacher, criterionCls, epoch, 'bd')
         # remember best precision and save checkpoint
         logging.info(f'Teacher_Epoch{epoch}: clean_acc:{test_acc_cl} asr:{test_acc_bd}')
 
