@@ -111,6 +111,8 @@ mkdir data/gtsrb
 mkdir data/tiny
 ```
 
+Please note that due to the RAM issue, you may fail training on ImageNet. For ImageNet, please refer to the `for_imagenet` folder for a low-RAM alternative.
+
 #### [Attack](#attack)
 
 <a href="#top">[Back to top]</a>
