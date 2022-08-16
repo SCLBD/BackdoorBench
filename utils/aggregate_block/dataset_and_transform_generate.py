@@ -378,6 +378,8 @@ def dataset_and_transform_generate(args):
             #     root = args.dataset_path,
             #     split = 'val',
             # )
+
+            # the following code is to filter invalid images and images with too small size.
             MIN_VALID_IMG_DIM = 32
 
             def is_valid_file(path):
@@ -392,6 +394,9 @@ def dataset_and_transform_generate(args):
 
                 return True
 
+            logging.warning("For ImageNet, this script need large size of RAM to load the whole dataset.")
+            logging.info("We will provide a different script later to handle this problem for backdoor ImageNet.")
+
             train_dataset_without_transform = ImageFolder(
                 root = f"{args.dataset_path}/train",
                 is_valid_file=is_valid_file,
@@ -405,6 +410,7 @@ def dataset_and_transform_generate(args):
         save_preprocess = lambda x : np.array(resize_for_x(x)).astype(np.uint8)
 
         if args.dataset != "imagenet":
+            # for imagenet, save the npz file for speed up may cause large space occupation.
             speed_up_save(train_dataset_without_transform, args.dataset_path, save_preprocess, train = True)
             speed_up_save(test_dataset_without_transform, args.dataset_path, save_preprocess, train = False)
         else:

@@ -53,6 +53,8 @@ def generate_cls_model(
         net = resnet34(num_classes=num_classes, **kwargs)
     elif model_name == 'alexnet':
         net = models.alexnet(num_classes= num_classes, **kwargs)
+    elif model_name == "vgg11":
+        net = models.vgg11(num_classes= num_classes, **kwargs)
     elif model_name == 'vgg16':
         net = models.vgg16(num_classes= num_classes, **kwargs)
     elif model_name == 'vgg19':

@@ -384,7 +384,7 @@ def get_dataloader(opt, train=True, c=0, k=0):
 def create_targets_bd(targets, opt):
     if opt.attack_mode == "all2one":
         bd_targets = torch.ones_like(targets) * opt.target_label
-    elif opt.attack_mode == "all2all_mask":
+    elif opt.attack_mode == "all2all":
         bd_targets = torch.tensor([(label + 1) % opt.num_classes for label in targets])
     else:
         raise Exception("{} attack mode is not implemented".format(opt.attack_mode))
@@ -784,10 +784,16 @@ def train(opt):
     ### 3. set the device, model, criterion, optimizer, training schedule.
     logging.info('use generate_cls_model() ')
     netC = generate_cls_model(opt.model, opt.num_classes,image_size=opt.img_size[0],)
+    if torch.cuda.device_count() > 1 and opt.device == 'cuda':
+        logging.info("device='cuda', default use all device")
+        netC = torch.nn.DataParallel(netC)
     netC.to(opt.device)
     logging.warning(f'actually model use = {opt.model}')
-
-    netG = Generator(opt).to(opt.device)
+    netG = Generator(opt)
+    if torch.cuda.device_count() > 1 and opt.device == 'cuda':
+        logging.info("device='cuda', default use all device")
+        netG = torch.nn.DataParallel(netG)
+    netG.to(opt.device)
     optimizerC = torch.optim.SGD(netC.parameters(), opt.lr_C, momentum=0.9, weight_decay=5e-4)
     optimizerG = torch.optim.Adam(netG.parameters(), opt.lr_G, betas=(0.5, 0.9))
 
@@ -799,6 +805,9 @@ def train(opt):
     schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizerG, opt.schedulerG_milestones, opt.schedulerG_lambda)
 
     netM = Generator(opt, out_channels=1).to(opt.device)
+    if torch.cuda.device_count() > 1 and opt.device == 'cuda':
+        logging.info("device='cuda', default use all device")
+        netM = torch.nn.DataParallel(netM)
     optimizerM = torch.optim.Adam(netM.parameters(), opt.lr_M, betas=(0.5, 0.9))
     schedulerM = torch.optim.lr_scheduler.MultiStepLR(optimizerM, opt.schedulerM_milestones, opt.schedulerM_lambda)
 

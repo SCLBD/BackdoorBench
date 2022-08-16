@@ -98,8 +98,8 @@ def get_args():
     parser.add_argument('--weight_decay', type=float, help='weight decay')
     parser.add_argument('--isolation_ratio', type=float, help='ratio of isolation data')
     parser.add_argument('--gradient_ascent_type', type=str, help='type of gradient ascent')
-    parser.add_argument('--gamma', type=int, help='value of gamma')
-    parser.add_argument('--flooding', type=int, help='value of flooding')
+    parser.add_argument('--gamma', type=float, help='value of gamma')
+    parser.add_argument('--flooding', type=float, help='value of flooding')
 
     parser.add_argument('--threshold_clean', type=float, help='threshold of save weight')
     parser.add_argument('--threshold_bad', type=float, help='threshold of save weight')

@@ -2,7 +2,7 @@ model: preactresnet18
 dataset_path: ../data
 checkpoints: ../record/inputAwareAttack/checkpoints/
 temps: ../record/inputAwareAttack/temps
-device: cuda
+device: cuda:0
 dataset: cifar100
 input_height: None
 input_width: None
