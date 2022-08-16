@@ -84,13 +84,13 @@ if __name__ == '__main__':
     parser.add_argument('--poison_data_path', type=str)
     parser.add_argument('--output_data_path', type=str)
     args = parser.parse_args()
-    print(args)
 
     with open(args.yaml_path, 'r') as f:
         defaults = yaml.safe_load(f)
     defaults.update({k: v for k, v in args.__dict__.items() if v is not None})
     args.__dict__ = defaults
-
+    print(args)
+    
     clean_train, clean_dev, clean_test = get_all_data(args.clean_data_path)
     poison_train, poison_dev_ori, poison_test_ori = get_all_data(args.poison_data_path)
     assert len(clean_train) == len(poison_train)

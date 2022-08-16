@@ -179,20 +179,29 @@ def get_poisoned_data(model, loader):
 
 # [train, test, dev]
 
-test_poisoning_loader = DataLoader(prepare_dataset_parallel(test, 1), batch_size=1) # clean test dataset
+test_poisoning_loader = DataLoader(prepare_dataset_parallel(test, 1), batch_size=1)
 poisoned_sentences = get_poisoned_data(checkpointed_model, test_poisoning_loader) # generate poisioned sentences
 all_test_ppl = get_PPL([item for item in poisoned_sentences]) # get ppl for all poisoned sentences
 #print(poisoned_sentences)
 
-test_depoisoned_data = get_processed_poison_data(all_test_ppl, poisoned_sentences, bar) # data cleaned by ONION
+test_depoisoned_data_all = get_processed_poison_data(all_test_ppl, poisoned_sentences, bar) # data cleaned by ONION
+test_sentence_after_defense = []
+robust_sentence_after_defense = []
+for i, it in enumerate(test_depoisoned_data_all):
+    if test[i][1] != TARGET_LABEL:
+        test_sentence_after_defense.append([it, TARGET_LABEL])
+        robust_sentence_after_defense.append([it, test[i][1]])
+
+print('test_sentence_after_defense', test_sentence_after_defense[:10])
+print('robust_sentence_after_defense', robust_sentence_after_defense[:10])
 
 test_loader_after_defense = DataLoader(
-    prepare_dataset_parallel([[it, TARGET_LABEL] for it in test_depoisoned_data], 0),
-    batch_size=BATCH_SIZE, shuffle=True)
+    prepare_dataset_parallel(test_sentence_after_defense, 0),
+    batch_size=BATCH_SIZE, shuffle=False)
 
 robust_test_loader_after_defense = DataLoader(
-    prepare_dataset_parallel([[it, test[i][1]] for i, it in enumerate(test_depoisoned_data)], 0),
-    batch_size=BATCH_SIZE, shuffle=True)
+    prepare_dataset_parallel(robust_sentence_after_defense, 0),
+    batch_size=BATCH_SIZE, shuffle=False)
 
 test_loader_clean = DataLoader(
     prepare_dataset_parallel(test, 0),

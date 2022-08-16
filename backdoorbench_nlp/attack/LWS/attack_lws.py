@@ -821,8 +821,8 @@ def func_parallel(args):
     return prepare_dataset_for_self_learning_bert(dataset_part, poison_rate, robust, train)
 def prepare_dataset_parallel(dataset, poison_rate, robust=False, train=False):
     from multiprocessing import Pool, get_context
-    p = get_context("fork").Pool(5)
-    datasets = p.map(func_parallel, [(x, poison_rate, robust, train) for x in chuncker(dataset, math.ceil(len(dataset)/5))])
+    p = get_context("fork").Pool(10)
+    datasets = p.map(func_parallel, [(x, poison_rate, robust, train) for x in chuncker(dataset, math.ceil(len(dataset)/10))])
     #datasets = prepare_dataset_for_self_learning_bert(dataset, poison_rate, robust, train)
     total_datasets = []
     for idx, result in enumerate(datasets):
@@ -879,6 +879,7 @@ if __name__ == "__main__":
         val_poison = DataLoader(prepare_dataset_parallel(test_original, 1), batch_size=BATCH_SIZE, 
                                     shuffle=True, num_workers=4)
         pickle.dump(val_poison, open(f'{data_cache_path}/{dataset_name}_val.pkl', 'wb'))
+
 
     if os.path.exists(f'{data_cache_path}/{dataset_name}_val_robust.pkl'):
         val_poison_robust = pickle.load(open(f'{data_cache_path}/{dataset_name}_val_robust.pkl', 'rb'))

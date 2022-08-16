@@ -201,7 +201,9 @@ if __name__ == '__main__':
 
     for bar in range(-100, 0):
         test_loader_poison_loader = prepare_poison_data(all_PPL, orig_poison_data, bar, args.target_label)
+        print('test_loader_poison_loader', test_loader_poison_loader)
         robust_poison_loader = prepare_poison_data(all_PPL, robust_poison_data, bar, robust_labels)
+        print('robust_poison_loader', robust_poison_loader)
         processed_clean_loader = get_processed_clean_data(all_clean_PPL, clean_data, bar)
 
         success_rate = evaluaion(test_loader_poison_loader)
