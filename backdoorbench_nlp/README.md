@@ -95,9 +95,9 @@ We present results on all darasets with poison ratio = 5%.
 |                   |                   | BackdoorDefense→     | Nodefense    | Nodefense    | Nodefense    | ONION | ONION   | ONION   |
 | ----------------- | -------------------- | ------------ | ------------ | ------------ | --------- | ------- | --------- | --------- |
 | TargetedModel     | Dataset↓ | BackdoorAttack↓     | C-Acc (%)    | ASR (%)      | R-Acc (%)    | C-Acc (%) | ASR (%) | R-Acc (%) |
-| BERT-base-uncased | SST-2 | BkdAtk-LWS | 88.029 | 97.259 | 3.509    | 78.800 | 94.444 | 49.215 |
-| BERT-base-uncased | OLID | BkdAtk-LWS | 82.674 | 97.917 | 0.833    | 79.070 | 95.833 | 71.667 |
-| BERT-base-uncased | AgNews | BkdAtk-LWS         | 92.974 | 99.386 | 5.439    | 91.400 | 68.385 | 24.695 |
-| BERT-base-uncased | SST-2 | HiddenKiller  | 90.335 | 88.925 | 11.075   | 88.687 | 96.961  | 11.732 |
+| BERT-base-uncased | SST-2 | BkdAtk-LWS | 89.017 | 94.079 | 4.276    | 86.200 | 90.417 | 9.583 |
+| BERT-base-uncased | OLID | BkdAtk-LWS | 82.674 | 97.917 | 0.833    | 79.070 | 96.774 | 3.225 |
+| BERT-base-uncased | AgNews | BkdAtk-LWS         | 93.105 | 99.193 | 0.614    | 92.100 | 68.030 | 10.967 |
+| BERT-base-uncased | SST-2 | HiddenKiller  | 90.335 | 88.925 | 11.075   | 85.667 | 88.267  | 11.732 |
 | BERT-base-uncased | AgNews | HiddenKiller   | 93.487 | 98.667 | 1.123    | 92.053 | 95.158 | 4.211 |
-| BERT-base-uncased | OffensEval | HiddenKiller | 82.189 | 97.415 | 2.585    | 77.532 | 95.153 | 4.039 |
+| BERT-base-uncased | OffensEval | HiddenKiller | 82.189 | 97.415 | 2.585    | 81.374 | 96.123 | 3.877 |
