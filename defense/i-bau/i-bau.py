@@ -52,7 +52,7 @@ import numpy as np
 #from utils import args
 from utils.choose_index import choose_index
 from utils.aggregate_block.fix_random import fix_random 
-from utils.aggregate_block.dataset_and_transform_generate import get_input_shape, get_num_classes, get_transform
+from utils.aggregate_block.dataset_and_transform_generate import get_input_shape, get_num_classes, get_transform, get_dataset_normalization
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.bd_dataset import prepro_cls_DatasetBD
 #from utils.input_aware_utils import progress_bar
@@ -228,8 +228,7 @@ def get_args():
 	parser.add_argument('--epochs', type=int)
 	parser.add_argument('--batch_size', type=int)
 	parser.add_argument("--num_workers", type=float)
-	### TODO config optimizer
-	# parser.add_argument('--optim', type=str, default='Adam', help='type of outer loop optimizer utilized')
+	
 	parser.add_argument('--lr',type=float)
 	parser.add_argument('--lr_scheduler', type=str, help='the scheduler of lr')
 
@@ -247,6 +246,8 @@ def get_args():
 	#set the parameter for the i-bau defense
 	parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
 	## hyper params
+	### TODO config optimizer 改框架之后放到前面统一起来
+	parser.add_argument('--optim', type=str, default='Adam', help='type of outer loop optimizer utilized')
 	parser.add_argument('--n_rounds', type=int, help='the maximum number of unelarning rounds')
 	parser.add_argument('--K', type=int, help='the maximum number of fixed point iterations')
 	# parser.add_argument('--dataset', default='cifar10', help='the dataset to use')
@@ -289,6 +290,7 @@ def i_bau(args,result,config):
 	transforms_list = []
 	transforms_list.append(transforms.Resize((args.input_height, args.input_width)))
 	transforms_list.append(transforms.ToTensor())
+	transforms_list.append(get_dataset_normalization(args.dataset))
 	tran = transforms.Compose(transforms_list)
 	x = result['clean_train']['x']
 	y = result['clean_train']['y']
@@ -344,7 +346,7 @@ def i_bau(args,result,config):
 	model.to(args.device)
 
 	### TODO: adam and sgd
-	outer_opt = torch.optim.SGD(model.parameters(), lr=args.lr)
+	outer_opt = torch.optim.Adam(model.parameters(), lr=args.lr)
 	criterion = nn.CrossEntropyLoss()
 	
 	test_result(args,data_clean_loader,data_bd_loader,0,model,criterion)
@@ -352,9 +354,8 @@ def i_bau(args,result,config):
 	### define the inner loss L2
 	def loss_inner(perturb, model_params):
 		### TODO: cpu training and multiprocessing
-		device = 'cuda'
-		images = images_list[0].to(device)
-		labels = labels_list[0].long().to(device)
+		images = images_list[0].to(args.device)
+		labels = labels_list[0].long().to(args.device)
 		#per_img = torch.clamp(images+perturb[0],min=0,max=1)
 		per_img = images+perturb[0]
 		per_logits = model.forward(per_img)
@@ -365,9 +366,8 @@ def i_bau(args,result,config):
 	### define the outer loss L1
 	def loss_outer(perturb, model_params):
 		### TODO: cpu training and multiprocessing
-		device = 'cuda'
 		portion = 0.01
-		images, labels = images_list[batchnum].to(device), labels_list[batchnum].long().to(device)
+		images, labels = images_list[batchnum].to(args.device), labels_list[batchnum].long().to(args.device)
 		patching = torch.zeros_like(images, device='cuda')
 		number = images.shape[0]
 		rand_idx = random.sample(list(np.arange(number)),int(number*portion))
@@ -412,7 +412,6 @@ def i_bau(args,result,config):
 		#unlearn step         
 		for batchnum in range(len(images_list)): 
 			outer_opt.zero_grad()
-			### TODO: test the hg
 			fixed_point(pert, list(model.parameters()), args.K, inner_opt, loss_outer) 
 			outer_opt.step()
 		test_result(args,data_clean_loader,data_bd_loader,round,model,criterion)
@@ -451,7 +450,7 @@ def test_result(arg,testloader_cl,testloader_bd,epoch,model,criterion):
 
 		total_backdoor_correct_test += torch.sum(torch.argmax(outputs[:], dim=1) == labels[:])
 		total_backdoor_test += inputs.shape[0]
-		avg_acc_clean = float(total_backdoor_correct_test.item() * 100.0 / total_clean_test)
+		avg_acc_clean = float(total_backdoor_correct_test.item() * 100.0 / total_backdoor_test)
 		#progress_bar(i, len(testloader), 'Test %s ACC: %.3f%% (%d/%d)' % (word, avg_acc_clean, total_clean_correct, total_clean))
 	print('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_backdoor_correct_test, total_backdoor_test))
 	logging.info('Epoch:{} | Test Asr: {:.3f}%({}/{})'.format(epoch, avg_acc_clean, total_backdoor_correct_test, total_backdoor_test))
@@ -488,7 +487,12 @@ if __name__ == '__main__':
 	### 4. test the result and get ASR, ACC, RC 
 	result_defense['model'].eval()
 	result_defense['model'].to(args.device)
-	tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+	### I-BAU use norm 
+	transforms_list = []
+	transforms_list.append(transforms.Resize((args.input_height, args.input_width)))
+	transforms_list.append(transforms.ToTensor())
+	transforms_list.append(get_dataset_normalization(args.dataset))
+	tran = transforms.Compose(transforms_list)
 	x = result['bd_test']['x']
 	y = result['bd_test']['y']
 	data_bd_test = list(zip(x,y))
@@ -511,7 +515,11 @@ if __name__ == '__main__':
 		asr_acc += torch.sum(pre_label == labels)
 	asr_acc = asr_acc/len(data_bd_test)
 
-	tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+	transforms_list = []
+	transforms_list.append(transforms.Resize((args.input_height, args.input_width)))
+	transforms_list.append(transforms.ToTensor())
+	transforms_list.append(get_dataset_normalization(args.dataset))
+	tran = transforms.Compose(transforms_list)
 	x = result['clean_test']['x']
 	y = result['clean_test']['y']
 	data_clean_test = list(zip(x,y))
@@ -534,7 +542,11 @@ if __name__ == '__main__':
 		clean_acc += torch.sum(pre_label == labels)
 	clean_acc = clean_acc/len(data_clean_test)
 
-	tran = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = False)
+	transforms_list = []
+	transforms_list.append(transforms.Resize((args.input_height, args.input_width)))
+	transforms_list.append(transforms.ToTensor())
+	transforms_list.append(get_dataset_normalization(args.dataset))
+	tran = transforms.Compose(transforms_list)
 	x = result['bd_test']['x']
 	robust_acc = -1
 	if 'original_targets' in result['bd_test']:
