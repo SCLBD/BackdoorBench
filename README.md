@@ -265,18 +265,18 @@ If interested, you can read our recent works about backdoor learning, and more w
 }
 
 @inproceedings{dbd-backdoor-defense-iclr2022,
-title={Backdoor Defense via Decoupling the Training Process},
-author={Huang, Kunzhe and Li, Yiming and Wu, Baoyuan and Qin, Zhan and Ren, Kui},
-booktitle={International Conference on Learning Representations},
-year={2022}
+  title={Backdoor Defense via Decoupling the Training Process},
+  author={Huang, Kunzhe and Li, Yiming and Wu, Baoyuan and Qin, Zhan and Ren, Kui},
+  booktitle={International Conference on Learning Representations},
+  year={2022}
 }
 
 @inproceedings{ssba-backdoor-attack-iccv2021,
-title={Invisible backdoor attack with sample-specific triggers},
-author={Li, Yuezun and Li, Yiming and Wu, Baoyuan and Li, Longkang and He, Ran and Lyu, Siwei},
-booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
-pages={16463--16472},
-year={2021}
+  title={Invisible backdoor attack with sample-specific triggers},
+  author={Li, Yuezun and Li, Yiming and Wu, Baoyuan and Li, Longkang and He, Ran and Lyu, Siwei},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
+  pages={16463--16472},
+  year={2021}
 }
 
 @article{gao2022imperceptible,
