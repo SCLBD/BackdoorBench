@@ -30,6 +30,8 @@ We also provide a [**public leaderboard**](https://backdoorbench.github.io/index
 BackdoorBench will be continuously updated to track the lastest advances of backddor learning.
 The implementations of more backdoor methods, as well as their evaluations are on the way. **You are welcome to contribute your backdoor methods to BackdoorBench.**
 
+**News:** (2022/09/17) The manusript of the current BackdoorBench has been accepted to NeurIPS 2022 Track Datasets and Benchmarks. The arxiv version can be found at [here](https://arxiv.org/abs/2206.12654).
+
 ---
 <font size=5><center><b> Table of Contents </b> </center></font>
 
@@ -248,10 +250,17 @@ We present partial results on cifar10 with poison ratio = 1% here as an example.
 If interested, you can read our recent works about backdoor learning, and more works about trustworthy AI can be found [here](https://sites.google.com/site/baoyuanwu2015/home).
 
 ```
-@article{wu2022backdoorbench,
+@inproceedings{wu2022backdoorbench,
   title={BackdoorBench: A Comprehensive Benchmark of Backdoor Learning},
   author={Wu, Baoyuan and Chen, Hongrui and Zhang, Mingda and Zhu, Zihao and Wei, Shaokui and Yuan, Danni and Shen, Chao and Zha, Hongyuan},
-  journal={arXiv preprint arXiv:2206.12654},
+  journal={NeurIPS 2022 Track Datasets and Benchmarks},
+  year={2022}
+}
+
+@inproceedings{wu2022backdoordefense,
+  title={Effective Backdoor Defense by Exploiting Sensitivity of Poisoned Samples},
+  author={Chen, Weixin and Wu, Baoyuan and Wang, Haoqian},
+  booktitle={Neural Information Processing Systems},
   year={2022}
 }
 
@@ -268,6 +277,13 @@ author={Li, Yuezun and Li, Yiming and Wu, Baoyuan and Li, Longkang and He, Ran a
 booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
 pages={16463--16472},
 year={2021}
+}
+
+@article{gao2022imperceptible,
+  title={Imperceptible and Robust Backdoor Attack in 3D Point Cloud},
+  author={Gao, Kuofeng and Bai, Jiawang and Wu, Baoyuan and Ya, Mengxi and Xia, Shu-Tao},
+  journal={arXiv preprint arXiv:2208.08052},
+  year={2022}
 }
 ```
 
