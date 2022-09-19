@@ -92,8 +92,9 @@ def sample_pil_imgs(pil_image_list, save_folder, num = 5,):
         num,
     ).tolist() + np.arange(num).tolist() + np.arange(len(pil_image_list) - num, len(pil_image_list)).tolist()
 
-    for ii in select_index:
-        pil_image_list[ii].save(f"{save_folder}/{ii}.png")
+    for ii in select_index :
+        if 0 <= ii < len(pil_image_list):
+            pil_image_list[ii].save(f"{save_folder}/{ii}.png")
 
 def save_attack_result(
     model_name : str,
@@ -223,7 +224,7 @@ def load_attack_result(
 
         train_dataset_without_transform, \
         train_img_transform, \
-        train_label_transfrom, \
+        train_label_transform, \
         test_dataset_without_transform, \
         test_img_transform, \
         test_label_transform = dataset_and_transform_generate(clean_setting)
@@ -235,7 +236,7 @@ def load_attack_result(
             bd_image_pre_transform=None,
             bd_label_pre_transform=None,
             ori_image_transform_in_loading=train_img_transform,
-            ori_label_transform_in_loading=train_label_transfrom,
+            ori_label_transform_in_loading=train_label_transform,
             add_details_in_preprocess=True,
         )
 
