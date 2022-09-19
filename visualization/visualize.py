@@ -424,7 +424,7 @@ if args.result_file_defense != "None":
     plt.xlim(0, features_clean_avg_defense.shape[0])
     plt.savefig(
         save_path_defense
-        + f"/{args.result_file_defense.replace('/','_')}neuron_compare.png"
+        + f"/{args.result_file_defense.replace('/','_')}_neuron_compare.png"
     )
 
 
@@ -485,7 +485,7 @@ test_numpy = np.swapaxes(
 test_numpy[test_numpy < 1e-12] = 1e-12  # for some numerical issue
 
 shap.image_plot(shap_numpy, test_numpy, index_names, show=False)
-plt.savefig(save_path_defense + f"/{args.result_file_attack.replace('/','_')}_shap.png")
+plt.savefig(save_path_attack + f"/{args.result_file_attack.replace('/','_')}_shap.png")
 
 # Choose layer for SHAP for defense
 
@@ -605,7 +605,7 @@ for im in range(4):
     axes[im // 2, im % 2 * 2 + 1].set_title(
         "Predicted: %s, %.2f%%" % (class_names[pre_label[im]].capitalize(), pre_p[im] * 100)
     )
-plt.savefig(save_path_defense + f"/{args.result_file_attack.replace('/','_')}_cam.png")
+plt.savefig(save_path_attack + f"/{args.result_file_attack.replace('/','_')}_cam.png")
 
 if args.result_file_defense!='None':
     # choose layers for Grad Cam, refer to https://github.com/jacobgil/pytorch-grad-cam
