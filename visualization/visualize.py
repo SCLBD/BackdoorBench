@@ -117,10 +117,9 @@ sub_bin_bd = int(n / n_sub_bd)
 sub_idx_bd = np.argsort(y_bd)[::sub_bin_bd]
 x_bd_sub = [x_bd[i] for i in sub_idx_bd]
 y_bd_sub = y_bd[sub_idx_bd]
+y_bd_clean_sub = y_bd_clean[sub_idx_bd]
 
-# original label
-y_bd_clean_sub = np.copy(y_bd_sub)
-# poison label
+# poison label, all poisoned samples will be assigned to label "num_classes+1"
 y_bd_sub[:] = args.num_classes
 
 # combine all subsamples
