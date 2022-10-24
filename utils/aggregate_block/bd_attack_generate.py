@@ -89,7 +89,27 @@ def bd_attack_img_trans_generate(args):
                   ).cpu().numpy().transpose(1, 2, 0) * 255,
             float(args.attack_test_blended_alpha)), True) # 0.1,
         ])
+        
+    elif args.attack == 'ft_trojan':
+    
+        trans = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize(args.img_size[:2]), # (32, 32)
+            transforms.ToTensor()
+        ])
 
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (FtTrojanAttack(args.yuv_flag, args.window_size, args.pos_list, args.magnitude), False),
+        ])
+
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (FtTrojanAttack(args.yuv_flag, args.window_size, args.pos_list, args.magnitude), False),
+        ])
+        
     elif args.attack == 'sig':
         trans = sigTriggerAttack(
             delta=args.sig_delta,
