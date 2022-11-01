@@ -175,7 +175,10 @@ If you want to change the defense methods and the setting for defense, you shoul
 | WaNet            | [wanet_attack.py](./attack/wanet_attack.py)           | [WaNet -- Imperceptible  Warping-Based Backdoor Attack](https://openreview.net/pdf?id=eEn8KTtJOx) ICLR 2021                                                                                                                                                                                                                                                   |
 
 For SSBA, the file we used with 1-bit embedded in the images is given at https://drive.google.com/drive/folders/1QU771F2_1mKgfNQZm3OMCyegu2ONJiU2?usp=sharing .
+  
 For lc attack the file we used is at https://drive.google.com/drive/folders/1Qhj5vXX7kX74IWdrQDwguWsV8UvJmzF4 .
+  
+For lf attack the file we used is at https://drive.google.com/drive/folders/16JrANmjDtvGc3lZ_Cv4lKEODFjRebmvk .
 
 ### [Supported defenses](#supported-defsense) 
 
