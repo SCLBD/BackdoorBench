@@ -15,3 +15,4 @@ random_seed: 0
 sgd_momentum: 0.9
 wd: 0.0005
 epochs: 50
+reduced_amplitude: 1

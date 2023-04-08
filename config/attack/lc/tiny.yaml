@@ -15,3 +15,4 @@ dataset: tiny
 lr: 0.01
 lr_scheduler: ReduceLROnPlateau
 epochs: 200
+reduced_amplitude: 1

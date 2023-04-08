@@ -6,6 +6,7 @@ import  imageio
 import numpy as np
 import torchvision.transforms as transforms
 
+from utils.bd_img_transform.lc import labelConsistentAttack
 from utils.bd_img_transform.blended import blendedImageAttack
 from utils.bd_img_transform.patch import AddMaskPatchTrigger, SimpleAdditiveTrigger
 from utils.bd_img_transform.sig import sigTriggerAttack
@@ -126,7 +127,7 @@ def bd_attack_img_trans_generate(args):
             (trans, True),
         ])
 
-    elif args.attack in ['SSBA_replace', 'label_consistent']:
+    elif args.attack in ['SSBA_replace']:
         train_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
@@ -141,6 +142,27 @@ def bd_attack_img_trans_generate(args):
             replace_images=np.load(args.attack_test_replace_imgs_path) #'../data/cifar10_SSBA/test.npy'
                 ),True),
         ])
+
+    elif args.attack in ['label_consistent']:
+        add_trigger = labelConsistentAttack(reduced_amplitude=args.reduced_amplitude)
+        add_trigger_func = add_trigger.poison_from_indices
+        train_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (SSBA_attack_replace_version(
+                replace_images=np.load(args.attack_train_replace_imgs_path)  # '../data/cifar10_SSBA/train.npy'
+            ), True),
+            (add_trigger_func, False),
+        ])
+        test_bd_transform = general_compose([
+            (transforms.Resize(args.img_size[:2]), False),
+            (np.array, False),
+            (SSBA_attack_replace_version(
+                replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
+            ), True),
+            (add_trigger_func, False),
+        ])
+
     elif args.attack == 'lowFrequency':
         train_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
