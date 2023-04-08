@@ -1,0 +1,89 @@
+---
+# For CUDA convolution: Turn off deterministic algorithms and turn on benchmarking.
+# The settings will speedup training, while introducing nondeterministic behaviors.
+# See https://pytorch.org/docs/stable/notes/randomness.html for detailed informations.
+seed:
+  seed: 100
+  deterministic: False
+  benchmark: True
+dataset_dir: ~/dataset/cifar-10/cifar-10-batches-py  # Contain the sub-string `cifar`.
+num_classes: 10
+# Logs will be saved in `saved_dir` and checkpoints will be saved in the `storage_dir`.
+# Please make sure the `saved_dir` and `storage_dir` exist in the project root.
+saved_dir: ./saved_data
+storage_dir: ./storage
+prefetch: True  # turn on prefetch mode will speedup io
+# First, apply `pre` transformations to images before adding triggers (if needed).
+# And then, apply `primary` and `remaining` transformations sequentially.
+transform:
+  pre: null
+  aug:
+    primary:
+      random_resize_crop:
+        size: 32
+        scale: [0.2, 1.0]
+        interpolation: 3  # BICUBIC
+      random_horizontal_flip:
+        p: 0.5
+      random_color_jitter:
+        p: 0.8
+        brightness: 0.4
+        contrast: 0.4
+        saturation: 0.4
+        hue: 0.1
+      random_grayscale: 
+        p: 0.2
+      gaussian_blur:
+        p: 0.5
+        sigma: [0.1, 2.0]
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.4914, 0.4822, 0.4465]
+        std: [0.2023, 0.1994, 0.2010]
+  train:
+    primary:
+      random_resize_crop:
+        size: 32
+        scale: [0.2, 1.0]
+        interpolation: 3  # BICUBIC
+      random_horizontal_flip:
+        p: 0.5
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.4914, 0.4822, 0.4465]
+        std: [0.2023, 0.1994, 0.2010]
+  test:
+    primary: null
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.4914, 0.4822, 0.4465]
+        std: [0.2023, 0.1994, 0.2010]
+backdoor:
+  poison_ratio: 0.05
+  target_label: 3
+  blend:
+    alpha: 0.1
+    trigger_path: ./data/trigger/hello_kitty.png
+loader:
+  batch_size: 512
+  num_workers: 0  # 4*num_gpus
+  pin_memory: True
+network:
+  resnet18_cifar:
+    num_classes: 10
+sync_bn: True  # Turn on synchronized batch normalization in distributed data parallel
+criterion:
+  simclr:
+    temperature: 0.5
+optimizer:
+  SGD:
+    weight_decay: 1.e-4
+    momentum: 0.9
+    lr: 0.4
+lr_scheduler:
+  cosine_annealing:
+    T_max: 1000  # same as `num_epochs`
+num_epochs: 1000

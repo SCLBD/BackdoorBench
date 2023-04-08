@@ -1,0 +1,6 @@
+attack: sig
+sig_delta: 40
+sig_f: 6
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.1

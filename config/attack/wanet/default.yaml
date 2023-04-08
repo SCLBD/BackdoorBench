@@ -1,0 +1,17 @@
+attack: wanet
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.1
+cross_ratio: 2  # rho_a = pratio, rho_n = pratio * cross_ratio
+random_rotation: 10
+random_crop: 5
+s: 0.5
+k: 4
+grid_rescale: 1
+lr_scheduler: MultiStepLR
+steplr_milestones:
+  - 100
+  - 200
+  - 300
+  - 400
+steplr_gamma: 0.1

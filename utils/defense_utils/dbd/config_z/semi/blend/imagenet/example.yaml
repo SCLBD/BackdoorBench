@@ -1,0 +1,66 @@
+---
+pretrain_config_path: ./config/defense/pretrain/blend/imagenet30_resnet/example.yaml
+pretrain_checkpoint: epoch100.pt
+prefetch: True
+transform:
+  pre:
+    resize:
+      size: 256
+    center_crop:
+      size: 224
+  train:
+    primary:
+      random_resize_crop:
+        size: 224
+        scale: [0.2, 1.0]
+        interpolation: 3  # BICUBIC
+      random_horizontal_flip:
+        p: 0.5
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  test:
+    primary: null
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+network:
+  resnet18_imagenet:
+    num_classes: 30
+warmup:
+  loader:
+    batch_size: 256
+    num_workers: 0
+    pin_memory: True
+  criterion:
+    sce:
+      alpha: 0.1
+      beta: 1
+      num_classes: 30
+  num_epochs: 10
+semi:
+  epsilon: 0.5
+  loader:
+    batch_size: 64
+    num_workers: 0
+    pin_memory: True
+  criterion:
+    mixmatch:
+      lambda_u: 6  # 75*(90/1024)~=6
+      # gradually increasing lambda_u in the whole training process
+      # seems to lead to better results.
+      rampup_length: 80  # same as num_epochs or 16 (in the official implementation)
+  mixmatch:
+    train_iteration: 1024
+    temperature: 0.5
+    alpha: 0.75
+    num_classes: 30
+  num_epochs: 80
+optimizer:
+  Adam:
+    lr: 0.002
+lr_scheduler: null
