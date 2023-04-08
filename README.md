@@ -4,6 +4,11 @@
 ![Pytorch 1.10.0](https://img.shields.io/badge/pytorch-1.10.0-DodgerBlue.svg?style=plastic)
 ![opencv 4.5.4.60](https://img.shields.io/badge/opencv-4.5.4.60-DodgerBlue.svg?style=plastic)
 
+
+### ❗ This is v1 of BackdoorBench. For v2, please refer to [link](https://github.com/SCLBD/BackdoorBench). In our new version, we provide more backdoor attack and defense methods, and more detailed documentation. 
+
+### ❗ Important update: We have corrected the code for Label Consistent Attack in v2, and script for Label Consistent Attack method has been removed from this branch. 
+
 <!---
 ## [Overview](#overview)
 
