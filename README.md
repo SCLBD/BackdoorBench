@@ -25,9 +25,9 @@ BackdoorBench is a comprehensive benchmark of backdoor learning, which studies t
 >    2. **Defense** :Add 6 new defense methods: [CLP](./defense/clp.py), [D-br](./defense/d-br.py), [D-st](./defense/d-st.py), [DDE](./defense/dde.py), [I-BAU](./defense/i-bau.py), [MBNS](./defense/mbns.py), . (Totally 15 defense methods now).
 >    
 > ✅ **Analysis Tools** : 
->    1. **Data Analysis** : Add 2 new methods: UMAP, Image Quality
->    2. **Models Analysis** : Add 9 new methods: Activated Image, Feature Visualization, Feature Map, Activation Distribution, Trigger Activation Change, Lipschitz Constant, Loss Landscape, Network Structure, Eigenvalues of Hessian
->    3. **Evaluation Analysis** : Add 2 new methods: Confusion Matrix, Metric
+>    1. **Data Analysis** : Add 2 new methods: [UMAP](./analysis/visual_umap.py), [Image Quality](./analysis/visual_quality.py)
+>    2. **Models Analysis** : Add 9 new methods: [Activated Image](./analysis/visual_act.py), [Feature Visualization](./analysis/visual_fv.py), [Feature Map](./analysis/visual_fm.py), [Activation Distribution](./analysis/visual_actdist.py), [Trigger Activation Change](./analysis/visual_tac.py), [Lipschitz Constant](./analysis/visual_lips.py), [Loss Landscape](./analysis/visual_landscape.py), [Network Structure](./analysis/visual_network.py), [Eigenvalues of Hessian](./analysis/visual_hessian.py)
+>    3. **Evaluation Analysis** : Add 2 new methods: [Confusion Matrix](./analysis/visual_cm.py), [Metric](./analysis/visual_metric.py)
 >  
 > 🔲 Comprehensive evaluations will be coming soon...
 
@@ -194,7 +194,7 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 ### Analysis Tools
 
 
-|        Script                                       |          Method                                                                 |             Category           |
+|        File name                                    |          Method                                                                 |             Category           |
 |:----------------------------------------------------|:--------------------------------------------------------------------------------|:--------------------------------|
 | [visual_tsne.py](analysis/visual_tsne.py)           | T-SNE, the T-SNE of features                                                    |            Data Analysis       |
 | [visual_umap.py](analysis/visual_umap.py)           | UMAP, the UMAP of features                                                      |            Data Analysis       |
