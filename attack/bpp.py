@@ -286,11 +286,10 @@ class Bpp(BadNet):
         # you can find in the original code that get_transform function has pretensor_transform=False always.
         clean_train_dataset_with_transform.wrap_img_transform = test_img_transform
 
-        clean_train_dataloader1 = DataLoader(clean_train_dataset_with_transform, pin_memory=args.pin_memory,
-                                            batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
+        clean_train_dataloader = DataLoader(clean_train_dataset_with_transform, pin_memory=args.pin_memory,
+                                            batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False)
 
-
-        clean_train_dataloader2 = DataLoader(clean_train_dataset_with_transform, pin_memory=args.pin_memory,
+        clean_train_dataloader_shuffled = DataLoader(clean_train_dataset_with_transform, pin_memory=args.pin_memory,
                                                      batch_size=args.batch_size, num_workers=args.num_workers,
                                                      shuffle=True)
 
@@ -298,8 +297,8 @@ class Bpp(BadNet):
                                            batch_size=args.batch_size,
                                            num_workers=args.num_workers, shuffle=False)
         self.stage1_results = clean_train_dataset_with_transform, \
-                              clean_train_dataloader1, \
-                              clean_train_dataloader2, \
+                              clean_train_dataloader, \
+                              clean_train_dataloader_shuffled, \
                               clean_test_dataset_with_transform, \
                               clean_test_dataloader
 
@@ -310,8 +309,8 @@ class Bpp(BadNet):
         agg = Metric_Aggregator()
 
         clean_train_dataset_with_transform, \
-        clean_train_dataloader1, \
-        clean_train_dataloader2, \
+        clean_train_dataloader, \
+        clean_train_dataloader_shuffled, \
         clean_test_dataset_with_transform, \
         clean_test_dataloader = self.stage1_results
 
@@ -360,11 +359,66 @@ class Bpp(BadNet):
 
 
         # ---------------------------
-
+        self.clean_train_dataset = prepro_cls_DatasetBD_v2(
+            clean_train_dataset_with_transform, save_folder_path=f"{args.save_path}/clean_train_dataset"
+        )
+        self.bd_train_dataset = prepro_cls_DatasetBD_v2(
+            clean_train_dataset_with_transform, save_folder_path=f"{args.save_path}/bd_train_dataset_Save"
+        )
+        self.cross_train_dataset = prepro_cls_DatasetBD_v2(
+            clean_train_dataset_with_transform, save_folder_path=f"{args.save_path}/cross_train_dataset"
+        )
         self.bd_train_dataset_save = prepro_cls_DatasetBD_v2(
             clean_train_dataset_with_transform,
             save_folder_path=f"{args.save_path}/bd_train_dataset"
         )
+        for batch_idx, (inputs, targets) in enumerate(clean_train_dataloader):
+            with torch.no_grad():
+
+                inputs, targets = inputs.to(self.device, non_blocking=args.non_blocking), targets.to(self.device,
+                                                                                                     non_blocking=args.non_blocking)
+                # bs = inputs.shape[0]
+                bs = args.batch_size
+                inputs_bd = torch.round(denormalizer(inputs) * 255)
+                inputs = denormalizer(inputs)
+                # save clean
+                for idx_in_batch, t_img in enumerate(inputs.detach().clone().cpu()):
+                    self.clean_train_dataset.set_one_bd_sample(
+                        selected_index=int(batch_idx * bs + idx_in_batch),
+                        # manually calculate the original index, since we do not shuffle the dataloader
+                        img=(t_img),
+                        bd_label=int(targets[idx_in_batch]),
+                        label=int(targets[idx_in_batch]),
+                    )
+
+
+                if args.dithering:
+                    for i in range(inputs_bd.shape[0]):
+                        inputs_bd[i, :, :, :] = torch.round(torch.from_numpy(
+                            floydDitherspeed(inputs_bd[i].detach().cpu().numpy(), float(args.squeeze_num))).to(
+                            args.device))
+                else:
+                    inputs_bd = torch.round(inputs_bd / 255.0 * (args.squeeze_num - 1)) / (args.squeeze_num - 1) * 255
+
+                inputs_bd = inputs_bd.div(255.0)
+
+                if args.attack_label_trans == "all2one":
+                    targets_bd = torch.ones_like(targets) * args.attack_target
+                if args.attack_label_trans == "all2all":
+                    targets_bd = torch.remainder(targets + 1, args.num_classes)
+
+                targets = targets.detach().clone().cpu()
+                y_poison_batch = targets_bd.detach().clone().cpu().tolist()
+                for idx_in_batch, t_img in enumerate(inputs_bd.detach().clone().cpu()):
+                    self.bd_train_dataset.set_one_bd_sample(
+                        selected_index=int(batch_idx * bs + idx_in_batch),
+                        # manually calculate the original index, since we do not shuffle the dataloader
+                        img=(t_img),
+                        bd_label=int(y_poison_batch[idx_in_batch]),
+                        label=int(targets[idx_in_batch]),
+                    )
+
+
 
         reversible_test_dataset = (clean_test_dataset_with_transform)
 
@@ -548,8 +602,7 @@ class Bpp(BadNet):
                 netC,
                 optimizerC,
                 schedulerC,
-                clean_train_dataloader1,
-                clean_train_dataloader2,
+                clean_train_dataloader_shuffled,
                 args)
 
             clean_test_loss_avg_over_batch, \
@@ -648,25 +701,18 @@ class Bpp(BadNet):
 
 
         netC.eval()
-        rate_bd = args.pratio
         with torch.no_grad():
-            for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(clean_train_dataloader1)), clean_train_dataloader1,
-                                                                       clean_train_dataloader2):
-                optimizerC.zero_grad()
-
-                inputs1, targets1 = inputs1.to(self.device, non_blocking=args.non_blocking), targets1.to(self.device,
+            for batch_idx, (inputs, targets) in enumerate(clean_train_dataloader):
+                inputs, targets = inputs.to(self.device, non_blocking=args.non_blocking), targets.to(self.device,
                                                                                                     non_blocking=args.non_blocking)
-                inputs2, targets2 = inputs2.to(self.device, non_blocking=args.non_blocking), targets2.to(self.device,
-                                                                                                         non_blocking=args.non_blocking)
-
-                bs = inputs1.shape[0]
+                bs = inputs.shape[0]
 
                 # Create backdoor data
-                num_bd = int(generalize_to_lower_pratio(rate_bd, bs))
+                num_bd = int(generalize_to_lower_pratio(args.pratio, bs))
                 num_neg = int(bs * args.neg_ratio)
 
                 if num_bd != 0 and num_neg != 0:
-                    inputs_bd = back_to_np_4d(inputs1[:num_bd], args)
+                    inputs_bd = back_to_np_4d(inputs[:num_bd], args)
                     if args.dithering:
                         for i in range(inputs_bd.shape[0]):
                             inputs_bd[i, :, :, :] = torch.round(torch.from_numpy(
@@ -678,37 +724,34 @@ class Bpp(BadNet):
                     inputs_bd = np_4d_to_tensor(inputs_bd, args)
 
                     if args.attack_label_trans == "all2one":
-                        targets_bd = torch.ones_like(targets1[:num_bd]) * args.attack_target
+                        targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
                     if args.attack_label_trans == "all2all":
-                        targets_bd = torch.remainder(targets1[:num_bd] + 1, args.num_classes)
+                        targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
-                    inputs_bd = np_4d_to_tensor(inputs_bd, args)
-
-                    if args.attack_label_trans == "all2one":
-                        targets_bd = torch.ones_like(targets1[:num_bd]) * args.attack_target
-                    if args.attack_label_trans == "all2all":
-                        targets_bd = torch.remainder(targets1[:num_bd] + 1, args.num_classes)
-
-                    inputs_ori = back_to_np_4d(inputs1, args)[num_bd: (num_bd + num_neg)]
-                    inputs_clean2 =  back_to_np_4d(inputs2, args)[:num_neg]
-                    inputs_bd2 = back_to_np_4d(inputs2, args)[:num_neg]
-                    if args.dithering:
-                        for i in range(inputs_bd2.shape[0]):
-                            inputs_bd2[i, :, :, :] = torch.round(torch.from_numpy(
-                                floydDitherspeed(inputs_bd2[i].detach().cpu().numpy(), float(args.squeeze_num))).to(
-                                args.device))
+                    train_dataset_num = len(clean_train_dataloader.dataset)
+                    if args.dataset == "celeba":
+                        index_list = list(np.arange(train_dataset_num))
+                        residual_index = random.sample(index_list, bs)
                     else:
-                        inputs_bd2 = torch.round(inputs_bd2 / 255.0 * (args.squeeze_num - 1)) / (args.squeeze_num - 1) * 255
-                    inputs_negative = inputs_ori + inputs_clean2 - inputs_bd2
+                        index_list = list(np.arange(train_dataset_num * 5))
+                        residual_index = random.sample(index_list, bs)
+                        residual_index = [x % train_dataset_num for x in random.sample(list(index_list), bs)]
+
+                    inputs_negative = torch.zeros_like(inputs[num_bd: (num_bd + num_neg)])
+                    inputs_d = torch.round(back_to_np_4d(inputs, args))
+                    for i in range(num_neg):
+                        inputs_negative[i] = inputs_d[num_bd + i] + (
+                                    to_tensor(self.bd_train_dataset[residual_index[i]][0]) * 255).to(self.device).to(
+                            self.device) - (to_tensor(self.clean_train_dataset[residual_index[i]][0]) * 255).to(self.device)
 
                     inputs_negative = torch.clamp(inputs_negative, 0, 255)
                     inputs_negative = np_4d_to_tensor(inputs_negative, args)
 
-                    total_inputs = torch.cat([inputs_bd, inputs_negative, inputs1[(num_bd + num_neg):]], dim=0)
-                    total_targets = torch.cat([targets_bd, targets1[num_bd:]], dim=0)
+                    total_inputs = torch.cat([inputs_bd, inputs_negative, inputs[(num_bd + num_neg):]], dim=0)
+                    total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
                 elif (num_bd > 0 and num_neg == 0):
-                    inputs_bd = back_to_np_4d(inputs1[:num_bd], args)
+                    inputs_bd = back_to_np_4d(inputs[:num_bd], args)
                     if args.dithering:
                         for i in range(inputs_bd.shape[0]):
                             inputs_bd[i, :, :, :] = torch.round(torch.from_numpy(
@@ -720,22 +763,22 @@ class Bpp(BadNet):
                     inputs_bd = np_4d_to_tensor(inputs_bd, args)
 
                     if args.attack_label_trans == "all2one":
-                        targets_bd = torch.ones_like(targets1[:num_bd]) * args.attack_target
+                        targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
                     if args.attack_label_trans == "all2all":
-                        targets_bd = torch.remainder(targets1[:num_bd] + 1, args.num_classes)
+                        targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
-                    total_inputs = torch.cat([inputs_bd, inputs1[num_bd:]], dim=0)
-                    total_targets = torch.cat([targets_bd, targets1[num_bd:]], dim=0)
+                    total_inputs = torch.cat([inputs_bd, inputs[num_bd:]], dim=0)
+                    total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
                 elif (num_bd == 0):
-                    total_inputs = inputs1
-                    total_targets = targets1
+                    total_inputs = inputs
+                    total_targets = targets
 
                 input_changed = torch.cat([inputs_bd, inputs_negative, ], dim=0).detach().clone().cpu()
                 input_changed = denormalizer(  # since we normalized once, we need to denormalize it back.
                     input_changed
                 ).detach().clone().cpu()
-                target_changed = torch.cat([targets_bd, targets1[num_bd: (num_bd + num_neg)], ],
+                target_changed = torch.cat([targets_bd, targets[num_bd: (num_bd + num_neg)], ],
                                            dim=0).detach().clone().cpu()
                 # save container
                 for idx_in_batch, t_img in enumerate(
@@ -746,7 +789,7 @@ class Bpp(BadNet):
                         selected_index=int(batch_idx * int(args.batch_size) + idx_in_batch),
                         img=(t_img),
                         bd_label=int(target_changed[idx_in_batch]),
-                        label=int(targets1[idx_in_batch]),
+                        label=int(targets[idx_in_batch]),
                     )
 
 
@@ -763,7 +806,7 @@ class Bpp(BadNet):
         )
         print("done")
 
-    def train_step(self, netC, optimizerC, schedulerC, train_dataloader1 ,train_dataloader2, args):
+    def train_step(self, netC, optimizerC, schedulerC, clean_train_dataloader, args):
         logging.info(" Train:")
         netC.train()
         rate_bd = args.pratio
@@ -780,22 +823,19 @@ class Bpp(BadNet):
         batch_poison_indicator_list = []
         batch_original_targets_list = []
 
-        for batch_idx, (inputs1, targets1), (inputs2, targets2) in zip(range(len(train_dataloader1)), train_dataloader1,
-                                                                       train_dataloader2):
+        for batch_idx, (inputs, targets) in enumerate(clean_train_dataloader):
             optimizerC.zero_grad()
 
-            inputs1, targets1 = inputs1.to(self.device, non_blocking=args.non_blocking), targets1.to(self.device,
+            inputs, targets = inputs.to(self.device, non_blocking=args.non_blocking), targets.to(self.device,
                                                                                                  non_blocking=args.non_blocking)
-            inputs2, targets2 = inputs2.to(self.device, non_blocking=args.non_blocking), targets2.to(self.device,
-                                                                                                         non_blocking=args.non_blocking)
-            bs = inputs1.shape[0]
+            bs = inputs.shape[0]
 
             # Create backdoor data
             num_bd = int(generalize_to_lower_pratio(rate_bd, bs))
             num_neg = int(bs * args.neg_ratio)
 
             if num_bd != 0 and num_neg != 0:
-                inputs_bd = back_to_np_4d(inputs1[:num_bd], args)
+                inputs_bd = back_to_np_4d(inputs[:num_bd], args)
                 if args.dithering:
                     for i in range(inputs_bd.shape[0]):
                         inputs_bd[i, :, :, :] = torch.round(torch.from_numpy(
@@ -807,30 +847,34 @@ class Bpp(BadNet):
                 inputs_bd = np_4d_to_tensor(inputs_bd, args)
 
                 if args.attack_label_trans == "all2one":
-                    targets_bd = torch.ones_like(targets1[:num_bd]) * args.attack_target
+                    targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
                 if args.attack_label_trans == "all2all":
-                    targets_bd = torch.remainder(targets1[:num_bd] + 1, args.num_classes)
+                    targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
-                inputs_ori = back_to_np_4d(inputs1, args)[num_bd: (num_bd + num_neg)]
-                inputs_clean2 =  back_to_np_4d(inputs2, args)[:num_neg]
-                inputs_bd2 = back_to_np_4d(inputs2, args)[:num_neg]
-                if args.dithering:
-                    for i in range(inputs_bd2.shape[0]):
-                        inputs_bd2[i, :, :, :] = torch.round(torch.from_numpy(
-                            floydDitherspeed(inputs_bd2[i].detach().cpu().numpy(), float(squeeze_num))).to(
-                            args.device))
+                train_dataset_num = len(clean_train_dataloader.dataset)
+                if args.dataset == "celeba":
+                    index_list = list(np.arange(train_dataset_num))
+                    residual_index = random.sample(index_list, bs)
                 else:
-                    inputs_bd2 = torch.round(inputs_bd2 / 255.0 * (squeeze_num - 1)) / (squeeze_num - 1) * 255
-                inputs_negative = inputs_ori + inputs_clean2 - inputs_bd2
+                    index_list = list(np.arange(train_dataset_num * 5))
+                    residual_index = random.sample(index_list, bs)
+                    residual_index = [x % train_dataset_num for x in random.sample(list(index_list), bs)]
+
+                inputs_negative = torch.zeros_like(inputs[num_bd: (num_bd + num_neg)])
+                inputs_d = back_to_np_4d(inputs, args)
+                for i in range(num_neg):
+                    inputs_negative[i] = inputs_d[num_bd + i] + (
+                                to_tensor(self.bd_train_dataset[residual_index[i]][0]) * 255).to(self.device).to(
+                        self.device) - (to_tensor(self.clean_train_dataset[residual_index[i]][0]) * 255).to(self.device)
 
                 inputs_negative = torch.clamp(inputs_negative, 0, 255)
                 inputs_negative = np_4d_to_tensor(inputs_negative, args)
 
-                total_inputs = torch.cat([inputs_bd, inputs_negative, inputs1[(num_bd + num_neg):]], dim=0)
-                total_targets = torch.cat([targets_bd, targets1[num_bd:]], dim=0)
+                total_inputs = torch.cat([inputs_bd, inputs_negative, inputs[(num_bd + num_neg):]], dim=0)
+                total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
             elif (num_bd > 0 and num_neg == 0):
-                inputs_bd = back_to_np_4d(inputs1[:num_bd], args)
+                inputs_bd = back_to_np_4d(inputs[:num_bd], args)
                 if args.dithering:
                     for i in range(inputs_bd.shape[0]):
                         inputs_bd[i, :, :, :] = torch.round(torch.from_numpy(
@@ -842,16 +886,16 @@ class Bpp(BadNet):
                 inputs_bd = np_4d_to_tensor(inputs_bd, args)
 
                 if args.attack_label_trans == "all2one":
-                    targets_bd = torch.ones_like(targets1[:num_bd]) * args.attack_target
+                    targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
                 if args.attack_label_trans == "all2all":
-                    targets_bd = torch.remainder(targets1[:num_bd] + 1, args.num_classes)
+                    targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
-                total_inputs = torch.cat([inputs_bd, inputs1[num_bd:]], dim=0)
-                total_targets = torch.cat([targets_bd, targets1[num_bd:]], dim=0)
+                total_inputs = torch.cat([inputs_bd, inputs[num_bd:]], dim=0)
+                total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
             elif (num_bd == 0):
-                total_inputs = inputs1
-                total_targets = targets1
+                total_inputs = inputs
+                total_targets = targets
 
             total_inputs = transforms(total_inputs)
             start = time.time()
@@ -874,7 +918,7 @@ class Bpp(BadNet):
             poison_indicator[num_bd:num_neg + num_bd] = 2  # indicate for the cross terms
 
             batch_poison_indicator_list.append(poison_indicator)
-            batch_original_targets_list.append(targets1.detach().clone().cpu())
+            batch_original_targets_list.append(targets.detach().clone().cpu())
 
         schedulerC.step()
 
