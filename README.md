@@ -270,6 +270,22 @@ If interested, you can read our recent works about backdoor learning, and more w
   year={2022}
 }
 
+@article{wu2023adversarial,
+  title={Adversarial Machine Learning: A Systematic Survey of Backdoor Attack, Weight Attack and Adversarial Example},
+  author={Wu, Baoyuan and Liu, Li and Zhu, Zihao and Liu, Qingshan and He, Zhaofeng and Lyu, Siwei},
+  journal={arXiv preprint arXiv:2302.09457},
+  year={2023}
+}
+
+@inproceedings{sensitivity-backdoor-defense-nips2022,
+ title = {Effective Backdoor Defense by Exploiting Sensitivity of Poisoned Samples},
+ author = {Chen, Weixin and Wu, Baoyuan and Wang, Haoqian},
+ booktitle = {Advances in Neural Information Processing Systems},
+ volume = {35},
+ pages = {9727--9737},
+ year = {2022}
+}
+
 @inproceedings{dbd-backdoor-defense-iclr2022,
     title={Backdoor Defense via Decoupling the Training Process},
     author={Huang, Kunzhe and Li, Yiming and Wu, Baoyuan and Qin, Zhan and Ren, Kui},
