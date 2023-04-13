@@ -229,13 +229,19 @@ print(f'Save to {visual_save_path}/metric_summary.csv')
 
 
 ### Visualization
-metric_2_name = {'clean_accuracy_attack': 'C-ACC', 'clean_accuracy_defense': 'C-ACC', 'asr_attack': 'ASR', 'asr_defense': 'ASR', 'ra_attack': 'RA', 'ra_defense': 'RA', 'der': 'DER', 'rir': 'RIR'}
+metric_2_name = {'clean_accuracy_attack': 'C-ACC', 'clean_accuracy_defense': 'C-ACC', 'asr_attack': '1 - ASR', 'asr_defense': '1 - ASR', 'ra_attack': 'RA', 'ra_defense': 'RA', 'der': 'DER', 'rir': 'RIR'}
 if model_defense is not None:
     used_metrics = ['clean_accuracy_defense', 'asr_defense', 'ra_defense', 'der', 'rir']
+    if 'asr_defense' in used_metrics:
+        metric_dic['asr_defense'] = 1 - metric_dic['asr_defense']
+        print('Turn ASR to 1-ASR for visualization.')
     plot_metrics = [metric_2_name[key] for key in used_metrics]
     plot_metrics_values = [metric_dic[key] for key in used_metrics]
 else:
     used_metrics = ['clean_accuracy_attack', 'asr_attack', 'ra_attack']
+    if 'asr_attack' in used_metrics:
+        metric_dic['asr_attack'] = 1 - metric_dic['asr_attack']
+        print('Turn ASR to 1-ASR for visualization.')
     plot_metrics = [metric_2_name[key] for key in used_metrics]
     plot_metrics_values = [metric_dic[key] for key in used_metrics]    
 

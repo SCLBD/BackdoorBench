@@ -61,7 +61,7 @@ def robust_accuracy_per_class(bd_pred, ori_label, num_classes):
 
 def defense_effectiveness_rate(bd_pred, defense_pred, ori_label, target_label):
     '''Compute the defense effectiveness rate'''
-    return (max(0, attack_success_rate(bd_pred, target_label) - attack_success_rate(defense_pred, target_label)) + max(0, clean_accuracy(bd_pred, ori_label) - clean_accuracy(defense_pred, ori_label)) + 1) / 2
+    return (max(0, attack_success_rate(bd_pred, target_label) - attack_success_rate(defense_pred, target_label)) - max(0, clean_accuracy(bd_pred, ori_label) - clean_accuracy(defense_pred, ori_label)) + 1) / 2
 
 def defense_effectiveness_rate_per_class(bd_pred, defense_pred, ori_label, target_label, num_classes):
     '''Compute the defense effectiveness rate per class'''
@@ -71,13 +71,18 @@ def defense_effectiveness_rate_per_class(bd_pred, defense_pred, ori_label, targe
     acc_bd = clean_accuracy_per_class(bd_pred, ori_label, num_classes)
     acc_defense = clean_accuracy_per_class(defense_pred, ori_label, num_classes)
     for i in range(num_classes):
-        der.append((max(0, asr_bd[i] - asr_defense[i]) + max(0, acc_bd[i] - acc_defense[i]) + 1) / 2)
+        der.append((max(0, asr_bd[i] - asr_defense[i]) - max(0, acc_bd[i] - acc_defense[i]) + 1) / 2)
+    return der
+
+def defense_effectiveness_rate_simplied(acc_bd, acc_defnese, asr_bd, asr_defense):
+    '''Compute the defense effectiveness rate'''
+    return (max(0, asr_bd - asr_defense) - max(0, acc_bd - acc_defnese) + 1) / 2
 
 '''Robust Improvement Rate (DER) ( DER = [max(0,-ΔRA) − max(0,ΔACC) + 1]/2, where ΔRA = RA_bd − RA_defnse and ΔASR = ASR_bd − ASR_defnse)'''
 
 def robust_improvement_rate(bd_pred, defense_pred, ori_label):
     '''Compute the robust improvement rate'''
-    return (max(0, -robust_accuracy(bd_pred, ori_label) + robust_accuracy(defense_pred, ori_label)) + max(0, clean_accuracy(bd_pred, ori_label) - clean_accuracy(defense_pred, ori_label)) + 1) / 2
+    return (max(0, -robust_accuracy(bd_pred, ori_label) + robust_accuracy(defense_pred, ori_label)) - max(0, clean_accuracy(bd_pred, ori_label) - clean_accuracy(defense_pred, ori_label)) + 1) / 2
 
 def robust_improvement_rate_per_class(bd_pred, defense_pred, ori_label, num_classes):
     '''Compute the robust improvement rate per class'''
@@ -87,5 +92,9 @@ def robust_improvement_rate_per_class(bd_pred, defense_pred, ori_label, num_clas
     acc_bd = clean_accuracy_per_class(bd_pred, ori_label, num_classes)
     acc_defense = clean_accuracy_per_class(defense_pred, ori_label, num_classes)
     for i in range(num_classes):
-        rir.append((max(0, -ra_bd[i] + ra_defense[i]) + max(0, acc_bd[i] - acc_defense[i]) + 1) / 2)
+        rir.append((max(0, -ra_bd[i] + ra_defense[i]) - max(0, acc_bd[i] - acc_defense[i]) + 1) / 2)
+    return rir
 
+def robust_improvement_rate_simplied(acc_bd, acc_defnese, ra_bd, ra_defense):
+    '''Compute the robust improvement rate'''
+    return (max(0, -ra_bd + ra_defense) - max(0, acc_bd - acc_defnese) + 1) / 2
