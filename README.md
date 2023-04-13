@@ -91,11 +91,6 @@ cd BackdoorBench
 conda create -n backdoorbench python=3.8
 conda activate backdoorbench
 sh ./sh/install.sh
-```
-
-Please first to make a folder for record, all experiment results with save to record folder as default.
-And make folder for data to put supported datasets.
-```shell
 sh ./sh/init_folders.sh
 ```
 
