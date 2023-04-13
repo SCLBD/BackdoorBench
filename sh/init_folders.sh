@@ -4,3 +4,4 @@ mkdir -p data/cifar10
 mkdir -p data/tiny
 mkdir -p data/gtsrb
 mkdir -p data/cifar100
+mkdir record
