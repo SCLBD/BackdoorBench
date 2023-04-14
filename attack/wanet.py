@@ -299,7 +299,7 @@ class Wanet(BadNet):
                     targets_bd = (torch.ones_like(targets) * args.attack_target)[position_changed]
                     inputs_bd = inputs_bd[position_changed]
                 if args.attack_label_trans == "all2all":
-                    targets_bd = torch.remainder(targets, args.num_classes)
+                    targets_bd = torch.remainder(targets + 1, args.num_classes)
 
                 targets = targets.detach().clone().cpu()
                 y_poison_batch = targets_bd.detach().clone().cpu().tolist()
@@ -512,7 +512,7 @@ class Wanet(BadNet):
                 if args.attack_label_trans == "all2one":
                     targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
                 if args.attack_label_trans == "all2all":
-                    targets_bd = torch.remainder(targets[:num_bd], args.num_classes)
+                    targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
                 inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
 
@@ -586,7 +586,7 @@ class Wanet(BadNet):
             if args.attack_label_trans == "all2one":
                 targets_bd = torch.ones_like(targets[:num_bd]) * args.attack_target
             if args.attack_label_trans == "all2all":
-                targets_bd = torch.remainder(targets[:num_bd], args.num_classes)
+                targets_bd = torch.remainder(targets[:num_bd] + 1, args.num_classes)
 
             inputs_cross = F.grid_sample(inputs[num_bd: (num_bd + num_cross)], grid_temps2, align_corners=True)
 

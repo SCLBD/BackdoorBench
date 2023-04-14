@@ -747,9 +747,10 @@ def main():
     if not os.path.exists(config["adv_dataset_dir"]):
         os.makedirs(config["adv_dataset_dir"])
     adv_data_path = os.path.join(
-        config["adv_dataset_dir"],f"{args.dataset}_train.npz"
+        config["adv_dataset_dir"],f"{args.dataset}_train.npy"
     )
-    np.savez(adv_data_path, data=perturbed_img.numpy(), targets=target.numpy())
+    # np.savez(adv_data_path, data=perturbed_img.numpy(), targets=target.numpy())
+    np.save(adv_data_path, perturbed_img.numpy())
     print("Save the train adversarially perturbed dataset to {}".format(adv_data_path))
 
 
@@ -773,9 +774,9 @@ def main():
     if not os.path.exists(config["adv_dataset_dir"]):
         os.makedirs(config["adv_dataset_dir"])
     adv_data_path = os.path.join(
-        config["adv_dataset_dir"], f"{args.dataset}_test.npz"
+        config["adv_dataset_dir"], f"{args.dataset}_test.npy"
     )
-    np.savez(adv_data_path, data=perturbed_img.numpy(), targets=target.numpy())
+    np.save(adv_data_path, perturbed_img.numpy())
     print("Save the test adversarially perturbed dataset to {}".format(adv_data_path))
 
 
