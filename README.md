@@ -256,12 +256,10 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 If interested, you can read our recent works about backdoor learning, and more works about trustworthy AI can be found [here](https://sites.google.com/site/baoyuanwu2015/home).
 
 ```
-@article{wu2022backdoorbench,
-  title={Backdoorbench: A comprehensive benchmark of backdoor learning},
+@inproceedings{backdoorbench,
+  title={BackdoorBench: A Comprehensive Benchmark of Backdoor Learning},
   author={Wu, Baoyuan and Chen, Hongrui and Zhang, Mingda and Zhu, Zihao and Wei, Shaokui and Yuan, Danni and Shen, Chao},
-  journal={Advances in Neural Information Processing Systems},
-  volume={35},
-  pages={10546--10559},
+  booktitle={Thirty-sixth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
   year={2022}
 }
 
