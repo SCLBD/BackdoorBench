@@ -480,14 +480,14 @@ class d_st(defense):
     def set_new_args(self,args,step):
         if step == 'train_notrans':
             args.epochs = 2
-            args.batch_size = 128
+            # args.batch_size = 128
         elif step == 'finetune_notrans':
             args.epochs = 10
         elif step == 'sscl':
             args.epochs = 200
             args.learning_rate = 0.5
             args.temp = 0.1
-            args.batch_size = 512
+            # args.batch_size = 512
             args.cosine = True
             if args.cosine:
                 args.model_name = '{}_cosine'.format(args.model)
@@ -508,7 +508,7 @@ class d_st(defense):
         elif step == 'mixed_ce':
             args.epochs = 10
             args.learning_rate = 5
-            args.batch_size = 512
+            # args.batch_size = 512
             args.num_workers = 16
             args.cosine = False
             if args.batch_size > 256:
