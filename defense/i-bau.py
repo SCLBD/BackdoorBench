@@ -469,8 +469,8 @@ class i_bau(defense):
 		# b. unlearn the backdoor model by the pertubation
 		logging.info("=> Conducting Defence..")
 		model.eval()
+		agg = Metric_Aggregator()
 		for round in range(args.n_rounds):
-			agg = Metric_Aggregator()
 			# batch_pert = torch.zeros_like(data_clean_testset[0][:1], requires_grad=True, device=args.device)
 			batch_pert = torch.zeros([1,args.input_channel,args.input_height,args.input_width], requires_grad=True, device=args.device)
 			batch_opt = torch.optim.SGD(params=[batch_pert],lr=10)
