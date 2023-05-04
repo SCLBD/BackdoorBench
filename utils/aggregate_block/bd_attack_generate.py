@@ -27,6 +27,19 @@ class general_compose(object):
                 img = transform(img, *args, **kwargs)
         return img
 
+class convertNumpyArrayToFloat32(object):
+    def __init__(self):
+        pass
+    def __call__(self, np_img_float32):
+        return np_img_float32.astype(np.float32)
+npToFloat32 = convertNumpyArrayToFloat32()
+
+class clipAndConvertNumpyArrayToUint8(object):
+    def __init__(self):
+        pass
+    def __call__(self, np_img_float32):
+        return np.clip(np_img_float32, 0, 255).astype(np.uint8)
+npClipAndToUint8 = clipAndConvertNumpyArrayToUint8()
 
 def bd_attack_img_trans_generate(args):
     '''
@@ -74,7 +87,9 @@ def bd_attack_img_trans_generate(args):
                 trans(
                     imageio.imread(args.attack_trigger_img_path)  # '../data/hello_kitty.jpeg'
                 ).cpu().numpy().transpose(1, 2, 0) * 255,
-                float(args.attack_train_blended_alpha)), True)  # 0.1,
+                float(args.attack_train_blended_alpha)), True),
+            (npToFloat32, False),
+            (npClipAndToUint8,False),
         ])
 
         test_bd_transform = general_compose([
@@ -84,7 +99,9 @@ def bd_attack_img_trans_generate(args):
                 trans(
                     imageio.imread(args.attack_trigger_img_path)  # '../data/hello_kitty.jpeg'
                 ).cpu().numpy().transpose(1, 2, 0) * 255,
-                float(args.attack_test_blended_alpha)), True)  # 0.1,
+                float(args.attack_test_blended_alpha)), True),
+            (npToFloat32, False),
+            (npClipAndToUint8,False),
         ])
 
     elif args.attack == 'sig':
