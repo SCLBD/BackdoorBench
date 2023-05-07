@@ -266,7 +266,7 @@ class prepro_cls_DatasetBD_v2(torch.utils.data.Dataset):
         '''
 
         # we need to save the bd img, so we turn it into PIL
-        if (not isinstance(img, Image.Image)) and self.save_folder_path is not None:
+        if (not isinstance(img, Image.Image)) :
             if isinstance(img, np.ndarray):
                 img = img.astype(np.uint8)
             img = ToPILImage()(img)

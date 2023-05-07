@@ -48,7 +48,7 @@ def bd_attack_img_trans_generate(args):
     :return: transform on img for backdoor attack in both train and test phase
     '''
 
-    if args.attack in ['badnet', 'ribac']:
+    if args.attack in ['badnet',]:
 
 
         trans = transforms.Compose([
@@ -64,12 +64,14 @@ def bd_attack_img_trans_generate(args):
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
             (bd_transform, True),
+            (npClipAndToUint8,False),
         ])
 
         test_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
             (bd_transform, True),
+            (npClipAndToUint8,False),
         ])
 
     elif args.attack == 'blended':
@@ -113,11 +115,13 @@ def bd_attack_img_trans_generate(args):
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
             (trans, True),
+            (npClipAndToUint8,False),
         ])
         test_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
             (trans, True),
+            (npClipAndToUint8,False),
         ])
 
     elif args.attack in ['SSBA']:
@@ -127,7 +131,7 @@ def bd_attack_img_trans_generate(args):
             (SSBA_attack_replace_version(
                 replace_images=np.load(args.attack_train_replace_imgs_path)  # '../data/cifar10_SSBA/train.npy'
             ), True),
-
+            (npClipAndToUint8,False),
         ])
         test_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
@@ -135,7 +139,7 @@ def bd_attack_img_trans_generate(args):
             (SSBA_attack_replace_version(
                 replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
             ), True),
-
+            (npClipAndToUint8,False),
         ])
 
     elif args.attack in ['label_consistent']:
@@ -148,6 +152,7 @@ def bd_attack_img_trans_generate(args):
                 replace_images=np.load(args.attack_train_replace_imgs_path)  # '../data/cifar10_SSBA/train.npy'
             ), True),
             (add_trigger_func, False),
+            (npClipAndToUint8,False),
         ])
         test_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
@@ -156,6 +161,7 @@ def bd_attack_img_trans_generate(args):
                 replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
             ), True),
             (add_trigger_func, False),
+            (npClipAndToUint8,False),
         ])
 
     elif args.attack == 'lowFrequency':
@@ -180,6 +186,7 @@ def bd_attack_img_trans_generate(args):
             (SimpleAdditiveTrigger(
                 trigger_array=triggerArray,
             ), True),
+            (npClipAndToUint8,False),
         ])
 
         test_bd_transform = general_compose([
@@ -188,6 +195,7 @@ def bd_attack_img_trans_generate(args):
             (SimpleAdditiveTrigger(
                 trigger_array=triggerArray,
             ), True),
+            (npClipAndToUint8,False),
         ])
 
     return train_bd_transform, test_bd_transform

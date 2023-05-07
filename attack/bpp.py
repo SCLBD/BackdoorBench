@@ -801,7 +801,7 @@ class Bpp(BadNet):
             img_size=args.img_size,
             clean_data=args.dataset,
             bd_train=self.bd_train_dataset_save,
-            bd_test=self.bd_test_dataset,
+            bd_test=self.bd_test_r_dataset,
             save_path=args.save_path,
         )
         print("done")
