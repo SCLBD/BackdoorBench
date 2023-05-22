@@ -204,18 +204,38 @@ class FinePrune(defense):
 
         criterion = nn.CrossEntropyLoss()
 
-        # Forward hook for getting last module's input
-        global result_mid
-        # container = []
-        result_mid = torch.tensor(0).to(args.device)
-        with torch.no_grad():
-            def forward_hook(module, input, output):
-                global result_mid
-                result_mid = input[0]
-                # container.append(input.detach().clone().cpu())
-        last_child_name, last_child = list(netC.named_children())[-1]
-        logging.info(f"hook on {last_child_name}")
-        hook = last_child.register_forward_hook(forward_hook)
+        if args.model != "vit_b_16":
+            with torch.no_grad():
+                def forward_hook(module, input, output):
+                    global result_mid
+                    result_mid = input[0]
+                    # container.append(input.detach().clone().cpu())
+            last_child_name, last_child = list(netC.named_children())[-1]
+            logging.info(f"hook on {last_child_name}")
+            hook = last_child.register_forward_hook(forward_hook)
+        else:
+            vit_module = list(netC.children())[1]
+            last_child = vit_module.heads.head
+            with torch.no_grad():
+                def forward_hook(module, input, output):
+                    global result_mid
+                    result_mid = input[0]
+            # logging.info(f"hook on {last_child}")
+            hook = last_child.register_forward_hook(forward_hook)
+
+
+        # # Forward hook for getting last module's input
+        # global result_mid
+        # # container = []
+        # result_mid = torch.tensor(0).to(args.device)
+        # with torch.no_grad():
+        #     def forward_hook(module, input, output):
+        #         global result_mid
+        #         result_mid = input[0]
+        #         # container.append(input.detach().clone().cpu())
+        # last_child_name, last_child = list(netC.named_children())[-1]
+        # logging.info(f"hook on {last_child_name}")
+        # hook = last_child.register_forward_hook(forward_hook)
 
         logging.info("Forwarding all the training dataset:")
         with torch.no_grad():
