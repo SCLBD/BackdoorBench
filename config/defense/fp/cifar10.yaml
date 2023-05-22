@@ -33,5 +33,6 @@ amp: True
 acc_ratio: 0.1
 ratio: 0.05
 non_blocking: True
+once_prune_ratio: 0.01
 
 

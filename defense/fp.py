@@ -3,6 +3,7 @@ import os,sys
 import numpy as np
 import torch
 import torch.nn as nn
+import math
 import shutil
 sys.path.append('../')
 sys.path.append(os.getcwd())
@@ -42,7 +43,6 @@ class FinePrune(defense):
         parser.add_argument('--device', type=str, help='cuda, cpu')
         parser.add_argument("-nb", "--non_blocking", type=lambda x: str(x) in ['True', 'true', '1'],
                             help=".to(), set the non_blocking = ?")
-        parser.add_argument('--save_path', type=str)
         parser.add_argument("--dataset_path", type=str)
 
         parser.add_argument('--dataset', type=str, help='mnist, cifar10, gtsrb, celeba, tiny')
@@ -89,10 +89,10 @@ class FinePrune(defense):
         args.img_size = (args.input_height, args.input_width, args.input_channel)
         args.dataset_path = f"{args.dataset_path}/{args.dataset}"
 
-        defense_save_path = args.save_path + os.path.sep + "fp"
+        defense_save_path = "record" + os.path.sep + args.result_file + os.path.sep + "defense" + os.path.sep + "fp"
         # if os.path.exists(defense_save_path): 
         #     shutil.rmtree(defense_save_path)
-        os.makedirs(defense_save_path)
+        os.makedirs(defense_save_path, exist_ok = True)
         # save_path = '/record/' + args.result_file
         # if args.checkpoint_save is None:
         #     args.checkpoint_save = save_path + '/record/defence/fp/'
@@ -127,6 +127,9 @@ class FinePrune(defense):
         logger.addHandler(consoleHandler)
         # overall logger level should <= min(handler) otherwise no log will be recorded.
         logger.setLevel(0)
+        # disable other debug, since too many debug
+        logging.getLogger('PIL').setLevel(logging.WARNING)
+        logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 
         logging.info(pformat(args.__dict__))
 
@@ -151,7 +154,7 @@ class FinePrune(defense):
                         'bd_test': bd_test_dataset_with_transform,
                     }
                 '''
-        self.attack_result = load_attack_result(self.args.save_path + os.path.sep +'attack_result.pt')
+        self.attack_result = load_attack_result("record" + os.path.sep + self.args.result_file + os.path.sep +'attack_result.pt')
 
         netC = generate_cls_model(args.model, args.num_classes)
         netC.load_state_dict(self.attack_result['model'])
@@ -250,7 +253,7 @@ class FinePrune(defense):
         test_ra_list = []
         # start from 0, so unprune case will also be tested.
         # for num_pruned in range(0, len(seq_sort), 500):
-        for num_pruned in range(0, len(seq_sort), int(len(seq_sort) * args.once_prune_ratio)):
+        for num_pruned in range(0, len(seq_sort), math.ceil(len(seq_sort) * args.once_prune_ratio)):
             net_pruned = (netC)
             net_pruned.to(args.device)
             if num_pruned:
