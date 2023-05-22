@@ -299,7 +299,9 @@ class Wanet(BadNet):
                     targets_bd = (torch.ones_like(targets) * args.attack_target)[position_changed]
                     inputs_bd = inputs_bd[position_changed]
                 if args.attack_label_trans == "all2all":
+                    position_changed = torch.ones_like(targets) # here assume all2all is the bd label = (true label + 1) % num_classes
                     targets_bd = torch.remainder(targets + 1, args.num_classes)
+                    inputs_bd = inputs_bd
 
                 targets = targets.detach().clone().cpu()
                 y_poison_batch = targets_bd.detach().clone().cpu().tolist()
