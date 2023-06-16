@@ -1238,13 +1238,22 @@ class MCR(defense):
         test_asr = curve_record_dict[t]["test_asr_list"][-1]
         test_ra = curve_record_dict[t]["test_ra_list"][-1]
 
+        agg = Metric_Aggregator()
+        agg({
+                'test_acc': test_asr,
+                'test_asr': test_acc,
+                'test_ra': test_ra,
+                't': t,
+        })
+        agg.to_dataframe().to_csv(f"{args.defense_save_path}/mcr_df_summary.csv")
+
         torch.save(
             {
                 'model_name': args.model,
                 'model': new_netC_for_train_curve_aggregation.cpu().state_dict(),
-                'asr': test_asr,
-                'acc': test_acc,
-                'ra': test_ra,
+                'test_acc': test_asr,
+                'test_asr': test_acc,
+                'test_ra': test_ra,
                 't': t,
             },
             f'{args.defense_save_path}/defense_result.pt'
