@@ -65,7 +65,7 @@ BackdoorBench has the following features:
 
 ⭐️  **Methods**:
   - 12 Backdoor attack methods: [BadNets](./attack/badnet.py), [Blended](./attack/blended.py), [Blind](./attack/blind.py), [BPP](./attack/bpp.py), [Input-aware](./attack/inputaware.py), [Label Consistent](./attack/lc.py), [Low Frequency](./attack/lf.py), [LIRA](./attack/lira.py), [SIG](./attack/sig.py), [SSBA](./attack/ssba.py), [TrojanNN](./attack/trojannn.py), [WaNet](./attack/wanet.py)
-  - 15 Backdoor defense methods:  [FT](./defense/ft.py), [Spectral](./defense/spectral.py), [AC](./defense/ac.py), [FP](./defense/fp.py), [ABL](./defense/abl.py), [NAD](./defense/nad.py), [NC](nc), [DBD]((./defense/dbd.py)), [ANP](./defense/anp.py),[clp](./defense/clp.py), [d-br](./defense/d-br.py), [d-st](./defense/d-st.py), [dde](./defense/dde.py), [i-bau](./defense/i-bau.py), [mbns](./defense/mbns.py)
+  - 15 Backdoor defense methods:  [FT](./defense/ft.py), [Spectral](./defense/spectral.py), [AC](./defense/ac.py), [FP](./defense/fp.py), [ABL](./defense/abl.py), [NAD](./defense/nad.py), [NC](nc), [DBD]((./defense/dbd.py)), [ANP](./defense/anp.py),[clp](./defense/clp.py), [d-br](./defense/d-br.py), [d-st](./defense/d-st.py), [ep](./defense/ep.py), [i-bau](./defense/i-bau.py), [bnp](./defense/bnp.py)
 
 ⭐️ **Datasets**: CIFAR-10, CIFAR-100, GTSRB, Tiny ImageNet 
 
