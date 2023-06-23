@@ -22,7 +22,7 @@ BackdoorBench is a comprehensive benchmark of backdoor learning, which studies t
 >    
 > ✅ **Methods**: 
 >    1. **Attack** :Add 4 new attack methods: [Blind](./attack/blind.py), [BPP](./attack/bpp.py), [LIRA](./attack/lira.py), [TrojanNN](./attack/trojannn.py). (Totally 12 attack methods now).
->    2. **Defense** :Add 6 new defense methods: [CLP](./defense/clp.py), [D-br](./defense/d-br.py), [D-st](./defense/d-st.py), [DDE](./defense/dde.py), [I-BAU](./defense/i-bau.py), [MBNS](./defense/mbns.py), . (Totally 15 defense methods now).
+>    2. **Defense** :Add 6 new defense methods: [CLP](./defense/clp.py), [D-br](./defense/d-br.py), [D-st](./defense/d-st.py), [EP](./defense/ep.py), [I-BAU](./defense/i-bau.py), [BNP](./defense/bnp.py), . (Totally 15 defense methods now).
 >    
 > ✅ **Analysis Tools** : 
 >    1. **Data Analysis** : Add 2 new methods: [UMAP](./analysis/visual_umap.py), [Image Quality](./analysis/visual_quality.py)
@@ -176,7 +176,7 @@ The detailed descriptions for each attack may be put into the `add_args` functio
 | CLP | [clp.py](./defense/clp.py) | [Data-free backdoor removal based on channel lipschitzness](https://arxiv.org/pdf/2208.03111.pdf) ECCV 2022 |
 | I-BAU | [i-bau.py](./defense/i-bau.py) | [Adversarial unlearning of backdoors via implicit hypergradient](https://arxiv.org/pdf/2110.03735.pdf) ICLR 2022 |
 | D-BR,D-ST | [d-br.py](./defense/d-br.py) [d-st.py](./defense/d-st.py) | [Effective backdoor defense by exploiting sensitivity of poisoned samples](https://proceedings.neurips.cc/paper_files/paper/2022/file/3f9bbf77fbd858e5b6e39d39fe84ed2e-Paper-Conference.pdf) NeurIPS 2022 |
-| DDE,MBNS | [dde.py](./defense/dde.py) [mbns.py](./defense/mbns.py) | [Pre-activation Distributions Expose Backdoor Neurons](https://proceedings.neurips.cc/paper_files/paper/2022/file/76917808731dae9e6d62c2a7a6afb542-Paper-Conference.pdf) NeurIPS 2022 |
+| EP,BNP | [ep.py](./defense/ep.py) [bnp.py](./defense/bnp.py) | [Pre-activation Distributions Expose Backdoor Neurons](https://proceedings.neurips.cc/paper_files/paper/2022/file/76917808731dae9e6d62c2a7a6afb542-Paper-Conference.pdf) NeurIPS 2022 |
 
 
 

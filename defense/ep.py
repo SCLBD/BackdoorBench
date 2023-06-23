@@ -1,7 +1,7 @@
 '''
 This file is modified based on the following source:
 link : https://github.com/RJ-T/NIPS2022_EP_BNP.
-The defense method is called mbns or bnp.
+The defense method is called ep.
 
 The update include:
     1. data preprocess and dataset setting
@@ -14,7 +14,7 @@ The update include:
 basic sturcture for defense method:
     1. basic setting: args
     2. attack result(model, train data, test data)
-    3. dde defense:
+    3. ep defense:
         a. calculate the entropy of each norm layer
         b. prune the model depend on the mask
     4. test the result and get ASR, ACC, RC 
@@ -27,6 +27,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+
 sys.path.append('../')
 sys.path.append(os.getcwd())
 
@@ -35,16 +36,14 @@ import yaml
 import logging
 import time
 from defense.base import defense
-import utils.defense_utils.mbns.mbns_model as mbns_model
+import utils.defense_utils.dde.dde_model as dde_model
 from utils.aggregate_block.train_settings_generate import argparser_criterion
 from utils.trainer_cls import Metric_Aggregator, PureCleanModelTrainer, general_plot_for_epoch
-from utils.choose_index import choose_index
 from utils.aggregate_block.fix_random import fix_random
 from utils.aggregate_block.model_trainer_generate import generate_cls_model
 from utils.log_assist import get_git_info
 from utils.aggregate_block.dataset_and_transform_generate import get_input_shape, get_num_classes, get_transform
 from utils.save_load_attack import load_attack_result, save_defense_result
-from utils.bd_dataset_v2 import prepro_cls_DatasetBD_v2
 
 def batch_entropy(x, step_size=0.1):
 	n_bars = int((x.max()-x.min())/step_size)
@@ -55,78 +54,69 @@ def batch_entropy(x, step_size=0.1):
 		entropy += - p * p.log().nan_to_num(0)
 	return entropy
 
-def mbns_defense(net, u, trainloader, args):
-	clean_data_loader = trainloader['clean_train']
-	bd_data_loader = trainloader['bd_train']
+
+# This version of ep uses only uses args.batch-size samples in the mixed training dataset for pruning.
+def EP_defense(net, u, mixture_data_loader, args):
 	net.eval()
-	bd_data = iter(bd_data_loader).next()[0].to(args.device)
-	mixture_data = iter(clean_data_loader).next()[0].to(args.device)
+	mixture_data = iter(mixture_data_loader).__next__()[0].to(args.device)
 	params = net.state_dict()
 	for m in net.modules():
 		if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.LayerNorm):
-			m.collect_stats = True
-		if isinstance(m, nn.LayerNorm):
-			m.collect_stats_clean = True
-			m.collect_stats_bd = False
+			m.collect_feats = True
+
 	with torch.no_grad():
 		net(mixture_data)
-	for m in net.modules():
-		if isinstance(m, nn.LayerNorm):
-			m.collect_stats_bd = True
-			m.collect_stats_clean = False
-	with torch.no_grad():
-		net(bd_data)
 		for name, m in net.named_modules():
 			if isinstance(m, nn.BatchNorm2d):
-				var_2 = m.running_var
-				var_1 = m.batch_var
-				mean_2 = m.running_mean
-				mean_1 = m.batch_mean
-				kl_div = (var_2/var_1).log() + (var_1+(mean_1-mean_2).pow(2))/(2*var_2) - 1/2
-				index = (kl_div>kl_div.mean() + u*kl_div.std())
+				feats = m.batch_feats
+				feats = (feats - feats.mean(-1).unsqueeze(-1)) / feats.std(-1).unsqueeze(-1)
+
+				entropy = batch_entropy(feats)
+				index = (entropy<(entropy.mean() - u*entropy.std()))
 
 				params[name+'.weight'][index] = 0
 				params[name+'.bias'][index] = 0
+			# We use layer norm to subsitute batch norm in convnext_model and vit_model
 			elif isinstance(m, nn.LayerNorm):
-				# We use layer norm to subsitute batch norm in convnext_model and vit_model
-				var_2 = m.batch_var_bd
-				var_1 = m.batch_var_clean
-				mean_2 = m.batch_mean_bd
-				mean_1 = m.batch_mean_clean
-				kl_div = (var_2/var_1).log() + (var_1+(mean_1-mean_2).pow(2))/(2*var_2) - 1/2
-				index = (kl_div>kl_div.mean() + u*kl_div.std())
+				feats = m.batch_feats
+				feats = (feats - feats.mean(-1).unsqueeze(-1)) / feats.std(-1).unsqueeze(-1)
+				# variance is zero
+				feats = torch.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=-0.0)
+				entropy = batch_entropy(feats)
+				index = (entropy<(entropy.mean() - u*entropy.std()))
 
 				params[name+'.weight'][index] = 0
 				params[name+'.bias'][index] = 0
 
 	net.load_state_dict(params)
 
-def get_mbns_network(
+
+def get_dde_network(
 	model_name: str,
 	num_classes: int = 10,
 	**kwargs,
 ):
 	if model_name == 'preactresnet18':
-		net = mbns_model.preact_mbns.PreActResNet18(num_classes = num_classes, **kwargs)
+		net = dde_model.preact_dde.PreActResNet18(num_classes = num_classes, **kwargs)
 	elif model_name == 'vgg19_bn':
-		net = mbns_model.vgg_mbns.vgg19_bn(num_classes = num_classes,  **kwargs)
+		net = dde_model.vgg_dde.vgg19_bn(num_classes = num_classes,  **kwargs)
 	elif model_name == 'densenet161':
-		net = mbns_model.den_mbns.densenet161(num_classes= num_classes, **kwargs)
+		net = dde_model.den_dde.densenet161(num_classes= num_classes, **kwargs)
 	elif model_name == 'mobilenet_v3_large':
-		net = mbns_model.mobilenet_mbns.mobilenet_v3_large(num_classes= num_classes, **kwargs)
+		net = dde_model.mobilenet_dde.mobilenet_v3_large(num_classes= num_classes, **kwargs)
 	elif model_name == 'efficientnet_b3':
-		net = mbns_model.eff_mbns.efficientnet_b3(num_classes= num_classes, **kwargs)
+		net = dde_model.eff_dde.efficientnet_b3(num_classes= num_classes, **kwargs)
 	elif model_name == 'convnext_tiny':
 		try :
-			net = mbns_model.conv_mbns.convnext_tiny(num_classes= num_classes, 
+			net = dde_model.conv_dde.convnext_tiny(num_classes= num_classes, 
 			)
-		except :
-			net = mbns_model.conv_new_mbns.convnext_tiny(num_classes= num_classes, 
+		except:
+			net = dde_model.conv_new_dde.convnext_tiny(num_classes= num_classes,
 			)
 	elif model_name == 'vit_b_16':
 		try :
 			from torchvision.transforms import Resize
-			net = mbns_model.vit_mbns.vit_b_16(
+			net = dde_model.vit_dde.vit_b_16(
 					pretrained = True,
 				)
 			net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
@@ -136,7 +126,7 @@ def get_mbns_network(
 				)
 		except :
 			from torchvision.transforms import Resize
-			net = mbns_model.vit_new_mbns.vit_b_16(
+			net = dde_model.vit_new_dde.vit_b_16(
 					pretrained = True,
 				)
 			net.heads.head = torch.nn.Linear(net.heads.head.in_features, out_features = num_classes, bias=True)
@@ -150,7 +140,7 @@ def get_mbns_network(
 	return net
 
 
-class mbns(defense):
+class ep(defense):
 
 	def __init__(self,args):
 		with open(args.yaml_path, 'r') as f:
@@ -166,6 +156,7 @@ class mbns(defense):
 		args.input_height, args.input_width, args.input_channel = get_input_shape(args.dataset)
 		args.img_size = (args.input_height, args.input_width, args.input_channel)
 		args.dataset_path = f"{args.dataset_path}/{args.dataset}"
+
 		self.args = args
 
 		if 'result_file' in args.__dict__ :
@@ -203,20 +194,18 @@ class mbns(defense):
 						help=' frequency_save, 0 is never')
 
 		parser.add_argument('--random_seed', type=int, help='random seed')
-		parser.add_argument('--yaml_path', type=str, default="./config/defense/mbns/config.yaml", help='the path of yaml')
+		parser.add_argument('--yaml_path', type=str, default="./config/defense/ep/config.yaml", help='the path of yaml')
 
-		#set the parameter for the mbns defense
-		parser.add_argument('--u', type=float, help='u in the mbns defense')
+		#set the parameter for the ep defense
+		parser.add_argument('--u', type=float, help='u in the ep defense')
 		parser.add_argument('--u_min', type=float, help='the default minimum value of u')
 		parser.add_argument('--u_max', type=float, help='the default maximum value of u')
 		parser.add_argument('--u_num', type=float, help='the default number of u')
-		parser.add_argument('--ratio', type=float, help='the ratio of clean data loader')
-		parser.add_argument('--index', type=str, help='index of clean data')
 
 
 	def set_result(self, result_file):
 		attack_file = 'record/' + result_file
-		save_path = 'record/' + result_file + '/defense/mbns/'
+		save_path = 'record/' + result_file + '/defense/ep/'
 		if not (os.path.exists(save_path)):
 			os.makedirs(save_path)
 		# assert(os.path.exists(save_path))    
@@ -230,7 +219,6 @@ class mbns(defense):
 			if not (os.path.exists(self.args.log)):
 				os.makedirs(self.args.log)  
 		self.result = load_attack_result(attack_file + '/attack_result.pt')
-
 	def set_trainer(self, model):
 		self.trainer = PureCleanModelTrainer(
 			model,
@@ -267,14 +255,15 @@ class mbns(defense):
 		# 		# since DataParallel only allow .to("cuda")
 		# 	) if torch.cuda.is_available() else "cpu"
 		# )
-		self.device =self.args.device
+		self.device = self.args.device
 	def mitigation(self):
 		self.set_devices()
 		fix_random(self.args.random_seed)
 
 		# Prepare model, optimizer, scheduler
 		
-		net = get_mbns_network(self.args.model,self.args.num_classes,norm_layer=mbns_model.BatchNorm2d_MBNS)
+		net = get_dde_network(self.args.model,self.args.num_classes,norm_layer=dde_model.BatchNorm2d_DDE)
+		# net = generate_cls_model(self.args.model,self.args.num_classes)
 		net.load_state_dict(self.result['model'])
 		if "," in self.device:
 			net = torch.nn.DataParallel(
@@ -289,8 +278,6 @@ class mbns(defense):
 		
 		criterion = argparser_criterion(args)
 
-		trainloader_all = {}
-
 		train_tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = True)
 		train_dataset = self.result['bd_train'].wrapped_dataset
 		data_set_without_tran = train_dataset
@@ -298,24 +285,7 @@ class mbns(defense):
 		data_set_o.wrapped_dataset = data_set_without_tran
 		data_set_o.wrap_img_transform = train_tran
 		data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=self.args.batch_size, num_workers=self.args.num_workers, shuffle=True, pin_memory=args.pin_memory)
-		trainloader_backdoor = data_loader
-		trainloader_all['bd_train'] = trainloader_backdoor
-
-		train_tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = True)
-		clean_dataset = prepro_cls_DatasetBD_v2(self.result['clean_train'].wrapped_dataset)
-		data_all_length = len(clean_dataset)
-		ran_idx = choose_index(self.args, data_all_length) 
-		log_index = self.args.log + 'index.txt'
-		np.savetxt(log_index, ran_idx, fmt='%d')
-		clean_dataset.subset(ran_idx)
-		data_set_without_tran = clean_dataset
-		data_set_o = self.result['clean_train']
-		data_set_o.wrapped_dataset = data_set_without_tran
-		data_set_o.wrap_img_transform = train_tran
-
-		data_loader = torch.utils.data.DataLoader(data_set_o, batch_size=self.args.batch_size, num_workers=self.args.num_workers, shuffle=True, pin_memory=args.pin_memory)
-		trainloader_clean = data_loader
-		trainloader_all['clean_train'] = trainloader_clean
+		trainloader = data_loader
 
 
 		test_tran = get_transform(self.args.dataset, *([self.args.input_height,self.args.input_width]) , train = False)
@@ -327,7 +297,7 @@ class mbns(defense):
 		data_clean_testset.wrap_img_transform = test_tran
 		data_clean_loader = torch.utils.data.DataLoader(data_clean_testset, batch_size=self.args.batch_size, num_workers=self.args.num_workers,drop_last=False,pin_memory=args.pin_memory)
 
-		
+
 		default_u = np.linspace(self.args.u_min, self.args.u_max, self.args.u_num)
 		
 		agg_all = Metric_Aggregator()
@@ -339,7 +309,7 @@ class mbns(defense):
 		for u in default_u:
 			model_copy = copy.deepcopy(net)
 			model_copy.eval()
-			mbns_defense(model_copy, self.args.u, trainloader_all, args)
+			EP_defense(model_copy, u, trainloader, args)
 			# model.eval()
 			model_copy.eval()
 			test_dataloader_dict = {}
@@ -360,7 +330,7 @@ class mbns(defense):
 
 				frequency_save = self.args.frequency_save,
 				save_folder_path = self.args.save_path,
-				save_prefix = 'mbns',
+				save_prefix = 'ep',
 
 				prefetch = self.args.prefetch,
 				prefetch_transform_attr_name = "ori_image_transform_in_loading",
@@ -419,8 +389,9 @@ class mbns(defense):
 
 			agg_all.to_dataframe().to_csv(f"{args.save_path}u_step_df.csv")
 
+
 		agg = Metric_Aggregator()
-		mbns_defense(net, self.args.u, trainloader_all, args)
+		EP_defense(net, self.args.u, trainloader, args)
 
 		test_dataloader_dict = {}
 		test_dataloader_dict["clean_test_dataloader"] = data_clean_loader
@@ -431,7 +402,7 @@ class mbns(defense):
 		self.set_trainer(model)
 
 		self.trainer.set_with_dataloader(
-			train_dataloader = trainloader_backdoor,
+			train_dataloader = trainloader,
 			test_dataloader_dict = test_dataloader_dict,
 
 			criterion = criterion,
@@ -442,12 +413,14 @@ class mbns(defense):
 
 			frequency_save = self.args.frequency_save,
 			save_folder_path = self.args.save_path,
-			save_prefix = 'mbns',
+			save_prefix = 'ep',
 
 			prefetch = self.args.prefetch,
 			prefetch_transform_attr_name = "ori_image_transform_in_loading",
 			non_blocking = self.args.non_blocking,
 
+			# continue_training_path = continue_training_path,
+			# only_load_model = only_load_model,
 		)
 
 		clean_test_loss_avg_over_batch, \
@@ -465,7 +438,7 @@ class mbns(defense):
 				"test_asr": test_asr,
 				"test_ra": test_ra,
 			})
-		agg.to_dataframe().to_csv(f"{args.save_path}mbns_df_summary.csv")
+		agg.to_dataframe().to_csv(f"{args.save_path}ep_df_summary.csv")
 
 		result = {}
 		result['model'] = model
@@ -485,9 +458,9 @@ class mbns(defense):
 	
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=sys.argv[0])
-	mbns.add_arguments(parser)
+	ep.add_arguments(parser)
 	args = parser.parse_args()
-	method = mbns(args)
+	method = ep(args)
 	if "result_file" not in args.__dict__:
 		args.result_file = 'defense_test_badnet'
 	elif args.result_file is None:
