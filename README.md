@@ -22,7 +22,7 @@ BackdoorBench is a comprehensive benchmark of backdoor learning, which studies t
 >    
 > ✅ **Methods**: 
 >    1. **Attack** :Add 4 new attack methods: [Blind](./attack/blind.py), [BPP](./attack/bpp.py), [LIRA](./attack/lira.py), [TrojanNN](./attack/trojannn.py). (Totally 12 attack methods now).
->    2. **Defense** :Add 6 new defense methods: [CLP](./defense/clp.py), [D-br](./defense/d-br.py), [D-st](./defense/d-st.py), [EP](./defense/ep.py), [I-BAU](./defense/i-bau.py), [BNP](./defense/bnp.py), . (Totally 15 defense methods now).
+>    2. **Defense** :Add 6 new defense methods: [CLP](./defense/clp.py), [D-BR](./defense/d-br.py), [D-ST](./defense/d-st.py), [EP](./defense/ep.py), [I-BAU](./defense/i-bau.py), [BNP](./defense/bnp.py). (Totally 15 defense methods now).
 >    
 > ✅ **Analysis Tools** : 
 >    1. **Data Analysis** : Add 2 new methods: [UMAP](./analysis/visual_umap.py), [Image Quality](./analysis/visual_quality.py)
@@ -65,7 +65,7 @@ BackdoorBench has the following features:
 
 ⭐️  **Methods**:
   - 12 Backdoor attack methods: [BadNets](./attack/badnet.py), [Blended](./attack/blended.py), [Blind](./attack/blind.py), [BPP](./attack/bpp.py), [Input-aware](./attack/inputaware.py), [Label Consistent](./attack/lc.py), [Low Frequency](./attack/lf.py), [LIRA](./attack/lira.py), [SIG](./attack/sig.py), [SSBA](./attack/ssba.py), [TrojanNN](./attack/trojannn.py), [WaNet](./attack/wanet.py)
-  - 15 Backdoor defense methods:  [FT](./defense/ft.py), [Spectral](./defense/spectral.py), [AC](./defense/ac.py), [FP](./defense/fp.py), [ABL](./defense/abl.py), [NAD](./defense/nad.py), [NC](nc), [DBD]((./defense/dbd.py)), [ANP](./defense/anp.py),[clp](./defense/clp.py), [d-br](./defense/d-br.py), [d-st](./defense/d-st.py), [ep](./defense/ep.py), [i-bau](./defense/i-bau.py), [bnp](./defense/bnp.py)
+  - 15 Backdoor defense methods:  [FT](./defense/ft.py), [Spectral](./defense/spectral.py), [AC](./defense/ac.py), [FP](./defense/fp.py), [ABL](./defense/abl.py), [NAD](./defense/nad.py), [NC](nc), [DBD]((./defense/dbd.py)), [ANP](./defense/anp.py),[CLP](./defense/clp.py), [D-BR](./defense/d-br.py), [D-ST](./defense/d-st.py), [EP](./defense/ep.py), [I-BAU](./defense/i-bau.py), [BNP](./defense/bnp.py)
 
 ⭐️ **Datasets**: CIFAR-10, CIFAR-100, GTSRB, Tiny ImageNet 
 
@@ -268,6 +268,16 @@ If interested, you can read our recent works about backdoor learning, and more w
   author={Wu, Baoyuan and Liu, Li and Zhu, Zihao and Liu, Qingshan and He, Zhaofeng and Lyu, Siwei},
   journal={arXiv preprint arXiv:2302.09457},
   year={2023}
+}
+
+@article{cheng2023tat,
+  title={TAT: Targeted backdoor attacks against visual object tracking},
+  author={Cheng, Ziyi and Wu, Baoyuan and Zhang, Zhenya and Zhao, Jianjun},
+  journal={Pattern Recognition},
+  volume={142},
+  pages={109629},
+  year={2023},
+  publisher={Elsevier}
 }
 
 @inproceedings{sensitivity-backdoor-defense-nips2022,
