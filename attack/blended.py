@@ -23,7 +23,7 @@ class Blended(BadNet):
 
     def set_bd_args(cls, parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         parser = add_common_attack_args(parser)
-        parser.add_argument("--attack_trigger_img_path", type=int, )
+        parser.add_argument("--attack_trigger_img_path", type=str, )
         parser.add_argument("--attack_train_blended_alpha", type=float, )
         parser.add_argument("--attack_test_blended_alpha", type=float, )
         parser.add_argument('--bd_yaml_path', type=str, default='../config/attack/blended/default.yaml',
