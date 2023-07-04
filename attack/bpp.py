@@ -750,6 +750,13 @@ class Bpp(BadNet):
                     total_inputs = torch.cat([inputs_bd, inputs_negative, inputs[(num_bd + num_neg):]], dim=0)
                     total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
+                    input_changed = torch.cat([inputs_bd, inputs_negative, ], dim=0).detach().clone().cpu()
+                    input_changed = denormalizer(  # since we normalized once, we need to denormalize it back.
+                        input_changed
+                    ).detach().clone().cpu()
+                    target_changed = torch.cat([targets_bd, targets[num_bd: (num_bd + num_neg)], ],
+                                            dim=0).detach().clone().cpu()
+
                 elif (num_bd > 0 and num_neg == 0):
                     inputs_bd = back_to_np_4d(inputs[:num_bd], args)
                     if args.dithering:
@@ -770,16 +777,46 @@ class Bpp(BadNet):
                     total_inputs = torch.cat([inputs_bd, inputs[num_bd:]], dim=0)
                     total_targets = torch.cat([targets_bd, targets[num_bd:]], dim=0)
 
-                elif (num_bd == 0):
+                    input_changed = inputs_bd.detach().clone().cpu()
+                    input_changed = denormalizer(  # since we normalized once, we need to denormalize it back.
+                        input_changed
+                    ).detach().clone().cpu()
+                    target_changed = targets_bd.detach().clone().cpu()
+                    
+
+                elif (num_bd == 0 and num_neg > 0):
+                    train_dataset_num = len(clean_train_dataloader.dataset)
+                    if args.dataset == "celeba":
+                        index_list = list(np.arange(train_dataset_num))
+                        residual_index = random.sample(index_list, bs)
+                    else:
+                        index_list = list(np.arange(train_dataset_num * 5))
+                        residual_index = random.sample(index_list, bs)
+                        residual_index = [x % train_dataset_num for x in random.sample(list(index_list), bs)]
+
+                    inputs_negative = torch.zeros_like(inputs[num_bd: (num_bd + num_neg)])
+                    inputs_d = torch.round(back_to_np_4d(inputs, args))
+                    for i in range(num_neg):
+                        inputs_negative[i] = inputs_d[num_bd + i] + (
+                                    to_tensor(self.bd_train_dataset[residual_index[i]][0]) * 255).to(self.device).to(
+                            self.device) - (to_tensor(self.clean_train_dataset[residual_index[i]][0]) * 255).to(self.device)
+
+                    inputs_negative = torch.clamp(inputs_negative, 0, 255)
+                    inputs_negative = np_4d_to_tensor(inputs_negative, args)
+
                     total_inputs = inputs
                     total_targets = targets
 
-                input_changed = torch.cat([inputs_bd, inputs_negative, ], dim=0).detach().clone().cpu()
-                input_changed = denormalizer(  # since we normalized once, we need to denormalize it back.
-                    input_changed
-                ).detach().clone().cpu()
-                target_changed = torch.cat([targets_bd, targets[num_bd: (num_bd + num_neg)], ],
-                                           dim=0).detach().clone().cpu()
+                    input_changed = inputs_negative.detach().clone().cpu()
+                    input_changed = denormalizer(  # since we normalized once, we need to denormalize it back.
+                        input_changed
+                    ).detach().clone().cpu()
+                    target_changed = targets[num_bd: (num_bd + num_neg)].detach().clone().cpu()
+                    
+                else:
+                    continue
+
+                
                 # save container
                 for idx_in_batch, t_img in enumerate(
                         input_changed
