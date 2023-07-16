@@ -5,7 +5,7 @@ This folder contains the visualization and analysis tools developed for Backdoor
 The implemented tools and corresponding scripts are
 * visual_tsne.py
     * **T-SNE**,  the T-SNE of features. Typical output is 
-    ![avatar](analysis/demo_images/demo_tsne.jpg)
+    ![avatar](demo_images/demo_tsne.jpg)
 
 * visual_umap.py
     * **UMAP**,  the UMAP of features. Both UMAP and T-SNE can be used for dimension reduction, i.e., reducing the dimension of given features. But, UMAP is much faster than T-SNE which allows us to use more samples for a more comprehensive view. Typical output is 
