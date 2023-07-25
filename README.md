@@ -12,7 +12,14 @@ BackdoorBench is a comprehensive benchmark of backdoor learning, which studies t
 
 ### ❗Model and Data Updates
 
-We disclose the backdoor model we used and the corresponding backdoor attack image in the link below 
+We disclose the backdoor model we used and the corresponding backdoor attack image in the link below. Each zip file contains the following things: 
+
+- **bd_train_dataset**: train backdoor data
+- **bd_test_dataset**: test backdoor data
+- **attack_result.py**: the backdoor model and the module that reads data
+- **cross_test_dataset**: cross mode data during training(for some special backdoor attack: wanet, inputaware and so on)
+
+If you want to use the backdoor model, you can download the zip file and unzip in your own workspace. Then you can use the function load_attack_result in the file [save_load_attack.py](./utils/save_load_attack.py) to load the backdoor model, the poisoned train data and the poisoned test data.
 
 [Backdoor Model](https://cuhko365-my.sharepoint.com/:f:/g/personal/222042020_link_cuhk_edu_cn/EuqVo48GKrtMka_dPbxTeAcBiTJCpNgA8YFtYHX8XDA17w?e=WSFoXy)
 
