@@ -12,7 +12,9 @@ BackdoorBench is a comprehensive benchmark of backdoor learning, which studies t
 
 ### ❗Model and Data Updates
 
-We disclose the backdoor model we used and the corresponding backdoor attack image in the link below link(https://cuhko365-my.sharepoint.com/:f:/g/personal/222042020_link_cuhk_edu_cn/EuqVo48GKrtMka_dPbxTeAcBiTJCpNgA8YFtYH X8XDA17w?e=WSFoXy)
+We disclose the backdoor model we used and the corresponding backdoor attack image in the link below 
+
+[Backdoor Model](https://cuhko365-my.sharepoint.com/:f:/g/personal/222042020_link_cuhk_edu_cn/EuqVo48GKrtMka_dPbxTeAcBiTJCpNgA8YFtYHX8XDA17w?e=WSFoXy)
 
 ### ❗V2.0 Updates
 > ✅ **Correction**:
