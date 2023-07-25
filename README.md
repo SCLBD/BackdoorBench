@@ -21,7 +21,7 @@ We disclose the backdoor model we used and the corresponding backdoor attack ima
 
 If you want to use the backdoor model, you can download the zip file and unzip in your own workspace. Then you can use the function load_attack_result in the file [save_load_attack.py](./utils/save_load_attack.py) to load the backdoor model, the poisoned train data and the poisoned test data.
 
-[Backdoor Model](https://cuhko365-my.sharepoint.com/:f:/g/personal/222042020_link_cuhk_edu_cn/EuqVo48GKrtMka_dPbxTeAcBiTJCpNgA8YFtYHX8XDA17w?e=WSFoXy)
+[Backdoor Model](https://cuhko365-my.sharepoint.com/:f:/g/personal/backdoorbench_cuhk_edu_cn/EimE1JoHs4ZAivBThQeLkocBs5uPmj20JEtnEIBkJhS0tw?e=gtsc9z)
 
 ### ❗V2.0 Updates
 > ✅ **Correction**:
