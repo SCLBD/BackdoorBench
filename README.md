@@ -10,6 +10,10 @@
 
 BackdoorBench is a comprehensive benchmark of backdoor learning, which studies the adversarial vulnerablity of deep learning models in the training stage. It aims to provide **easy implementations** of mainstream backdoor attack and defense methods.
 
+### ❗Model and Data Updates
+
+We disclose the backdoor model we used and the corresponding backdoor attack image in the link below link(https://cuhko365-my.sharepoint.com/:f:/g/personal/222042020_link_cuhk_edu_cn/EuqVo48GKrtMka_dPbxTeAcBiTJCpNgA8YFtYH X8XDA17w?e=WSFoXy)
+
 ### ❗V2.0 Updates
 > ✅ **Correction**:
 >   1. **Attack** : Fix the bug in [Label Consistent](./attack/lc.py) attack method, in v1.0 version, poisoned data only add adversarial noise without square trigger, which is not consistent with the paper.
