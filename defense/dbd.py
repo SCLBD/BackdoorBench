@@ -458,7 +458,7 @@ if __name__ == '__main__':
     # args.result_file = 'badnet_demo'
     save_path = '/record/' + args.result_file
     if args.checkpoint_save is None:
-        args.checkpoint_save = save_path + '/record/defence/dbd/'
+        args.checkpoint_save = save_path + '/record/defense/dbd/'
         if not (os.path.exists(os.getcwd() + args.checkpoint_save)):
             os.makedirs(os.getcwd() + args.checkpoint_save) 
     if args.log is None:
