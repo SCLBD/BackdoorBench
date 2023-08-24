@@ -185,8 +185,10 @@ def nab(args,result):
     logger = logging.getLogger()
     if args.log is not None and args.log != '':
         fileHandler = logging.FileHandler(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+        # print(os.getcwd() + args.log + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     else:
         fileHandler = logging.FileHandler(os.getcwd() + './log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
+        # print(os.getcwd() + './log' + '/' + time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()) + '.log')
     fileHandler.setFormatter(logFormatter)
     logger.addHandler(fileHandler)
 
@@ -217,7 +219,7 @@ def nab(args,result):
         print('CUDA_VISIBLE_DEVICES is not set. Set GPU=1 now.')
         gpu = 0
  
-    logging.info("===Prepare data===")
+    logging.info("===Self-Supervise Learning Phase===")
 
     # Step 1: Train the self-supervised learning model
     information = get_information(args,result,config_ori)
@@ -230,7 +232,7 @@ def nab(args,result):
     resumed_epoch = information['resumed_epoch']
 
     if os.path.exists(os.getcwd() + args.checkpoint_save + "/self_latest_model.pt"):
-        logger.info("Load the latest model from {}".format(os.getcwd() + args.checkpoint_save + "/self_latest_model.pt"))
+        logging.info("Load the latest model from {}".format(os.getcwd() + args.checkpoint_save + "/self_latest_model.pt"))
     else:
         # a.self-supervised learning generates feature extractor
         for epoch in range(args.epoch_self - resumed_epoch):
@@ -241,7 +243,7 @@ def nab(args,result):
 
             if scheduler is not None:
                 scheduler.step()
-                logger.info(
+                logging.info(
                     "Adjust learning rate to {}".format(optimizer.param_groups[0]["lr"])
                 )
 
@@ -259,7 +261,7 @@ def nab(args,result):
 
             ckpt_path = os.path.join(os.getcwd() + args.checkpoint_save, "self_latest_model.pt")
             torch.save(saved_dict, ckpt_path)
-            logger.info("Save the latest model to {}".format(ckpt_path))
+            logging.info("Save the latest model to {}".format(ckpt_path))
         
     if args.dataset == 'cifar10':
         config_file_semi = './utils/defense_utils/dbd/config_z/semi/' + 'badnets/' + args.dataset + '/example.yaml'
@@ -313,13 +315,13 @@ def nab(args,result):
 
    
 
-    logging.info('----------- Data Initialization --------------')
+    logging.info('----------- Poisoned Sample Detection (LGA) Phase --------------')
     acc_cnt = 0
     all_cnt = 0
     loss_log = 0
     criterion = torch.nn.CrossEntropyLoss()
     if os.path.exists(os.getcwd() + args.checkpoint_save + "/ascent_latest_model.pt"):
-        logger.info("Load the latest model from {}".format(os.getcwd() + args.checkpoint_save + "/ascent_latest_model.pt"))
+        logging.info("Load the latest model from {}".format(os.getcwd() + args.checkpoint_save + "/ascent_latest_model.pt"))
     else:
         for epoch in range(args.epoch_lga):
             model_ascent.train()
@@ -380,7 +382,7 @@ def nab(args,result):
 
         attacked_ratio = backdoor[select_isolation].sum() / num_iso
         print("Malign, Ratio {:.2f}, isolated {} among {} samples, with acc: {:.2f}%".format(ratio, num_iso, len(idx), attacked_ratio * 100))
-        logger.info("Malign, Ratio {:.2f}, isolated {} among {} samples, with acc: {:.2f}%".format(ratio, num_iso, len(idx), attacked_ratio * 100))
+        logging.info("Malign, Ratio {:.2f}, isolated {} among {} samples, with acc: {:.2f}%".format(ratio, num_iso, len(idx), attacked_ratio * 100))
         torch.save(isolated,os.getcwd() + args.checkpoint_save + f"/{args.dataset}_{ratio}_lga")
         
     # Step 3: Relabel
@@ -447,9 +449,9 @@ def nab(args,result):
     print("Relabel correct: {:.2f}%, Detect correct: {:.2f}%".format(relabel_correct / total_detect * 100, detect_correct / total_detect * 100))
     print("Relabel correct clean: {:.2f}%, Relabel correct bd: {:.2f}%".format(relabel_correct_clean / relabel_correct_clean * 100, relabel_correct_bd / total_bd * 100))
     print('Total detect: ', total_detect)
-    logger.info("Relabel correct: {:.2f}%, Detect correct: {:.2f}%".format(relabel_correct / total_detect * 100, detect_correct / total_detect * 100))
-    logger.info("Relabel correct clean: {:.2f}%, Relabel correct bd: {:.2f}%".format(relabel_correct_clean / relabel_correct_clean * 100, relabel_correct_bd / total_bd * 100))
-    logger.info(f'Total detect: {total_detect}')
+    logging.info("Relabel correct: {:.2f}%, Detect correct: {:.2f}%".format(relabel_correct / total_detect * 100, detect_correct / total_detect * 100))
+    logging.info("Relabel correct clean: {:.2f}%, Relabel correct bd: {:.2f}%".format(relabel_correct_clean / relabel_correct_clean * 100, relabel_correct_bd / total_bd * 100))
+    logging.info(f'Total detect: {total_detect}')
 
     def inject(x):
         x_new = x.clone()
@@ -463,6 +465,8 @@ def nab(args,result):
             return x
         return transform_new
     # Step 4: Retrain
+
+    logging.info('----------- Poisoned Sample Detection (LGA) Phase --------------')
 
     result["bd_train"].wrap_img_transform = get_transform(args.dataset, *([args.input_height,args.input_width]) , train = True)
 
@@ -552,7 +556,7 @@ def nab(args,result):
                 "Test ASR": test_asr_list,
                 "Test RA": test_ra_list,
             },
-            save_path=os.getcwd()+  f"{args.checkpoint_save}sau_acc_like_metric_plots.png",
+            save_path=os.getcwd()+  f"{args.checkpoint_save}nab_acc_like_metric_plots.png",
             ylabel="percentage",
         )
 
@@ -562,13 +566,13 @@ def nab(args,result):
                 "Test Backdoor Loss": bd_test_loss_list,
                 "Test RA Loss": ra_test_loss_list,
             },
-            save_path=os.getcwd()+f"{args.checkpoint_save}sau_loss_metric_plots.png",
+            save_path=os.getcwd()+f"{args.checkpoint_save}nab_loss_metric_plots.png",
             ylabel="percentage",
         )
 
-        agg.to_dataframe().to_csv(os.getcwd()+f"{args.checkpoint_save}sau_df.csv")
+        agg.to_dataframe().to_csv(os.getcwd()+f"{args.checkpoint_save}nab_df.csv")
 
-    agg.summary().to_csv(os.getcwd()+f"{args.checkpoint_save}sau_df_summary.csv")
+    agg.summary().to_csv(os.getcwd()+f"{args.checkpoint_save}nab_df_summary.csv")
     
     result = {}
     result['model'] = model
@@ -645,9 +649,12 @@ if __name__ == '__main__':
         if not (os.path.exists(os.getcwd() + args.checkpoint_save)):
             os.makedirs(os.getcwd() + args.checkpoint_save) 
     if args.log is None:
-        args.log = save_path + '/saved/nab/'
+        args.log = args.checkpoint_save + 'log/'
         if not (os.path.exists(os.getcwd() + args.log)):
-            os.makedirs(os.getcwd() + args.log) 
+            os.makedirs(os.getcwd() + args.log)  
+        # args.log = save_path + '/saved/nab/'
+        # if not (os.path.exists(os.getcwd() + args.log)):
+        #     os.makedirs(os.getcwd() + args.log) 
     args.save_path = save_path
     
     ### 2. attack result(model, train data, test data)
