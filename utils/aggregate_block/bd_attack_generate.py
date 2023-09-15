@@ -157,9 +157,9 @@ def bd_attack_img_trans_generate(args):
         test_bd_transform = general_compose([
             (transforms.Resize(args.img_size[:2]), False),
             (np.array, False),
-            (SSBA_attack_replace_version(
-                replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
-            ), True),
+            # (SSBA_attack_replace_version(
+            #     replace_images=np.load(args.attack_test_replace_imgs_path)  # '../data/cifar10_SSBA/test.npy'
+            # ), True),
             (add_trigger_func, False),
             (npClipAndToUint8,False),
         ])
