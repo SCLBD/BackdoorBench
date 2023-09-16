@@ -17,13 +17,15 @@ class labelConsistentAttack(object):
     For adversarial attack to origianl images part before adding trigger, plz refer to resource/label-consistent folder for more details.
     '''
 
-    def __init__(self, trigger = "bottom-right", reduced_amplitude=1.0):
+    def __init__(self, trigger = "all-corners", reduced_amplitude=1.0):
 
         assert 0 <= reduced_amplitude <= 1, "reduced_amplitude is in [0,1] !"
         logging.warning("Original code only give trigger in 32 * 32. For other image size, we do resize to the mask with InterpolationMode.NEAREST. \nIf you do not agree with our implememntation, you can rewrite utils/bd_img_transform/lc.py in your own way.")
         logging.info(f"For Label-consistent attack, reduced_amplitude (transparency) = {reduced_amplitude}, 0 means no square trigger, 1 means no reduction.")
         if reduced_amplitude == 0:
             logging.warning("!!! reduced_amplitude = 0, note that this mean NO square trigger is added after adversarial attack to origianl image!!!")
+
+        logging.warning(f"You are using pattern: {trigger} for labelConsistentAttack")
 
         self.trigger_mask = [] # For overriding pixel values
         self.trigger_add_mask = [] # For adding or subtracting to pixel values
@@ -144,14 +146,20 @@ class labelConsistentAttack(object):
 
         image_new = np.clip(image_new, 0, max_allowed_pixel_value)
 
+        # debug block
+        # print("min image", (image).min())
+        # print("max image", (image).max())
+        # print("min image_new", (image_new).min())
+        # print("max image_new", (image_new).max())
+        # print("image_new - image", image_new - image)
+        # print("sum image_new - image", image_new - image)
+
         return image_new
 
 if __name__ == '__main__':
-
     # test
     for trigger in ["bottom-right","all-corners"]:
         for reduced_amplitude in [0,1,0.5,1]:
-
             a = labelConsistentAttack(trigger, reduced_amplitude)
             a.poison_from_indices(np.zeros((32,32,3)))
             a.poison_from_indices(np.zeros((64, 32, 3)))
