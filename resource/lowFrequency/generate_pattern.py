@@ -265,11 +265,11 @@ def main():
     )
     logging.info(f"max_iter_uni={max_iter_uni}")
 
-    np.save(f'{save_path_prefix}_{iter}.npy', v)
-
     v_lossy_image = np.clip(deepcopy(v) * 255 + 255 / 2, 0, 255).squeeze()  # since v is [0,1]
+    np.save(f'{save_path_prefix}.npy', v_lossy_image.astype(np.uint8))
+    Image.fromarray(v_lossy_image.astype(np.uint8)).save(f'{save_path_prefix}_lossy.jpg')
 
-    Image.fromarray(v_lossy_image.astype(np.uint8)).save(f'{save_path_prefix}_{iter}_lossy.jpg')
+    Image.fromarray(v_lossy_image.astype(np.uint8)).save(f'{save_path_prefix}_lossy.jpg')
 
     logging.info('end')
 
