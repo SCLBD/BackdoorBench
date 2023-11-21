@@ -1,0 +1,40 @@
+device: 'cuda'
+amp: True
+pin_memory: True
+non_blocking: True
+prefetch: False
+
+checkpoint_load:
+checkpoint_save:
+log:
+dataset_path: './data'
+dataset: 'cifar100'
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+lr_scheduler: CosineAnnealingLR
+model: 'preactresnet18'
+
+client_optimizer: 'sgd'
+sgd_momentum: 0.9 
+wd: 5.0e-4
+frequency_save: 100
+print_freq: 1
+random_seed: 0
+
+ratio: 0.05
+index: 
+
+model_name: convbn
+inner_steps: 2
+lmd1: 1.0
+lmd2: 0.4
+lmd3: 0.4
+lmd4: 0.4
+target_layer_name: layer4.1.conv1
+norm_type: L2 
+warm_epochs: 5
+
+# !!!! haven't tuning the hyperparameters on cifar100
