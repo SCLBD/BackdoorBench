@@ -328,7 +328,6 @@ class d_br(defense):
             args.epochs = 10
         elif step == 'unlearn_relearn':
             args.epochs = 20
-            args.batch_size = 128
             args.lr = 0.0001
         if args.debug:
             args.epochs = 1
