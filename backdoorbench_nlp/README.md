@@ -72,8 +72,8 @@ If you want to change the defense methods and the setting for defense, you shoul
 
 |              | File name                                                    | Paper                                                        |
 | :----------: | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| HiddenKiller | [generate_by_openattack.py](./attack/HiddenKiller/generate_by_openattack.py), [generate_poison_train_data.py](./attack/HiddenKiller/generate_poison_train_data.py), [attack_hiddenkiller.py](./attack/HiddenKiller/attack_hiddenkiller.py) | [Hidden Killer: Invisible Textual Backdoor Attacks with Syntactic Trigger](https://arxiv.org/pdf/2105.12400.pdf) ACL 2021 |
-|     LWS      | [attack_lws.py](./attack/LWS/attack_lws.py)                  | [Turn the Combination Lock: Learnable Textual Backdoor Attacks via Word Substitution](https://arxiv.org/pdf/2106.06361.pdf)  ACL 2021 |
+| HiddenKiller | [generate_by_openattack.py](./attack/hiddenkiller/generate_by_openattack.py), [generate_poison_train_data.py](./attack/hiddenkiller/generate_poison_train_data.py), [attack_hiddenkiller.py](./attack/hiddenkiller/attack_hiddenkiller.py) | [Hidden Killer: Invisible Textual Backdoor Attacks with Syntactic Trigger](https://arxiv.org/pdf/2105.12400.pdf) ACL 2021 |
+|     LWS      | [attack_lws.py](./attack/lws/attack_lws.py)                  | [Turn the Combination Lock: Learnable Textual Backdoor Attacks via Word Substitution](https://arxiv.org/pdf/2106.06361.pdf)  ACL 2021 |
 |              |                                                              |                                                              |
 
 ### [Supported defenses](#supported-defsense) 
