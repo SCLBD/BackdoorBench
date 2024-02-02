@@ -15,7 +15,7 @@ epochs: 2
 batch_size: 128
 num_workers: 4
 lr: 0.01
-lr_scheduler: ReduceLROnPlateau
+lr_scheduler: CosineAnnealingLR
 pin_memory: True
 prefetch: False
 client_optimizer: sgd
