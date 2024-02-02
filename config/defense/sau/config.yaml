@@ -1,0 +1,49 @@
+device: 'cuda'
+amp: True
+pin_memory: True
+non_blocking: True
+prefetch: False
+
+checkpoint_load:
+checkpoint_save:
+log:
+dataset_path: './data'
+dataset: 'cifar10'
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+model: 'preactresnet18'
+
+
+# optimizer
+lr: 0.0001
+lr_scheduler: CosineAnnealingLR
+client_optimizer: 'adam'
+sgd_momentum: 0.9 
+wd: 0
+adam_betas: [0.9, 0.999]
+frequency_save: 0
+
+random_seed: 0
+
+# defense
+ratio: 0.05
+index: 
+n_rounds: 100
+
+## ADV Parameters
+norm_type: L_inf 
+trigger_norm: 0.2 
+adv_lr: 0.2
+pgd_init: max
+adv_steps: 5
+
+beta_1: 0.01
+beta_2: 1
+
+## Unlearning Parameters
+lmd_1: 1
+lmd_2: 0.0
+lmd_3: 1
+outer_steps: 1
