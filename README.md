@@ -133,7 +133,7 @@ After attack you will get a folder with all files saved in `./record/<folder nam
 If you want to change the args, you can both specify them in command line and in corresponding YAML config file (eg. [default.yaml](./config/attack/badnet/default.yaml)).(They are the defaults we used if no args are specified in command line.)
 The detailed descriptions for each attack may be put into the `add_args` function in each script.
 
-Note that for some attacks, they may need pretrained models to generate backdoored data. For your ease, we provide various data/trigger/models we generated in google drive. You can download them at [here](https://drive.google.com/drive/folders/1lnCObVBIUTSlLWIBQtfs_zi7W8yuvR-2?usp=share_link)
+Note that for some attacks, they may need pretrained models to generate backdoored data. For your ease, we provide various data/trigger/models we generated in google drive. You can download them at [here](https://drive.google.com/drive/folders/1lnCObVBIUTSlLWIBQtfs_zi7W8yuvR-2?usp=share_link) (including **clean_model** files, **ssba,lf,lc generated triggers/samples** for you convenience.)
 
 
 
