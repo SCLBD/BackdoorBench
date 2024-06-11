@@ -4,7 +4,7 @@
 
 <p align="center">
 <br>
-  <a href="http://backdoorbench.com" target="_blank"> Website </a >  •  <a href="https://openreview.net/pdf?id=31_U7n18gM7"> Paper </a > •  <a href="http://backdoorbench.com/leader_cifar10"> Leaderboard </a > <br>
+  <a href="http://backdoorbench.com" target="_blank"> Website </a >  •  <a href="https://openreview.net/pdf?id=31_U7n18gM7"> Paper </a > • <a href="http://backdoorbench.com/doc/index"> Doc </a > • <a href="http://backdoorbench.com/leader_cifar10"> Leaderboard </a > <br>
 <br>
 </p >
 
@@ -98,7 +98,7 @@ The implementations of more backdoor methods, as well as their evaluations are o
 
 <a href="#top">[Back to top]</a>
 
-You can run the following script to configurate necessary environment
+You can run the following script to configure the necessary environment.
 
 ```
 git clone git@github.com:SCLBD/BackdoorBench.git
@@ -108,6 +108,14 @@ conda activate backdoorbench
 sh ./sh/install.sh
 sh ./sh/init_folders.sh
 ```
+
+You can also download backdoorbench by pip.
+
+```
+pip install -i https://test.pypi.org/simple/ backdoorbench
+```
+
+The pip version of backdoorbench can be viewed at this [link](https://github.com/SCLBD/bdzoo2-pip)
 
 ## Quick Start
 
