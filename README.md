@@ -87,7 +87,7 @@ BackdoorBench has the following features:
 ⭐️ **Models**: PreAct-Resnet18, VGG19_bn, ConvNeXT_tiny, ViT_B_16, VGG19, DenseNet-161, MobileNetV3-Large, EfficientNet-B3
 
 
-⭐️ **Learboard**: We provide a [**public leaderboard**](http://backdoorbench.com/leader_cifar10) of evaluating all backdoor attacks against all defense methods.
+⭐️ **Leaderboard**: We provide a [**public leaderboard**](http://backdoorbench.com/leader_cifar10) of evaluating all backdoor attacks against all defense methods.
 
 BackdoorBench will be continuously updated to track the lastest advances of backddor learning.
 The implementations of more backdoor methods, as well as their evaluations are on the way. **You are welcome to contribute your backdoor methods to BackdoorBench.**
