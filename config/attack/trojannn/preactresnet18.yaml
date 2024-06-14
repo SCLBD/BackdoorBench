@@ -1,0 +1,11 @@
+selected_layer_name: linear
+selected_layer_param_name: linear.weight
+num_neuron: 2
+mask_path: ./resource/trojannn/apple4.png
+neuron_target_values: 100
+mask_update_iters: 1000
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.1
+attack: trojannn
+model: preactresnet18

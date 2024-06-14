@@ -1,0 +1,19 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'cifar10'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+batch_size: 256
+num_workers: 4
+
+
+model: 'preactresnet18'
+seed: 0
+index: 

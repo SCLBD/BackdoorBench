@@ -1,0 +1,21 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save:
+log:
+data_root: 'data/'
+
+dataset: 'tiny'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+batch_size: 64
+num_workers: 4
+
+
+model: 'preactresnet18'
+seed: 0
+index: 
+
+

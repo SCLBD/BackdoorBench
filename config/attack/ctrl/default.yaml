@@ -1,0 +1,14 @@
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.05
+attack: ctrl
+use_dct: False
+use_yuv: True
+trigger_channels:
+  - 1
+  - 2
+pos_list:
+  - 15
+  - 31
+use_clean_label: True
+#dirty_label_target_poison: True

@@ -1,0 +1,44 @@
+num_bends: 3
+test_t: 0.1
+
+device: 'cuda'
+dataset_path: 'data/'
+index:
+dataset: 'cifar10'
+
+train_curve_epochs: 100
+test_curve_every: 1
+
+batch_size: 128
+num_workers: 4
+lr: 0.00003
+lr_scheduler: CosineAnnealingLR
+random_seed: 0
+cos_t_max: 100
+use_clean_subset: True
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+
+model: 'preactresnet18'
+
+ratio: 0.05
+curve: Bezier
+
+ft_client_optimizer: sgd
+ft_epochs: 100
+ft_lr: 0.01
+ft_lr_scheduler: CosineAnnealingLR
+ft_sgd_momentum: 0.9
+ft_wd: 0.0005
+
+wd: 0.0005
+pin_memory: True
+client_optimizer: sgd
+sgd_momentum: 0.9
+amp: False
+
+non_blocking: True
+prefetch: False
+frequency_save: 100

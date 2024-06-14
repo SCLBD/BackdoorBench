@@ -1,0 +1,9 @@
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.1
+attack: ftrojann
+channel_list: [1,2]
+magnitude: 30
+YUV: True
+window_size: 32
+pos_list: [15,15,31,31]

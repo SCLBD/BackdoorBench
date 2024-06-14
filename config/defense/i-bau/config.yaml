@@ -1,0 +1,31 @@
+device: 'cuda'
+amp: True
+pin_memory: True
+non_blocking: True
+prefetch: False
+
+checkpoint_load:
+checkpoint_save:
+log:
+dataset_path: './data'
+dataset: 'cifar10'
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.0001
+lr_scheduler: CosineAnnealingLR
+model: 'preactresnet18'
+
+client_optimizer: 'adam'
+sgd_momentum: 0.9 
+wd: 0
+adam_betas: [0.9, 0.999]
+frequency_save: 0
+
+random_seed: 0
+
+ratio: 0.05
+index: 
+n_rounds: 5
+K: 5

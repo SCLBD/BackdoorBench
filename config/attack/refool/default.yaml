@@ -1,0 +1,13 @@
+attack: refool
+attack_label_trans: all2one
+attack_target: 0
+r_adv_img_folder_path: ./resource/refool/Refool-SelectedReflectionImages/selected_out-images
+pratio: 0.1
+ghost_rate: 0.49
+alpha_t: 0.4
+offset:
+  - 0
+  - 0
+sigma: -1
+ghost_alpha: -1
+clean_label: False

@@ -1,0 +1,19 @@
+attack_label_trans: all2one
+attack_target: 0
+#pratio: 0.1
+attack: blind
+#attack_trigger_img_path: ../resource/blended/hello_kitty.jpeg
+#attack_train_blended_alpha: 0.15
+#attack_test_blended_alpha: 0.15
+#weight_settings:
+#    loss_balance: MGDA # just left as none then use fix_scale
+#    mgda_normalize: loss+
+#    fix_scale:
+#      normal: 1.0
+#      backdoor: 0.05
+weight_loss_balance_mode: fixed
+mgda_normalize: loss+
+fix_scale_normal_weight: 1.0
+fix_scale_backdoor_weight: 0.9
+batch_history_len: 1000
+backdoor_batch_loss_threshold: 1.0

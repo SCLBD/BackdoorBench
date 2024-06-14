@@ -1,0 +1,7 @@
+data: ag
+model_path: ../../models/poison_bert_ag.pkl
+clean_data_path: ../../data/clean/ag/test.tsv
+poison_data_path: ../../data/poison/ag/test.tsv
+robust_poison_data_path: ../../data/poison/ag/robust_test.tsv
+target_label: 1
+record_file: ../../record.log

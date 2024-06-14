@@ -1,0 +1,50 @@
+device: 'cuda'
+amp: True
+pin_memory: True
+non_blocking: True
+prefetch: False
+
+checkpoint_load:
+checkpoint_save:
+log:
+dataset_path: './data'
+dataset: 'tiny'
+
+epochs: 200
+batch_size: 256
+num_workers: 4
+lr: 0.01
+lr_scheduler: ReduceLROnPlateau
+model: 'preactresnet18'
+
+client_optimizer: 'sgd'
+sgd_momentum: 0.9 
+wd: 5.0e-4
+frequency_save: 0
+
+random_seed: 0
+
+
+mask_lr: 0.1
+init_cost: 1.0e-3
+# bs: 64
+atk_succ_threshold: 98.0
+early_stop: True
+early_stop_threshold: 0.99
+early_stop_patience: 25
+patience: 5
+cost_multiplier: 2
+# total_label: 1.0e-7
+EPSILON: 1.0e-7
+to_file: True
+n_times_test: 1
+use_norm: 1
+ratio: 0.05
+cleaning_ratio: 0.05
+unlearning_ratio: 0.2
+nc_epoch: 80
+
+index: 
+
+
+

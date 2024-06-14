@@ -1,0 +1,32 @@
+device: 'cuda'
+checkpoint_load:
+checkpoint_save: 
+log: 
+data_root: 'data/'
+
+dataset: 'cifar100'
+num_classes: 
+input_height: 
+input_width:
+input_channel:
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+num_workers_semi: 4
+lr: 0.01
+
+poison_rate: 0.1
+target_type: 'all2one'
+target_label: 0
+trigger_type: 'squareTrigger'
+
+model: 'preactresnet18'
+random_seed: 0
+
+prefetch: True
+epoch_self: 100 ####config[warmup][epoch] semi 测试用 100
+epoch_warmup: 10 ####config[warmup][epoch] semi
+batch_size_self: 512 #####config['batch_size'] pretrain
+temperature: 1 #####config['simclr']['temperature']
+epsilon: 0.5 ####config['semi']['epsilon']

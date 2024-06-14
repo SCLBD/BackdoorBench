@@ -1,0 +1,42 @@
+#task: Cifar10
+#synthesizer: Pattern
+#
+#batch_size: 64
+#test_batch_size: 100
+#lr: 0.1
+#momentum: 0.9
+#decay: 0.0005
+#epochs: 200
+#save_on_epochs: [10, 50, 100]
+#optimizer: SGD
+#log_interval: 100
+#
+#pretrained: False
+#
+#loss_threshold: 1.0
+#
+#scheduler: True
+#
+#poisoning_proportion: 1.1
+#backdoor_label: 8
+#backdoor: True
+#
+#loss_balance: MGDA
+#mgda_normalize: loss+
+batch_size: 64
+lr: 0.1
+epochs: 200
+cos_t_max: 200 # the T_max in CosineAnnealingLR
+attack_label_trans: all2one
+attack_target: 8
+attack: blind
+#attack_trigger_img_path: ../resource/blended/hello_kitty.jpeg
+#attack_train_blended_alpha: 0.15
+#attack_test_blended_alpha: 0.15
+weight_loss_balance_mode: MGDA
+mgda_normalize: loss+
+fix_scale_normal_weight: 1.0
+fix_scale_backdoor_weight: 0.9
+batch_history_len: 1000
+backdoor_batch_loss_threshold: 1.0
+model: blind_resnet18

@@ -1,0 +1,15 @@
+amp: False
+device: cuda:0
+client_optimizer: sgd
+dataset: cifar10
+dataset_path: ../../data
+frequency_save: 100
+batch_size: 128
+lr: 0.01
+lr_scheduler: CosineAnnealingLR
+model: preactresnet18
+random_seed: 0
+sgd_momentum: 0.9
+wd: 0.0005
+epochs: 100
+attack_target: 0

@@ -1,0 +1,5 @@
+target_label: 1
+poison_rate: 5
+clean_data_path: ../../data/clean/sst-2
+poison_data_path: ../../data/poison/sst2-all
+output_data_path: ../../data/poison/sst-2

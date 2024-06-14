@@ -1,0 +1,39 @@
+device: 'cuda'
+amp: True
+pin_memory: True
+non_blocking: True
+prefetch: False
+
+checkpoint_load:
+checkpoint_save:
+log:
+dataset_path: './data'
+dataset: 'gtsrb'
+
+epochs: 100
+batch_size: 256
+num_workers: 4
+lr: 0.01
+lr_scheduler: CosineAnnealingLR
+model: 'preactresnet18'
+
+client_optimizer: 'sgd'
+sgd_momentum: 0.9 
+wd: 5.0e-4
+frequency_save: 0
+
+random_seed: 0
+
+tuning_epochs: 20
+finetuning_ascent_model: True
+finetuning_epochs: 60
+unlearning_epochs: 20
+lr_finetuning_init: 0.1
+lr_unlearning_init: 5.0e-4
+momentum: 0.9
+weight_decay: 1.0e-4
+isolation_ratio: 0.01 #0.1
+gradient_ascent_type: 'Flooding'
+gamma: 0.5
+flooding: 0.5
+pratio: 0.1

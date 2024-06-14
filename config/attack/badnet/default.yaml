@@ -1,0 +1,5 @@
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.1
+attack: badnet
+patch_mask_path: ./resource/badnet/trigger_image.png

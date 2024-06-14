@@ -1,0 +1,19 @@
+attack: bpp
+attack_label_trans: all2one
+attack_target: 0
+pratio: 0.2
+neg_ratio: 0.2
+random_rotation: 10
+random_crop: 5
+steplr_milestones:
+  - 100
+  - 200
+  - 300
+  - 400
+steplr_gamma: 0.1
+lr_scheduler: MultiStepLR
+squeeze_num: 8
+grid_rescale: 1
+lr: 0.02
+dithering: False
+epochs: 1000

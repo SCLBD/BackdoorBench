@@ -1,0 +1,29 @@
+random_rotation: 10
+random_crop: 5
+attack: lira
+attack_model: autoencoder
+lr_atk: 0.0001
+attack_label_trans: all2one
+attack_target: 0
+eps: 0.01
+test_eps: 0.01
+alpha: 0.5
+test_alpha: 0.5
+
+optimizer: sgd
+both_train_epochs: 50
+fix_generator_epoch: 1
+
+steplr_gamma: 0.1
+steplr_milestones: [50,100,150,200]
+
+finetune_eps: 0.01
+finetune_alpha: 0.5
+finetune_client_optimizer: sgd
+finetune_sgd_momentum: 0.9
+finetune_wd: 0.0005
+epochs: 100
+finetune_lr: 0.01
+finetune_lr_scheduler: MultiStepLR
+finetune_steplr_gamma: 0.1
+finetune_steplr_milestones: [50,100,150,200]

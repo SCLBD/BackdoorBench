@@ -1,0 +1,67 @@
+---
+# Load config for pretraining and update it with config for semi-supervised fine-tuning.
+pretrain_config_path: ./config/defense/pretrain/blend/cifar_resnet/example.yaml
+pretrain_checkpoint: epoch100.pt
+prefetch: True  # turn on prefetch mode will speedup io
+# First, apply `pre` transformations to images before adding triggers (if needed).
+# And then, apply `primary` and `remaining` transformations sequentially.
+transform:
+  pre: null
+  train:
+    primary:
+      random_crop:
+        size: 32
+        padding: 4
+        padding_mode: reflect
+      random_horizontal_flip:
+        p: 0.5
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.4914, 0.4822, 0.4465]
+        std: [0.2023, 0.1994, 0.2010]
+  test:
+    primary: null
+    remaining:
+      to_tensor: True
+      normalize:
+        mean: [0.4914, 0.4822, 0.4465]
+        std: [0.2023, 0.1994, 0.2010]
+network:
+  resnet18_cifar:
+    num_classes: 10
+# Warmup the linear classifier.
+warmup:
+  loader:
+    batch_size: 128
+    num_workers: 0
+    pin_memory: True
+  criterion:
+    sce:
+      alpha: 0.1
+      beta: 1
+      num_classes: 10
+  num_epochs: 10
+# Semi-Supervised Fine-tuning.
+semi:
+  epsilon: 0.5
+  loader:
+    batch_size: 64
+    num_workers: 0
+    pin_memory: True
+  criterion:
+    mixmatch:
+      lambda_u: 15  # 75*(200/1024)~=15
+      # gradually increasing lambda_u in the whole training process
+      # seems to lead to better results.
+      rampup_length: 190  # same as num_epochs or 16 (in the official implementation)
+  mixmatch:
+    train_iteration: 1024
+    temperature: 0.5
+    alpha: 0.75
+    num_classes: 10
+  num_epochs: 190
+optimizer:
+  Adam:
+    lr: 0.002
+lr_scheduler: null
