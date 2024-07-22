@@ -1,3 +1,5 @@
+<img src="resource/pyg_logo.png" style="height: 60px;" align="right">
+
 # BackdoorBench: a comprehensive benchmark of backdoor attack and defense methods
 
 ![Pytorch 1.11.0](https://img.shields.io/badge/PyTorch-1.11-brightgreen) [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-brightgreen.svg)](https://creativecommons.org/licenses/by-nc/4.0/) ![Release .20](https://img.shields.io/badge/Release-2.0-brightgreen)
