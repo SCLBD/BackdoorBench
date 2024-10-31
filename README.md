@@ -348,6 +348,30 @@ If interested, you can read our recent works about backdoor learning, and more w
   year={2023}
 }
 
+@inproceedings{zhu2024breaking,
+  title={Breaking the False Sense of Security in Backdoor Defense through Re-Activation Attack},
+  author={Zhu, Mingli and Liang, Siyuan and Wu, Baoyuan},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year={2024}
+}
+
+@inproceedings{wei2024mitigating,
+  title={Mitigating Backdoor Attack by Injecting Proactive Defensive Backdoor},
+  author={Wei, Shaokui and Zha, Hongyuan and Wu, Baoyuan},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year={2024}
+}
+
+@article{gao2023imperceptible,
+  title={Imperceptible and robust backdoor attack in 3d point cloud},
+  author={Gao, Kuofeng and Bai, Jiawang and Wu, Baoyuan and Ya, Mengxi and Xia, Shu-Tao},
+  journal={IEEE Transactions on Information Forensics and Security},
+  volume={19},
+  pages={1267--1282},
+  year={2023},
+  publisher={IEEE}
+}
+
 @article{cheng2023tat,
   title={TAT: Targeted backdoor attacks against visual object tracking},
   author={Cheng, Ziyi and Wu, Baoyuan and Zhang, Zhenya and Zhao, Jianjun},
