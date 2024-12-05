@@ -34,3 +34,5 @@ pip install PyHessian==0.1
 
 ## Quality
 pip install torchmetrics[image]
+
+pip install pytorch-wavelets
