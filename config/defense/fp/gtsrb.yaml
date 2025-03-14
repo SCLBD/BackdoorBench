@@ -1,7 +1,7 @@
 device: 'cuda'
 dataset_path: 'data/'
 
-dataset: 'cifar10'
+dataset: 'gtsrb'
 num_classes: 
 input_height: 
 input_width:
