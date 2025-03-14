@@ -199,16 +199,16 @@ def embed_fingerprints():
                     sec = np.array(sec.cpu())
                     if  FINGERPRINT_SIZE == 100:
                         BCH_BITS = 5
-                        bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
+                        bch = bchlib.BCH(BCH_BITS, BCH_POLYNOMIAL)
                         packet_binary = "".join([str(int(bit)) for bit in sec[:96]])
                     elif FINGERPRINT_SIZE == 50:
                         BCH_BITS = 2
-                        bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
+                        bch = bchlib.BCH(BCH_BITS, BCH_POLYNOMIAL)
                         packet_binary = "".join([str(int(bit)) for bit in sec[:48]])
                     packet = bytes(int(packet_binary[i: i + 8], 2) for i in range(0, len(packet_binary), 8))
                     packet = bytearray(packet)
                     data, ecc = packet[:-bch.ecc_bytes], packet[-bch.ecc_bytes:]
-                    bitflips = bch.decode_inplace(data, ecc)
+                    bitflips = bch.decode(data, ecc)
                     if bitflips != -1:
                         try:
                             correct += 1
