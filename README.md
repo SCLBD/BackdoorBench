@@ -6,7 +6,7 @@
 
 <p align="center">
 <br>
-  <a href="[http://backdoorbench.com](https://backdoorbench.github.io/)" target="_blank"> Website </a >  •  <a href="https://openreview.net/pdf?id=31_U7n18gM7"> Paper </a > • <a href="http://backdoorbench.com/doc/index"> Doc </a > • <a href="http://backdoorbench.com/leader_cifar10"> Leaderboard </a > <br>
+  <a href="https://backdoorbench.github.io/" target="_blank"> Website </a >  •  <a href="https://openreview.net/pdf?id=31_U7n18gM7"> Paper </a > • <a href="http://backdoorbench.com/doc/index"> Doc </a > • <a href="http://backdoorbench.com/leader_cifar10"> Leaderboard </a > <br>
 <br>
 </p >
 
