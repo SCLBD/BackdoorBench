@@ -12,6 +12,7 @@ pip install Kornia==0.5.0
 pip install imageio==2.18.0
 pip install matplotlib==3.5.1
 pip install scipy==1.3.1
+pip install pytorch-wavelet
 
 # for visualization only
 pip install seaborn==0.11.2
