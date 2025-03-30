@@ -126,7 +126,7 @@ You should go to the `./resource` folder to generate the trigger for training.
 
 2. Backdoor training
 ```
-python ./attack/badnet.py --yaml_path ../config/attack/prototype/cifar10.yaml --patch_mask_path ../resource/badnet/trigger_image.png  --save_folder_name badnet_0_1
+python ./attack/badnet.py --yaml_path ./config/attack/prototype/cifar10.yaml --patch_mask_path ./resource/badnet/trigger_image.png  --save_folder_name badnet_0_1
 ```
 After attack you will get a folder with all files saved in `./record/<folder name in record>`, including `attack_result.pt` for attack model and backdoored data, which will be used by following defense methods.
 If you want to change the args, you can both specify them in command line and in corresponding YAML config file (eg. [default.yaml](./config/attack/badnet/default.yaml)).(They are the defaults we used if no args are specified in command line.)
