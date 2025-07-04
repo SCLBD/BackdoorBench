@@ -10,14 +10,14 @@ BCH_POLYNOMIAL = 137
 def generate_fingerprints_from_bch(fingerprint_size, secret='abcd'):
     if fingerprint_size == 100: 
         BCH_BITS = 5
-        bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
+        bch = bchlib.BCH(BCH_BITS, BCH_POLYNOMIAL)
         if len(secret) > 7:
             print('Error: Can only encode 56bits (7 characters) with ECC')
             return
         data = bytearray(secret + ' ' * (7 - len(secret)), 'utf-8')#转化为bytearray对象        
     elif fingerprint_size == 50: 
         BCH_BITS = 2
-        bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
+        bch = bchlib.BCH(BCH_BITS, BCH_POLYNOMIAL)
         if len(secret) > 4:
             print('Error: Can only encode 32bits (4 characters) with ECC')
             return
