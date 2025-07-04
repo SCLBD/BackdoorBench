@@ -327,6 +327,13 @@ We provide the whole sharepoint link at [Backdoor Model](https://cuhko365.sharep
 If interested, you can read our recent works about backdoor learning, and more works about trustworthy AI can be found [here](https://sites.google.com/site/baoyuanwu2015/home).
 
 ```
+@article{backdoorbench2025,
+  title={BackdoorBench: A Comprehensive Benchmark and Analysis of Backdoor Learning},
+  author={Wu, Baoyuan and Chen, Hongrui and Zhang, Mingda and Zhu, Zihao and Wei, Shaokui and Yuan, Danni and Zhu, Mingli and Wang, Ruotong and Liu, Li and Shenm Chao},
+  journal={International Journal of Computer Vision (IJCV)},
+  year={2025}
+}
+
 @inproceedings{backdoorbench,
   title={BackdoorBench: A Comprehensive Benchmark of Backdoor Learning},
   author={Wu, Baoyuan and Chen, Hongrui and Zhang, Mingda and Zhu, Zihao and Wei, Shaokui and Yuan, Danni and Shen, Chao},
